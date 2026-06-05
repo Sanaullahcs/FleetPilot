@@ -1,0 +1,1114 @@
+openapi: 3.0.3
+info:
+  title: K-12 Transportation API
+  description: |
+    REST API for the K-12 Student Transportation Management Platform.
+    Supports Dispatch, Driver, Parent, Contractor, and On-Demand workflows.
+  version: 1.0.0
+  contact:
+    name: Metro K-12 Transportation
+    email: api@metrok12.edu
+
+servers:
+  - url: https://api.transportsystem.com/v1
+    description: Production
+  - url: https://staging-api.transportsystem.com/v1
+    description: Staging
+  - url: http://localhost:8000/api/v1
+    description: Local Development
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: Login, registration, token management
+  - name: Dashboard
+    description: Operational summaries and KPIs
+  - name: Routes
+    description: Route definitions and management
+  - name: Runs
+    description: Scheduled run instances
+  - name: Stops
+    description: Stop library and geospatial queries
+  - name: Vehicles
+    description: Fleet management
+  - name: Drivers
+    description: Driver profiles and assignments
+  - name: Driver Portal
+    description: Mobile-optimized driver operations
+  - name: Parent Portal
+    description: Parent and guardian access
+  - name: On-Demand
+    description: Special trip requests
+  - name: Billing
+    description: Rate cards, items, and invoices
+  - name: Notifications
+    description: SMS, email, and push delivery
+  - name: Schools
+    description: School master data
+  - name: Students
+    description: Student records and assignments
+  - name: Contractors
+    description: Independent contractor applications
+  - name: Reports
+    description: Analytics and exports
+  - name: Webhooks
+    description: External service integrations
+
+paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate and receive JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: driver@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securePass123
+                device_type:
+                  type: string
+                  enum: [ios, android, web]
+                device_token:
+                  type: string
+                  description: FCM or APNs token for push notifications
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: eyJhbGciOiJSUzI1NiIs...
+                      refresh_token:
+                        type: string
+                      expires_in:
+                        type: integer
+                        example: 3600
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/register-parent:
+    post:
+      tags: [Authentication]
+      summary: Parent self-registration
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, first_name, last_name, phone]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                first_name: { type: string }
+                last_name: { type: string }
+                phone: { type: string }
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/User' }
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Current user details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /auth/devices:
+    post:
+      tags: [Authentication]
+      summary: Register push notification device token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_type, device_token]
+              properties:
+                device_type:
+                  type: string
+                  enum: [ios, android, web]
+                device_token: { type: string }
+                device_name: { type: string }
+                app_version: { type: string }
+      responses:
+        '200':
+          description: Device registered
+
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Today's operational KPIs
+      responses:
+        '200':
+          description: Dashboard summary data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      date: { type: string, format: date }
+                      total_runs: { type: integer }
+                      in_progress: { type: integer }
+                      completed: { type: integer }
+                      delayed: { type: integer }
+                      on_demand_pending: { type: integer }
+                      drivers_on_duty: { type: integer }
+                      vehicles_active: { type: integer }
+                      today_revenue: { type: number }
+
+  /routes:
+    get:
+      tags: [Routes]
+      summary: List all routes
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, inactive, seasonal] }
+      responses:
+        '200':
+          description: Paginated route list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Route' }
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags: [Routes]
+      summary: Create new route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteInput'
+      responses:
+        '201':
+          description: Route created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Route' }
+
+  /routes/{id}:
+    get:
+      tags: [Routes]
+      summary: Get route detail with runs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Route detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Route' }
+
+  /routes/{id}/optimize:
+    post:
+      tags: [Routes]
+      summary: Optimize all child runs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Optimization results
+
+  /runs:
+    get:
+      tags: [Runs]
+      summary: List runs
+      parameters:
+        - name: route_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, published, archived] }
+      responses:
+        '200':
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Run' }
+
+    post:
+      tags: [Runs]
+      summary: Create run
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunInput'
+      responses:
+        '201':
+          description: Run created
+
+  /runs/{id}/optimize:
+    post:
+      tags: [Runs]
+      summary: Optimize stop sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum: [shortest_distance, shortest_time]
+                  default: shortest_distance
+                constraints:
+                  type: object
+                  properties:
+                    time_windows: { type: boolean }
+                    school_start_time: { type: string }
+                    max_ride_time_minutes: { type: integer }
+      responses:
+        '200':
+          description: Optimization result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      original_distance: { type: number }
+                      optimized_distance: { type: number }
+                      savings_percent: { type: number }
+                      optimized_sequence:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            stop_id: { type: string }
+                            sequence: { type: integer }
+                            arrival_time: { type: string }
+
+  /runs/{id}/assign:
+    post:
+      tags: [Runs]
+      summary: Assign vehicle and driver for date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignment_date, vehicle_id, driver_id]
+              properties:
+                assignment_date: { type: string, format: date }
+                vehicle_id: { type: string, format: uuid }
+                driver_id: { type: string, format: uuid }
+                co_driver_id: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Assignment created
+
+  /stops:
+    get:
+      tags: [Stops]
+      summary: List stops
+      parameters:
+        - name: lat
+          in: query
+          schema: { type: number }
+        - name: lng
+          in: query
+          schema: { type: number }
+        - name: radius
+          in: query
+          schema: { type: integer, default: 1000 }
+      responses:
+        '200':
+          description: Stop list
+
+    post:
+      tags: [Stops]
+      summary: Create stop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopInput'
+      responses:
+        '201':
+          description: Stop created
+
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: List vehicles
+      responses:
+        '200':
+          description: Vehicle list
+
+    post:
+      tags: [Vehicles]
+      summary: Add vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleInput'
+      responses:
+        '201':
+          description: Vehicle created
+
+  /vehicles/{id}/gps:
+    get:
+      tags: [Vehicles]
+      summary: Latest GPS snapshot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: GPS location
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latitude: { type: number }
+                  longitude: { type: number }
+                  speed: { type: number }
+                  heading: { type: number }
+                  last_updated: { type: string, format: date-time }
+
+  /drivers:
+    get:
+      tags: [Drivers]
+      summary: List drivers
+      parameters:
+        - name: is_contractor
+          in: query
+          schema: { type: boolean }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Driver list
+
+  /driver/today:
+    get:
+      tags: [Driver Portal]
+      summary: Today's assigned runs
+      responses:
+        '200':
+          description: Driver's runs for today
+
+  /driver/runs/{assignmentId}/manifest:
+    get:
+      tags: [Driver Portal]
+      summary: Full manifest for run
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Manifest with stops
+
+  /driver/runs/{assignmentId}/start:
+    post:
+      tags: [Driver Portal]
+      summary: Start run
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Run started
+
+  /driver/runs/{assignmentId}/complete:
+    post:
+      tags: [Driver Portal]
+      summary: Complete run
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Run completed
+
+  /driver/runs/{assignmentId}/events:
+    post:
+      tags: [Driver Portal]
+      summary: Record event
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_type:
+                  type: string
+                  enum: [started, stop_arrived, stop_completed, delayed, incident, ended]
+                stop_id: { type: string, format: uuid }
+                latitude: { type: number }
+                longitude: { type: number }
+                event_data: { type: object }
+      responses:
+        '201':
+          description: Event recorded
+
+  /parent/children:
+    get:
+      tags: [Parent Portal]
+      summary: List linked children
+      responses:
+        '200':
+          description: Student list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Student' }
+
+  /parent/children/link:
+    post:
+      tags: [Parent Portal]
+      summary: Link child by ID and verification code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, verification_code, relationship]
+              properties:
+                student_id: { type: string }
+                verification_code: { type: string, pattern: '^[0-9]{6}$' }
+                relationship:
+                  type: string
+                  enum: [mother, father, guardian, grandparent]
+      responses:
+        '200':
+          description: Child linked
+
+  /parent/children/{studentId}/tracking:
+    get:
+      tags: [Parent Portal]
+      summary: Live tracking for child's run
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Tracking data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  student_name: { type: string }
+                  run_id: { type: string }
+                  status: { type: string }
+                  current_location:
+                    type: object
+                    properties:
+                      lat: { type: number }
+                      lng: { type: number }
+                  next_stop: { type: string }
+                  eta: { type: string }
+                  vehicle_number: { type: string }
+                  driver_name: { type: string }
+
+  /on-demand/requests:
+    post:
+      tags: [On-Demand]
+      summary: Public on-demand request submission
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnDemandRequestInput'
+      responses:
+        '201':
+          description: Request submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      request_number: { type: string }
+                      status: { type: string }
+                      tracking_url: { type: string, format: uri }
+
+  /billing/rates:
+    get:
+      tags: [Billing]
+      summary: List rate cards
+      responses:
+        '200':
+          description: Rate cards
+
+    post:
+      tags: [Billing]
+      summary: Create rate card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillingRateInput'
+      responses:
+        '201':
+          description: Rate card created
+
+  /billing/items/generate:
+    post:
+      tags: [Billing]
+      summary: Auto-generate billing items from assignments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date_from: { type: string, format: date }
+                date_to: { type: string, format: date }
+                driver_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                auto_create_invoices: { type: boolean }
+      responses:
+        '200':
+          description: Items generated
+
+  /billing/invoices:
+    get:
+      tags: [Billing]
+      summary: List invoices
+      responses:
+        '200':
+          description: Invoice list
+
+    post:
+      tags: [Billing]
+      summary: Create invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                driver_id: { type: string, format: uuid }
+                billing_item_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                period_start: { type: string, format: date }
+                period_end: { type: string, format: date }
+                adjustments: { type: number }
+                adjustment_reason: { type: string }
+                notes: { type: string }
+      responses:
+        '201':
+          description: Invoice created
+
+  /billing/invoices/{id}/download:
+    get:
+      tags: [Billing]
+      summary: Download invoice PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /notifications/templates:
+    get:
+      tags: [Notifications]
+      summary: List notification templates
+      responses:
+        '200':
+          description: Templates
+
+    post:
+      tags: [Notifications]
+      summary: Create template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationTemplateInput'
+      responses:
+        '201':
+          description: Template created
+
+  /notifications/send:
+    post:
+      tags: [Notifications]
+      summary: Send manual notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                run_assignment_id: { type: string, format: uuid }
+                channel:
+                  type: string
+                  enum: [sms, email, push]
+                template_key: { type: string }
+                variables: { type: object }
+      responses:
+        '200':
+          description: Notification queued
+
+  /reports:
+    post:
+      tags: [Reports]
+      summary: Generate report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                report_type:
+                  type: string
+                  enum: [on_time_performance, mileage_summary, driver_hours, cost_efficiency, student_ridership]
+                date_range_start: { type: string, format: date }
+                date_range_end: { type: string, format: date }
+                parameters: { type: object }
+                file_format:
+                  type: string
+                  enum: [pdf, csv, xlsx]
+      responses:
+        '202':
+          description: Report generation queued
+
+  /webhooks/samsara/gps:
+    post:
+      tags: [Webhooks]
+      summary: Samsara GPS webhook
+      security: []
+      parameters:
+        - name: X-Samsara-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventId: { type: string }
+                eventType: { type: string }
+                eventTime: { type: string, format: date-time }
+                vehicle:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                gps:
+                  type: object
+                  properties:
+                    latitude: { type: number }
+                    longitude: { type: number }
+                    heading: { type: number }
+                    speed: { type: number }
+      responses:
+        '200':
+          description: Webhook received
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string }
+        last_name: { type: string }
+        phone: { type: string }
+        role:
+          type: string
+          enum: [admin, dispatcher, driver, contractor, school_contact, parent]
+        is_active: { type: boolean }
+        email_verified_at: { type: string, format: date-time }
+        phone_verified_at: { type: string, format: date-time }
+
+    PaginationMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+        total_pages: { type: integer }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
+
+    Route:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        description: { type: string }
+        type: { type: string }
+        service_days: { type: array, items: { type: integer } }
+        school_id: { type: string, format: uuid }
+        estimated_distance: { type: number }
+        estimated_duration: { type: integer }
+        status: { type: string }
+
+    RouteInput:
+      type: object
+      required: [name, code, type]
+      properties:
+        name: { type: string, example: E-613 }
+        code: { type: string, example: E-613 }
+        description: { type: string }
+        type:
+          type: string
+          enum: [regular_ed, special_ed, field_trip, athletic, midday, on_demand]
+        service_days:
+          type: array
+          items: { type: integer }
+          example: [1, 2, 3, 4, 5]
+        school_id: { type: string, format: uuid }
+        estimated_distance: { type: number }
+        estimated_duration: { type: integer }
+
+    Run:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        route_id: { type: string, format: uuid }
+        run_id: { type: string }
+        direction: { type: string }
+        effective_date: { type: string, format: date }
+        service_days: { type: array, items: { type: integer } }
+        scheduled_start_time: { type: string }
+        scheduled_end_time: { type: string }
+        estimated_distance: { type: number }
+        estimated_duration: { type: integer }
+        status: { type: string }
+
+    RunInput:
+      type: object
+      required: [route_id, run_id, direction, effective_date, scheduled_start_time, scheduled_end_time]
+      properties:
+        route_id: { type: string, format: uuid }
+        run_id: { type: string, example: E-S613ABEA }
+        direction:
+          type: string
+          enum: [am_pickup, pm_dropoff, midday, reverse, special]
+        effective_date: { type: string, format: date }
+        service_days: { type: array, items: { type: integer } }
+        scheduled_start_time: { type: string, example: "07:09" }
+        scheduled_end_time: { type: string, example: "07:59" }
+        estimated_distance: { type: number }
+        estimated_duration: { type: integer }
+        stops:
+          type: array
+          items:
+            type: object
+            properties:
+              stop_id: { type: string, format: uuid }
+              sequence_order: { type: integer }
+              scheduled_time: { type: string }
+              stop_type:
+                type: string
+                enum: [pickup, dropoff, both, garage, school, other]
+
+    Stop:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        zip: { type: string }
+        location:
+          type: object
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+        type: { type: string }
+        is_wheelchair_accessible: { type: boolean }
+        notes: { type: string }
+
+    StopInput:
+      type: object
+      required: [name, location]
+      properties:
+        name: { type: string }
+        code: { type: string }
+        address: { type: string }
+        city: { type: string }
+        state: { type: string }
+        zip: { type: string }
+        location:
+          type: object
+          required: [lat, lng]
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+        type: { type: string }
+        is_wheelchair_accessible: { type: boolean }
+        notes: { type: string }
+        school_id: { type: string, format: uuid }
+
+    Vehicle:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_number: { type: string }
+        make: { type: string }
+        model: { type: string }
+        year: { type: integer }
+        type: { type: string }
+        capacity: { type: integer }
+        status: { type: string }
+        samsara_device_id: { type: string }
+
+    VehicleInput:
+      type: object
+      required: [vehicle_number, type]
+      properties:
+        vehicle_number: { type: string }
+        vin: { type: string }
+        make: { type: string }
+        model: { type: string }
+        year: { type: integer }
+        type: { type: string, enum: [bus, van, minivan, sedan, wheelchair_van] }
+        capacity: { type: integer }
+        wheelchair_capacity: { type: integer }
+        license_plate: { type: string }
+        samsara_device_id: { type: string }
+        status: { type: string }
+
+    Student:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        student_id: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        grade: { type: string }
+        school_id: { type: string, format: uuid }
+        is_wheelchair: { type: boolean }
+        requires_monitor: { type: boolean }
+        status: { type: string }
+
+    OnDemandRequestInput:
+      type: object
+      required: [requester_name, requester_phone, pickup_address, dropoff_address, requested_date]
+      properties:
+        requester_name: { type: string }
+        requester_phone: { type: string }
+        requester_email: { type: string }
+        requester_type:
+          type: string
+          enum: [parent, school_staff, community, district]
+        pickup_address: { type: string }
+        dropoff_address: { type: string }
+        requested_date: { type: string, format: date }
+        requested_pickup_time: { type: string }
+        requested_dropoff_time: { type: string }
+        passenger_count: { type: integer }
+        wheelchair_needed: { type: boolean }
+        student_names: { type: string }
+        purpose: { type: string }
+
+    BillingRateInput:
+      type: object
+      required: [name, rate_type, rate_amount, effective_date]
+      properties:
+        name: { type: string }
+        rate_type:
+          type: string
+          enum: [per_mile, per_hour, per_trip, flat_daily]
+        rate_amount: { type: number }
+        vehicle_type: { type: string }
+        route_type: { type: string }
+        effective_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+
+    NotificationTemplateInput:
+      type: object
+      required: [key, name, channels]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [sms, email, push]
+        sms_template: { type: string }
+        email_subject: { type: string }
+        email_body_html: { type: string }
+        email_body_text: { type: string }
+        push_title: { type: string }
+        push_body: { type: string }
+        variables: { type: array, items: { type: string } }

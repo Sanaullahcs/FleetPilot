@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "FleetPilot",
+    "slug": "fleetpilot-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
-      "userInterfaceStyle": "light"
+      "userInterfaceStyle": "light",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["comgooglemaps", "waze", "maps"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +22,34 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "userInterfaceStyle": "light",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "avdId": "Pixel_7_Pro_API_34",
+      "queries": [
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "google.navigation"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "geo"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "waze"
+            }
+          }
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -30,14 +60,20 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#4F5BA9",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FleetPilot uses your location to show turn-by-turn navigation to each stop."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

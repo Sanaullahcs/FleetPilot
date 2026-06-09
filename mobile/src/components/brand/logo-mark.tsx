@@ -1,0 +1,38 @@
+import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import { Colors } from '@/constants/theme';
+
+const VIEW_W = 48;
+const VIEW_H = 56;
+
+/** Orange map pin + blue school bus — matches web dashboard logo */
+export function FleetPilotLogoMark({ size = 48 }: { size?: number }) {
+  const height = Math.round(size * (VIEW_H / VIEW_W));
+
+  return (
+    <Svg width={size} height={height} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} fill="none">
+      <Path
+        d="M24 1.5C14.887 1.5 7.5 8.887 7.5 18c0 10.8 16.5 34.5 16.5 34.5S40.5 28.8 40.5 18C40.5 8.887 33.113 1.5 24 1.5Z"
+        fill={Colors.orange}
+      />
+      <Circle cx="24" cy="18.5" r="12.5" fill={Colors.white} />
+      <G transform="translate(24 18.5)">
+        <Rect x="-9.5" y="-6.5" width="19" height="11" rx="2.2" fill={Colors.primary} />
+        <Rect x="-8" y="-7.8" width="16" height="2.2" rx="1" fill={Colors.primaryDark} />
+        <Circle cx="-4.5" cy="-8.6" r="0.9" fill="#FDE68A" />
+        <Circle cx="0" cy="-8.6" r="0.9" fill="#FDE68A" />
+        <Circle cx="4.5" cy="-8.6" r="0.9" fill="#FDE68A" />
+        <Rect x="-7.2" y="-5.2" width="6.2" height="4.2" rx="0.8" fill={Colors.primaryLight} />
+        <Rect x="1" y="-5.2" width="6.2" height="4.2" rx="0.8" fill={Colors.primaryLight} />
+        <Rect x="-11.2" y="-3.8" width="1.6" height="2.4" rx="0.5" fill={Colors.primaryDark} />
+        <Rect x="9.6" y="-3.8" width="1.6" height="2.4" rx="0.5" fill={Colors.primaryDark} />
+        <Circle cx="-5.8" cy="2.8" r="1.35" fill="#FEF3C7" />
+        <Circle cx="5.8" cy="2.8" r="1.35" fill="#FEF3C7" />
+        <Rect x="-3.2" y="1.6" width="6.4" height="1.2" rx="0.35" fill={Colors.primaryDark} />
+        <Line x1="-2.2" y1="1.6" x2="-2.2" y2="2.8" stroke={Colors.white} strokeWidth="0.45" />
+        <Line x1="0" y1="1.6" x2="0" y2="2.8" stroke={Colors.white} strokeWidth="0.45" />
+        <Line x1="2.2" y1="1.6" x2="2.2" y2="2.8" stroke={Colors.white} strokeWidth="0.45" />
+        <Rect x="-8.2" y="4.2" width="16.4" height="1.3" rx="0.45" fill={Colors.primaryDark} />
+      </G>
+    </Svg>
+  );
+}

@@ -13,6 +13,8 @@ use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ParentPortalController extends Controller
 {
@@ -320,5 +322,78 @@ class ParentPortalController extends Controller
         })->values()->all();
 
         return response()->json(['data' => $items]);
+    }
+
+    public function profile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'parent') {
+            abort(403, 'This view is only available to parent accounts.');
+        }
+
+        $account = ParentAccount::query()->where('user_id', $user->id)->first();
+
+        return response()->json([
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'full_name' => $user->full_name,
+                    'phone' => $user->phone,
+                    'address' => $user->address,
+                    'city' => $user->city,
+                    'state' => $user->state,
+                    'zip' => $user->zip,
+                ],
+                'parent' => $account ? [
+                    'id' => $account->id,
+                    'relationship' => $account->relationship,
+                    'preferred_language' => $account->preferred_language,
+                    'notification_preferences' => $account->notification_preferences ?? [
+                        'push' => true,
+                        'sms' => true,
+                        'email' => true,
+                    ],
+                    'children_count' => $account->students()->count(),
+                ] : null,
+            ],
+        ]);
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'parent') {
+            abort(403, 'This view is only available to parent accounts.');
+        }
+
+        $account = ParentAccount::query()->where('user_id', $user->id)->first();
+
+        if (! $account) {
+            abort(404, 'Parent profile not found.');
+        }
+
+        $data = $request->validate([
+            'relationship' => ['nullable', Rule::in(['mother', 'father', 'guardian', 'grandparent', 'other'])],
+            'preferred_language' => ['nullable', 'string', 'max:10'],
+            'notification_preferences' => ['nullable', 'array'],
+            'notification_preferences.push' => ['boolean'],
+            'notification_preferences.sms' => ['boolean'],
+            'notification_preferences.email' => ['boolean'],
+        ]);
+
+        DB::transaction(function () use ($account, $data) {
+            $account->update([
+                'relationship' => $data['relationship'] ?? $account->relationship,
+                'preferred_language' => $data['preferred_language'] ?? $account->preferred_language,
+                'notification_preferences' => $data['notification_preferences'] ?? $account->notification_preferences,
+            ]);
+        });
+
+        return $this->profile($request);
     }
 }

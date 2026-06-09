@@ -12,8 +12,10 @@ use App\Models\RunAssignment;
 use App\Models\School;
 use App\Models\Student;
 use App\Models\User;
+use App\Models\Stop;
 use App\Models\Vehicle;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DemoDataSeeder extends Seeder
 {
@@ -32,6 +34,9 @@ class DemoDataSeeder extends Seeder
         $this->seedRoutes($org->id, $schools);
         $this->seedRunAssignments($org->id);
         $this->seedParentLinks($org->id);
+        $this->linkMobileDemoUsers($org->id);
+        $this->seedStopsAndRunStops($org->id, $schools);
+        $this->seedStudentStopAssignments($org->id);
     }
 
     /**
@@ -279,9 +284,9 @@ class DemoDataSeeder extends Seeder
                 [
                     'run_id' => $run->id,
                     'service_date' => now()->toDateString(),
-                    'driver_id' => $driver->id,
                 ],
                 [
+                    'driver_id' => $driver->id,
                     'vehicle_id' => $vehicle->id,
                     'status' => $i % 3 === 0 ? 'in_progress' : 'scheduled',
                 ],
@@ -301,6 +306,10 @@ class DemoDataSeeder extends Seeder
             ['organization_id' => $orgId, 'relationship' => 'guardian'],
         );
 
+        $parentUser->update([
+            'phone' => $parentUser->phone ?: '(555) 302-2000',
+        ]);
+
         $students = Student::where('organization_id', $orgId)
             ->orderBy('student_number')
             ->limit(2)
@@ -318,6 +327,183 @@ class DemoDataSeeder extends Seeder
                     'can_pickup' => true,
                 ],
             );
+        }
+    }
+
+    private function linkMobileDemoUsers(string $orgId): void
+    {
+        $driverUser = User::where('email', 'driver@fleetpilot.test')->first();
+        if (! $driverUser) {
+            return;
+        }
+
+        $vehicle = Vehicle::where('organization_id', $orgId)->orderBy('vehicle_number')->first();
+        $run = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->first();
+
+        $driver = Driver::updateOrCreate(
+            ['organization_id' => $orgId, 'employee_id' => 'EMP-1000'],
+            [
+                'user_id' => $driverUser->id,
+                'first_name' => 'Drew',
+                'last_name' => 'Driver',
+                'email' => $driverUser->email,
+                'phone' => '(555) 301-1000',
+                'license_number' => 'DL9001001',
+                'license_class' => 'CDL-B',
+                'license_state' => 'IL',
+                'license_expiry' => now()->addMonths(14)->toDateString(),
+                'medical_cert_expiry' => now()->addMonths(10)->toDateString(),
+                'hire_date' => now()->subYears(3)->toDateString(),
+                'status' => 'active',
+                'default_vehicle_id' => $vehicle?->id,
+            ],
+        );
+
+        if ($run && $vehicle) {
+            RunAssignment::updateOrCreate(
+                [
+                    'run_id' => $run->id,
+                    'service_date' => now()->toDateString(),
+                ],
+                [
+                    'driver_id' => $driver->id,
+                    'vehicle_id' => $vehicle->id,
+                    'status' => 'scheduled',
+                ],
+            );
+        }
+    }
+
+    /**
+     * @param  array<int, \App\Models\School>  $schools
+     */
+    private function seedStopsAndRunStops(string $orgId, array $schools): void
+    {
+        $runs = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+            ->where('status', 'active')
+            ->with('route.school')
+            ->get();
+
+        foreach ($runs as $run) {
+            $school = $run->route?->school;
+            if (! $school) {
+                continue;
+            }
+
+            $stopNames = ['Oak Ridge & 5th', 'Maple Park', 'Cedar Lane', 'Elm Street', $school->name];
+            $sequence = 1;
+
+            foreach ($stopNames as $i => $name) {
+                $stop = Stop::firstOrCreate(
+                    ['organization_id' => $orgId, 'code' => strtoupper(substr(preg_replace('/\W/', '', $name), 0, 8)) . "-{$run->id}-{$i}"],
+                    [
+                        'name' => $name,
+                        'address' => $i === count($stopNames) - 1 ? $school->address : random_int(100, 999) . ' Main St',
+                        'city' => $school->city ?? 'Springfield',
+                        'state' => 'IL',
+                        'zip' => '62701',
+                        'latitude' => (float) ($school->latitude ?? 39.78) + (($i - 2) * 0.004),
+                        'longitude' => (float) ($school->longitude ?? -89.64) + (($i - 2) * 0.003),
+                        'type' => $i === count($stopNames) - 1 ? 'school' : 'student',
+                        'school_id' => $i === count($stopNames) - 1 ? $school->id : null,
+                    ],
+                );
+
+                $existing = DB::table('run_stops')
+                    ->where('run_id', $run->id)
+                    ->where('sequence', $sequence)
+                    ->first();
+
+                if ($existing) {
+                    DB::table('run_stops')->where('id', $existing->id)->update([
+                        'stop_id' => $stop->id,
+                        'scheduled_time' => $run->scheduled_start_time,
+                        'estimated_arrival' => $run->scheduled_start_time,
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    DB::table('run_stops')->insert([
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'run_id' => $run->id,
+                        'stop_id' => $stop->id,
+                        'sequence' => $sequence,
+                        'scheduled_time' => $run->scheduled_start_time,
+                        'estimated_arrival' => $run->scheduled_start_time,
+                        'distance_from_previous_miles' => $sequence === 1 ? 0 : 0.8,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                $sequence++;
+            }
+        }
+    }
+
+    private function seedStudentStopAssignments(string $orgId): void
+    {
+        $runs = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+            ->where('status', 'active')
+            ->with('route')
+            ->get();
+
+        foreach ($runs as $run) {
+            $pickupStops = DB::table('run_stops')
+                ->join('stops', 'stops.id', '=', 'run_stops.stop_id')
+                ->where('run_stops.run_id', $run->id)
+                ->where('stops.type', 'student')
+                ->orderBy('run_stops.sequence')
+                ->get(['run_stops.stop_id']);
+
+            if ($pickupStops->isEmpty()) {
+                continue;
+            }
+
+            $students = Student::query()
+                ->where('organization_id', $orgId)
+                ->where('school_id', $run->route?->school_id)
+                ->where('status', 'active')
+                ->orderBy('student_number')
+                ->limit($pickupStops->count())
+                ->get();
+
+            foreach ($pickupStops->values() as $i => $stopRow) {
+                $student = $students->get($i);
+                if (! $student) {
+                    continue;
+                }
+
+                $exists = DB::table('student_stop_assignments')
+                    ->where('student_id', $student->id)
+                    ->where('run_id', $run->id)
+                    ->exists();
+
+                if ($exists) {
+                    DB::table('student_stop_assignments')
+                        ->where('student_id', $student->id)
+                        ->where('run_id', $run->id)
+                        ->update([
+                            'stop_id' => $stopRow->stop_id,
+                            'type' => 'pickup',
+                            'status' => 'active',
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    DB::table('student_stop_assignments')->insert([
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'student_id' => $student->id,
+                        'run_id' => $run->id,
+                        'stop_id' => $stopRow->stop_id,
+                        'type' => 'pickup',
+                        'status' => 'active',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         }
     }
 }

@@ -1,9 +1,53 @@
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+
+/** Expo Go exposes the dev machine IP via hostUri / debuggerHost. */
+function resolveDevMachineHost(): string | null {
+  const candidates = [
+    Constants.expoConfig?.hostUri,
+    (Constants as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost,
+    (Constants as { manifest?: { debuggerHost?: string } }).manifest?.debuggerHost,
+  ];
+
+  for (const value of candidates) {
+    if (!value) continue;
+    const host = value.split(':')[0];
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      return host;
+    }
+  }
+
+  return null;
+}
+
+function resolveApiUrl(): string {
+  // Android emulator reaches the host machine via 10.0.2.2, not LAN IP.
+  if (Platform.OS === 'android' && !Device.isDevice) {
+    return 'http://10.0.2.2:8000/api/v1';
+  }
+
+  const devHost = resolveDevMachineHost();
+
+  // Physical device / Expo Go: use the same LAN IP as the Metro bundler.
+  if (devHost) {
+    return `http://${devHost}:8000/api/v1`;
+  }
+
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8000/api/v1';
+  }
+
+  return 'http://127.0.0.1:8000/api/v1';
+}
+
 /**
  * Base URL for the FleetPilot API.
- *
- * Note: on a physical device, `127.0.0.1` points at the device itself. Set
- * EXPO_PUBLIC_API_URL to your machine's LAN IP (e.g. http://192.168.1.20:8000/api/v1)
- * when testing on hardware. Android emulators can use http://10.0.2.2:8000/api/v1.
+ * Auto-detects your PC's LAN IP when running in Expo Go on a phone.
  */
-export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8000/api/v1';
+export const API_URL = resolveApiUrl();

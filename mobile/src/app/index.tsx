@@ -1,5 +1,16 @@
-import { HomeScreen } from '@/features/home/home-screen';
+import { Redirect } from 'expo-router';
+import { useAuthStore } from '@/store/auth';
 
 export default function Index() {
-  return <HomeScreen />;
+  const role = useAuthStore((s) => s.user?.role);
+
+  if (role === 'driver') {
+    return <Redirect href="/today" />;
+  }
+
+  if (role === 'parent') {
+    return <Redirect href="/home" />;
+  }
+
+  return <Redirect href="/today" />;
 }

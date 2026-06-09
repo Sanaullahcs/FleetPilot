@@ -7,6 +7,8 @@ import { useAuthStore } from "@/store/auth";
 import { fetchMe } from "@/lib/auth-api";
 import { PageState } from "@/components/ui/page-state";
 import { Badge } from "@/components/ui/primitives";
+import { ProfileEditForm } from "@/components/dashboard/profile-edit-form";
+import { ParentProfileExtrasForm } from "@/components/dashboard/parent-profile-extras-form";
 import { brand } from "@/lib/brand";
 import { titleCase } from "@/lib/utils";
 
@@ -134,6 +136,7 @@ export default function ProfilePage() {
                   ["First name", user.first_name],
                   ["Last name", user.last_name],
                   ["Email", user.email],
+                  ["Phone", user.phone ?? "—"],
                   ["User ID", user.id],
                   ["Primary role", titleCase(user.role)],
                 ].map(([label, value]) => (
@@ -180,6 +183,10 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
+          <ProfileEditForm user={user} />
+
+          {user.role === "parent" ? <ParentProfileExtrasForm /> : null}
 
           {/* RBAC */}
           <div className="fp-card p-6">

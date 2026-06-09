@@ -12,6 +12,12 @@ export interface AuthUser {
   first_name: string;
   last_name: string;
   full_name: string;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  job_title?: string | null;
   role: UserRole;
   organization: { id: string; name: string; slug: string } | null;
   roles: string[];

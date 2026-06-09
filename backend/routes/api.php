@@ -5,6 +5,9 @@ use App\Http\Controllers\Api\DispatchController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\FleetRadarController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\DriverPortalController;
+use App\Http\Controllers\Api\MobileChatController;
+use App\Http\Controllers\Api\MobileController;
 use App\Http\Controllers\Api\ParentController;
 use App\Http\Controllers\Api\ParentPortalController;
 use App\Http\Controllers\Api\OrganizationController;
@@ -50,10 +53,14 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:api')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
+        Route::put('/me', [AuthController::class, 'updateProfile']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
+        Route::delete('/account', [AuthController::class, 'deleteAccount']);
     });
 });
+
+Route::get('/mobile/app-info', [MobileController::class, 'appInfo']);
 
 Route::middleware('auth:api')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
@@ -67,7 +74,21 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('/dispatch/assignments/{assignment}/cancel', [DispatchController::class, 'cancelAssignment'])->middleware('permission:routes.update');
 
     Route::get('/parent/children', [ParentPortalController::class, 'children']);
+    Route::get('/parent/profile', [ParentPortalController::class, 'profile']);
+    Route::put('/parent/profile', [ParentPortalController::class, 'updateProfile']);
     Route::get('/parent/tracking', [ParentPortalController::class, 'tracking']);
+
+    Route::get('/driver/runs/today', [DriverPortalController::class, 'runsToday']);
+    Route::get('/driver/profile', [DriverPortalController::class, 'profile']);
+    Route::put('/driver/profile', [DriverPortalController::class, 'updateProfile']);
+    Route::get('/driver/assignments/{assignment}', [DriverPortalController::class, 'assignmentShow']);
+    Route::post('/driver/assignments/{assignment}/start', [DriverPortalController::class, 'startAssignment']);
+    Route::post('/driver/assignments/{assignment}/stops/{runStop}/complete', [DriverPortalController::class, 'completeStop']);
+    Route::get('/mobile/notifications', [MobileController::class, 'notifications']);
+    Route::get('/mobile/support', [MobileController::class, 'support']);
+    Route::get('/mobile/chat/conversations', [MobileChatController::class, 'conversations']);
+    Route::get('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'messages']);
+    Route::post('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'send']);
 
     // Parents (admin)
     Route::get('/parents', [ParentController::class, 'index'])->middleware('permission:students.view');

@@ -32,22 +32,32 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError('Unable to connect. Check your network and API URL.', 0);
+  }
 
   if (res.status === 401 && auth) {
     await useAuthStore.getState().clear();
   }
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new ApiError('Invalid response from server.', res.status);
+  }
 
   if (!res.ok) {
-    const message = data?.message ?? 'Request failed.';
-    throw new ApiError(message, res.status, data?.errors);
+    const message = (data as { message?: string })?.message ?? 'Request failed.';
+    throw new ApiError(message, res.status, (data as { errors?: Record<string, string[]> })?.errors);
   }
 
   return data as T;

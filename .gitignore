@@ -1,0 +1,54 @@
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
+vendor/
+.pnp
+.pnp.js
+
+# ── Environment / secrets ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+google-service-account.json
+
+# ── Build output ──────────────────────────────────────────────
+# Next.js
+web/.next/
+web/out/
+web/dist/
+# Laravel
+backend/public/build/
+backend/public/hot
+backend/public/storage
+backend/storage/*.key
+backend/bootstrap/cache/*.php
+# Expo / React Native
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+*.apk
+*.aab
+*.ipa
+
+# ── Python (optimization service) ─────────────────────────────
+__pycache__/
+*.py[cod]
+optimization/.venv/
+optimization/venv/
+
+# ── Caches / logs ─────────────────────────────────────────────
+.cache/
+*.log
+npm-debug.log*
+yarn-error.log
+backend/storage/logs/*.log
+.phpunit.result.cache
+coverage/
+
+# ── Editor / OS ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

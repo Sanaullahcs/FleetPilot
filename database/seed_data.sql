@@ -1,5 +1,5 @@
 -- ============================================================
--- K-12 Transportation System - Seed Data
+-- FleetPilot — Seed Data (demo tenant: "Metro K-12 Transportation")
 -- Sample data matching client's E-613 route structure
 -- Includes billing, parent accounts, and route optimization
 -- ============================================================

@@ -1,5 +1,5 @@
 -- ============================================================
--- K-12 Student Transportation Management System
+-- FleetPilot — K-12 Student Transportation Management System
 -- PostgreSQL 16 + PostGIS Schema
 -- ============================================================
 

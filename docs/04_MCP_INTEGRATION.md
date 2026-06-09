@@ -4,7 +4,7 @@
 
 This document defines the **Model Context Protocol (MCP)** server embedded within the Laravel backend. The MCP layer enables AI assistants (Claude, ChatGPT, custom LLMs) to securely query dispatch data, receive real-time updates, and execute approved actions.
 
-**Why MCP for K-12 Transportation?**
+**Why MCP for FleetPilot?**
 - Dispatchers can ask natural-language questions: *"Which drivers are running late today?"*
 - AI can suggest optimal on-demand assignments: *"Assign request ODR-2026-0042 to Driver Smith — he's 4 minutes from pickup."*
 - Future Phase 2: Predictive delay alerts, automatic route optimization suggestions.
@@ -42,7 +42,7 @@ This document defines the **Model Context Protocol (MCP)** server embedded withi
 ### Server Info
 ```json
 {
-  "name": "k12-transport-mcp",
+  "name": "fleetpilot-mcp",
   "version": "1.0.0",
   "capabilities": {
     "tools": {},

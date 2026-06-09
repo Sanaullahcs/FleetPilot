@@ -1,18 +1,18 @@
 openapi: 3.0.3
 info:
-  title: K-12 Transportation API
+  title: FleetPilot API
   description: |
-    REST API for the K-12 Student Transportation Management Platform.
+    REST API for FleetPilot, the K-12 Student Transportation Management Platform.
     Supports Dispatch, Driver, Parent, Contractor, and On-Demand workflows.
   version: 1.0.0
   contact:
-    name: Metro K-12 Transportation
-    email: api@metrok12.edu
+    name: FleetPilot
+    email: api@fleetpilot.com
 
 servers:
-  - url: https://api.transportsystem.com/v1
+  - url: https://api.fleetpilot.com/v1
     description: Production
-  - url: https://staging-api.transportsystem.com/v1
+  - url: https://staging-api.fleetpilot.com/v1
     description: Staging
   - url: http://localhost:8000/api/v1
     description: Local Development

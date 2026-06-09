@@ -96,13 +96,13 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: transport-app
+    container_name: fleetpilot-app
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
       - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
     networks:
-      - transport-network
+      - fleetpilot-network
     depends_on:
       - db
       - redis
@@ -112,7 +112,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: transport-nginx
+    container_name: fleetpilot-nginx
     ports:
       - "80:80"
       - "443:443"
@@ -122,7 +122,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     networks:
-      - transport-network
+      - fleetpilot-network
     depends_on:
       - app
       - nextjs
@@ -136,52 +136,52 @@ services:
       - ./web:/app
     command: sh -c "npm ci && npm run build && npx serve@latest out -l 3000"
     networks:
-      - transport-network
+      - fleetpilot-network
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://api.transportsystem.com
+      - NEXT_PUBLIC_API_URL=https://api.fleetpilot.com
 
   ortools:
     build:
       context: ./optimization
       dockerfile: Dockerfile
-    container_name: transport-ortools
+    container_name: fleetpilot-ortools
     networks:
-      - transport-network
+      - fleetpilot-network
     environment:
       - PORT=5000
 
   db:
     image: postgis/postgis:16-3.4-alpine
-    container_name: transport-db
+    container_name: fleetpilot-db
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./backups:/backups
     environment:
-      POSTGRES_DB: transport_prod
-      POSTGRES_USER: transport_user
+      POSTGRES_DB: fleetpilot_prod
+      POSTGRES_USER: fleetpilot_user
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     networks:
-      - transport-network
+      - fleetpilot-network
 
   redis:
     image: redis:7-alpine
-    container_name: transport-redis
+    container_name: fleetpilot-redis
     volumes:
       - redis_data:/data
     networks:
-      - transport-network
+      - fleetpilot-network
 
   queue-worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: transport-queue
+    container_name: fleetpilot-queue
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
     networks:
-      - transport-network
+      - fleetpilot-network
     depends_on:
       - db
       - redis
@@ -192,12 +192,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: transport-scheduler
+    container_name: fleetpilot-scheduler
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
     networks:
-      - transport-network
+      - fleetpilot-network
     depends_on:
       - db
       - redis
@@ -206,7 +206,7 @@ services:
 
   certbot:
     image: certbot/certbot
-    container_name: transport-certbot
+    container_name: fleetpilot-certbot
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
@@ -217,7 +217,7 @@ volumes:
   redis_data:
 
 networks:
-  transport-network:
+  fleetpilot-network:
     driver: bridge
 ```
 
@@ -298,19 +298,19 @@ if __name__ == '__main__':
 ```bash
 # Initial certificate request
 docker run -it --rm \
-  -v /opt/transport-app/certbot/conf:/etc/letsencrypt \
-  -v /opt/transport-app/certbot/www:/var/www/certbot \
+  -v /opt/fleetpilot-app/certbot/conf:/etc/letsencrypt \
+  -v /opt/fleetpilot-app/certbot/www:/var/www/certbot \
   certbot/certbot certonly \
   --standalone \
   --preferred-challenges http \
-  -d api.transportsystem.com \
-  -d app.transportsystem.com \
-  -d transportsystem.com \
+  -d api.fleetpilot.com \
+  -d app.fleetpilot.com \
+  -d fleetpilot.com \
   --agree-tos \
-  -m admin@transportsystem.com
+  -m admin@fleetpilot.com
 
 # Start full stack
-cd /opt/transport-app && docker compose up -d
+cd /opt/fleetpilot-app && docker compose up -d
 ```
 
 ---
@@ -341,12 +341,12 @@ module.exports = nextConfig;
 #!/bin/bash
 # deploy-web.sh
 
-cd /opt/transport-app/web
+cd /opt/fleetpilot-app/web
 npm ci
 npm run build
 
 # Nginx already serves from ./web/dist via volume mount
-docker exec transport-nginx nginx -s reload
+docker exec fleetpilot-nginx nginx -s reload
 ```
 
 ---
@@ -423,8 +423,8 @@ eas submit --platform android --profile production
 ### Environment Variables (mobile)
 ```bash
 # mobile/.env.production
-EXPO_PUBLIC_API_URL=https://api.transportsystem.com
-EXPO_PUBLIC_WEBSOCKET_URL=wss://api.transportsystem.com/ws
+EXPO_PUBLIC_API_URL=https://api.fleetpilot.com
+EXPO_PUBLIC_WEBSOCKET_URL=wss://api.fleetpilot.com/ws
 EXPO_PUBLIC_MAPS_API_KEY=your_google_maps_key
 EXPO_PUBLIC_FCM_SENDER_ID=your_fcm_sender_id
 ```
@@ -436,18 +436,18 @@ EXPO_PUBLIC_FCM_SENDER_ID=your_fcm_sender_id
 ### `.env` (Production)
 
 ```bash
-APP_NAME="K12 Transport"
+APP_NAME="FleetPilot"
 APP_ENV=production
 APP_KEY=base64:GENERATE_WITH_PHP_ARTISAN
 APP_DEBUG=false
-APP_URL=https://api.transportsystem.com
-FRONTEND_URL=https://app.transportsystem.com
+APP_URL=https://api.fleetpilot.com
+FRONTEND_URL=https://app.fleetpilot.com
 
 DB_CONNECTION=pgsql
 DB_HOST=db
 DB_PORT=5432
-DB_DATABASE=transport_prod
-DB_USERNAME=transport_user
+DB_DATABASE=fleetpilot_prod
+DB_USERNAME=fleetpilot_user
 DB_PASSWORD=STRONG_PASSWORD_HERE
 
 REDIS_HOST=redis
@@ -458,8 +458,8 @@ SESSION_DRIVER=redis
 CACHE_DRIVER=redis
 
 MAIL_MAILER=ses
-MAIL_FROM_ADDRESS=noreply@transportsystem.com
-MAIL_FROM_NAME="K12 Transport"
+MAIL_FROM_ADDRESS=noreply@fleetpilot.com
+MAIL_FROM_NAME="FleetPilot"
 AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX
 AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 AWS_DEFAULT_REGION=us-east-1
@@ -486,11 +486,11 @@ OR_TOOLS_URL=http://ortools:5000
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="/backups"
-S3_BUCKET="s3://transport-backups-k12"
+S3_BUCKET="s3://fleetpilot-backups"
 RETENTION_DAYS=30
 
 # Create backup
-docker exec transport-db pg_dump -U transport_user -d transport_prod | gzip > "$BACKUP_DIR/backup_$DATE.sql.gz"
+docker exec fleetpilot-db pg_dump -U fleetpilot_user -d fleetpilot_prod | gzip > "$BACKUP_DIR/backup_$DATE.sql.gz"
 
 # Upload to S3
 aws s3 cp "$BACKUP_DIR/backup_$DATE.sql.gz" $S3_BUCKET/daily/
@@ -503,7 +503,7 @@ echo "Backup completed: backup_$DATE.sql.gz"
 
 ### Cron
 ```bash
-0 2 * * * /opt/transport-app/backups/scripts/backup.sh >> /var/log/transport-backup.log 2>&1
+0 2 * * * /opt/fleetpilot-app/backups/scripts/backup.sh >> /var/log/fleetpilot-backup.log 2>&1
 ```
 
 ---
@@ -567,17 +567,17 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "backend/,optimization/,nginx/,docker-compose.yml"
-          target: "/opt/transport-app/"
+          target: "/opt/fleetpilot-app/"
       - uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /opt/transport-app
+            cd /opt/fleetpilot-app
             docker compose up -d --build
-            docker exec transport-app php artisan migrate --force
-            docker exec transport-app php artisan optimize
+            docker exec fleetpilot-app php artisan migrate --force
+            docker exec fleetpilot-app php artisan optimize
 
   deploy-web:
     needs: [test-web, deploy-backend]
@@ -594,13 +594,13 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "web/dist/"
-          target: "/opt/transport-app/web/"
+          target: "/opt/fleetpilot-app/web/"
       - uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: docker exec transport-nginx nginx -s reload
+          script: docker exec fleetpilot-nginx nginx -s reload
 ```
 
 ---
@@ -610,7 +610,7 @@ jobs:
 ### iOS (App Store Connect)
 - [ ] Apple Developer Program enrollment
 - [ ] App Store Connect app record
-- [ ] Bundle IDs: `com.metrok12.transport.driver`, `com.metrok12.transport.parent`
+- [ ] Bundle ID: `com.fleetpilot.app` (single app; Driver and Parent experiences branch by role after login — see `frontend-specs/react_native_structure.md`)
 - [ ] App icons (all required sizes)
 - [ ] Launch screens
 - [ ] Screenshots (iPhone + iPad)

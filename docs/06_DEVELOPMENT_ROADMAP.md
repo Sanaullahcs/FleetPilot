@@ -3,8 +3,9 @@
 ## Timeline Overview
 
 **Total Duration:** 10 weeks  
-**Launch Target:** To be determined based on project kickoff  
-**Operational Target:** Two weeks after launch
+**Kickoff:** June 9, 2026 (Sprint 1)  
+**Launch Target:** Mid-August 2026 (Sprint 10, Aug 11–15)  
+**Operational Target:** End of August 2026 (~two weeks after launch)
 
 ---
 
@@ -16,7 +17,7 @@
 |------|-------|-------------|
 | Laravel 11 project scaffold + Docker | 5 | Backend repo with Docker Compose |
 | PostgreSQL + PostGIS setup | 2 | Migration system, spatial extensions |
-| Database migrations (all tables) | 8 | All 27 tables from schema |
+| Database migrations (all tables) | 8 | All 33 tables from `database/schema.sql` |
 | JWT authentication API | 5 | Login, refresh, register-parent, logout |
 | Granular RBAC (roles, permissions, user_roles tables) | 4 | Spatie-style permission system with Super Admin hierarchy |
 | Next.js 14 project scaffold | 4 | Web frontend repo with Tailwind, shadcn/ui |

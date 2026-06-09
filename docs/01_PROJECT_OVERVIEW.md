@@ -1,4 +1,4 @@
-# K-12 Student Transportation Management System (MVP)
+# FleetPilot — K-12 Student Transportation Management System (MVP)
 
 ## Project Summary
 
@@ -237,4 +237,4 @@ Runs completed daily → System calculates contractor pay (mile/hour/trip)
 
 *Document Version: 2.0*  
 *Last Updated: 2026-06-05*  
-*Prepared for: K-12 Transportation Client*
+*Product: FleetPilot | Prepared for: K-12 Transportation Client*

@@ -2,8 +2,8 @@
 
 ## Base URL
 ```
-Production:  https://api.transportsystem.com/v1
-Staging:     https://staging-api.transportsystem.com/v1
+Production:  https://api.fleetpilot.com/v1
+Staging:     https://staging-api.fleetpilot.com/v1
 Local:       http://localhost:8000/api/v1
 ```
 

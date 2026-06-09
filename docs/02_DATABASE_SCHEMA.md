@@ -2,7 +2,13 @@
 
 ## Overview
 
-PostgreSQL 16 with PostGIS extension. Designed for multi-tenant ready (organization_id on key tables) but single-tenant for MVP. **NEW:** Added billing, route optimization, parent accounts, and cross-platform support tables.
+PostgreSQL 16 with PostGIS extension. Designed for multi-tenant ready (organization_id on key tables) but single-tenant for MVP. Covers billing, route optimization, parent accounts, cross-platform device support, and granular RBAC.
+
+**Table count:** 33 tables total. The 27 domain tables documented below, plus three operational/auth groups:
+- `vehicle_documents` (#10b) and `contractor_application_documents` (#26b) — file attachments parallel to `driver_documents`.
+- `roles`, `permissions`, `role_permissions`, `user_roles` (#28) — granular RBAC. See `backend-specs/rbac_permissions.md`.
+
+> The executable `database/schema.sql` is the single source of truth for column types, constraints, triggers, and seed data. This document is the human-readable reference; if the two ever diverge, the SQL wins.
 
 ---
 
@@ -25,14 +31,22 @@ PostgreSQL 16 with PostGIS extension. Designed for multi-tenant ready (organizat
 [gps_snapshots] *--1 [vehicles]
 [contractor_applications] → becomes [drivers]
 
---- NEW TABLES ---
+[vehicles] 1--* [vehicle_documents]
+[contractor_applications] 1--* [contractor_application_documents]
+
+--- BILLING / OPTIMIZATION / PARENT / DEVICES ---
 [billing_rates] 1--* [billing_items]
 [invoices] 1--* [billing_items]
 [route_optimizations] *--1 [runs]
 [parent_accounts] 1--* [parent_students]
-[student_locations] *--1 [students]
 [app_devices] *--1 [users] (for push notifications)
+
+--- RBAC (see #28) ---
+[users] *--* [roles] (via user_roles)
+[roles] *--* [permissions] (via role_permissions)
 ```
+
+> Note: `student_locations` was dropped from the MVP schema. Live position is derived from the vehicle's `gps_snapshots` for the run the student is assigned to, so a separate per-student location table is unnecessary.
 
 ---
 
@@ -69,7 +83,7 @@ Authentication base table. Role-based access.
 | first_name | VARCHAR(100) | NOT NULL | |
 | last_name | VARCHAR(100) | NOT NULL | |
 | phone | VARCHAR(20) | | Mobile for SMS |
-| role | user_role | NOT NULL | `admin`, `dispatcher`, `driver`, `contractor`, `school_contact`, `parent` |
+| role | user_role | NOT NULL | Primary/denormalized role for fast checks: `admin`, `dispatcher`, `driver`, `contractor`, `school_contact`, `parent`. Authoritative permissions come from the RBAC tables (#28); a user may hold multiple roles via `user_roles`. |
 | is_active | BOOLEAN | DEFAULT true | Soft-disable account |
 | email_verified_at | TIMESTAMPTZ | | |
 | phone_verified_at | TIMESTAMPTZ | | |
@@ -257,6 +271,22 @@ Junction: which parents are linked to which students.
 | cost_per_mile | DECIMAL(6,2) | | For billing calculations |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
+
+---
+
+### 10b. `vehicle_documents`
+Document attachments for vehicles (mirrors `driver_documents`).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| vehicle_id | UUID | FK → vehicles.id | |
+| document_type | document_type_vehicle | NOT NULL | `registration`, `insurance`, `inspection`, `maintenance_record` |
+| file_path | VARCHAR(500) | NOT NULL | Storage path |
+| original_filename | VARCHAR(255) | | |
+| expiry_date | DATE | | |
+| status | document_status | DEFAULT 'active' | `active`, `expired`, `pending_review` |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
 
 ---
 
@@ -640,6 +670,20 @@ Line items for each completed assignment.
 
 ---
 
+### 26b. `contractor_application_documents`
+Uploaded files attached to a contractor application (license, insurance, etc.).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| application_id | UUID | FK → contractor_applications.id | |
+| document_type | VARCHAR(100) | NOT NULL | `license`, `insurance`, `vehicle_registration`, `other` |
+| file_path | VARCHAR(500) | NOT NULL | |
+| original_filename | VARCHAR(255) | | |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+
+---
+
 ### 27. `reports`
 
 | Column | Type | Constraints | Description |
@@ -657,6 +701,43 @@ Line items for each completed assignment.
 | generated_by | UUID | FK → users.id | |
 | generated_at | TIMESTAMPTZ | | |
 | created_at | TIMESTAMPTZ DEFAULT now() | |
+
+---
+
+### 28. RBAC: `roles`, `permissions`, `role_permissions`, `user_roles`
+Granular role-based access control. System roles are seeded; organizations may add custom roles. Full matrix and Laravel implementation in `backend-specs/rbac_permissions.md`.
+
+**`roles`**
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| organization_id | UUID | FK → organizations.id | NULL allowed for global system roles |
+| name | VARCHAR(100) | NOT NULL | "Dispatcher" |
+| slug | VARCHAR(100) | NOT NULL | `dispatcher` |
+| description | TEXT | | |
+| is_system_role | BOOLEAN | DEFAULT false | Protects built-in roles from deletion |
+| created_at / updated_at | TIMESTAMPTZ | DEFAULT now() | |
+
+**Unique:** `(organization_id, slug)`
+
+**`permissions`**
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| organization_id | UUID | FK → organizations.id | |
+| name | VARCHAR(100) | NOT NULL | "View Routes" |
+| slug | VARCHAR(100) | NOT NULL | `routes.view` |
+| resource | VARCHAR(100) | NOT NULL | `routes` |
+| action | VARCHAR(100) | NOT NULL | `view` |
+| description | TEXT | | |
+
+**Unique:** `(organization_id, slug)`
+
+**`role_permissions`** — many-to-many join: `role_id` × `permission_id` (unique together).
+
+**`user_roles`** — many-to-many join: `user_id` × `role_id` (unique together), plus `assigned_by` (FK → users.id) for the audit trail.
 
 ---
 
@@ -718,5 +799,5 @@ All tables use `status` or `is_active` for soft deletion. No `deleted_at` column
 
 ---
 
-*Next: See `database/schema.sql` for executable DDL.*
-*Version: 2.0 | Updated: 2026-06-05*
+*Next: See `database/schema.sql` for executable DDL (authoritative source, 33 tables).*
+*Version: 2.1 | Updated: 2026-06-09*

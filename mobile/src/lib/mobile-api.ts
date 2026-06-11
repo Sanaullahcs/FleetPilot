@@ -2,16 +2,18 @@ import { apiRequest } from '@/lib/api';
 import type {
   DriverAssignmentDetail,
   DriverProfilePayload,
+  DriverSchedulePayload,
   DriverTodayPayload,
   MobileNotification,
   ParentChildItem,
   ParentProfilePayload,
   ParentTrackItem,
 } from '@/lib/mobile-types';
+import type { DriverScheduleRange, DriverScheduleState } from '@/lib/driver-schedule';
 
 export function fetchMobileNotifications() {
   return apiRequest<{ data: { items: MobileNotification[]; total: number; unread: number } }>(
-    '/mobile/notifications',
+    '/mobile/notifications?include_read=1',
   ).then((r) => r.data);
 }
 
@@ -30,6 +32,22 @@ export function markAllNotificationsRead() {
 
 export function fetchDriverToday() {
   return apiRequest<{ data: DriverTodayPayload }>('/driver/runs/today').then((r) => r.data);
+}
+
+export function fetchDriverSchedule(params?: {
+  range?: DriverScheduleRange;
+  start?: string;
+  end?: string;
+  status?: DriverScheduleState;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.range) qs.set('range', params.range);
+  else qs.set('range', 'this_week');
+  if (params?.start) qs.set('start', params.start);
+  if (params?.end) qs.set('end', params.end);
+  if (params?.status && params.status !== 'all') qs.set('status', params.status);
+  const query = qs.toString();
+  return apiRequest<{ data: DriverSchedulePayload }>(`/driver/schedule${query ? `?${query}` : ''}`).then((r) => r.data);
 }
 
 export function fetchDriverProfile() {

@@ -43,16 +43,53 @@ export function AlertsScreen() {
 
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
-    onSuccess: () => {
-      setExpandedId(null);
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['mobile-notifications'] });
+      const previous = queryClient.getQueryData<Awaited<ReturnType<typeof fetchMobileNotifications>>>([
+        'mobile-notifications',
+      ]);
+      if (previous) {
+        const wasUnread = previous.items.some((item) => item.id === id && !item.read);
+        queryClient.setQueryData(['mobile-notifications'], {
+          ...previous,
+          items: previous.items.map((item) => (item.id === id ? { ...item, read: true } : item)),
+          unread: wasUnread ? Math.max(0, previous.unread - 1) : previous.unread,
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['mobile-notifications'], context.previous);
+      }
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['mobile-notifications'] });
     },
   });
 
   const markAllMutation = useMutation({
     mutationFn: markAllNotificationsRead,
-    onSuccess: () => {
-      setExpandedId(null);
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['mobile-notifications'] });
+      const previous = queryClient.getQueryData<Awaited<ReturnType<typeof fetchMobileNotifications>>>([
+        'mobile-notifications',
+      ]);
+      if (previous) {
+        queryClient.setQueryData(['mobile-notifications'], {
+          ...previous,
+          items: previous.items.map((item) => ({ ...item, read: true })),
+          unread: 0,
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['mobile-notifications'], context.previous);
+      }
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['mobile-notifications'] });
     },
   });
@@ -89,18 +126,30 @@ export function AlertsScreen() {
         {notifications.isLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
         ) : notifications.data?.items.length ? (
-          notifications.data.items.map((item) => (
-            <AlertCard
-              key={item.id}
-              item={item}
-              expanded={expandedId === item.id}
-              dismissing={markReadMutation.isPending && markReadMutation.variables === item.id}
-              onPress={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
-              onDismiss={() => markReadMutation.mutate(item.id)}
-            />
-          ))
+          [...notifications.data.items]
+            .sort((a, b) => Number(a.read) - Number(b.read))
+            .map((item) => (
+              <AlertCard
+                key={item.id}
+                item={item}
+                expanded={expandedId === item.id}
+                markingRead={markReadMutation.isPending && markReadMutation.variables === item.id}
+                onPress={() => {
+                  const opening = expandedId !== item.id;
+                  setExpandedId(opening ? item.id : null);
+                  if (opening && !item.read) {
+                    markReadMutation.mutate(item.id);
+                  }
+                }}
+              />
+            ))
         ) : (
-          <EmptyState title="All caught up" message="You have no new notifications." icon="checkmark-done-outline" accent={Colors.success} />
+          <EmptyState
+            title="No notifications yet"
+            message="Route changes, delays, and messages will show up here."
+            icon="checkmark-done-outline"
+            accent={Colors.success}
+          />
         )}
       </ScrollView>
     </View>
@@ -110,39 +159,48 @@ export function AlertsScreen() {
 function AlertCard({
   item,
   expanded,
-  dismissing,
+  markingRead,
   onPress,
-  onDismiss,
 }: {
   item: MobileNotification;
   expanded: boolean;
-  dismissing: boolean;
+  markingRead: boolean;
   onPress: () => void;
-  onDismiss: () => void;
 }) {
   const accent = categoryColor(item.category);
+  const isUnread = !item.read;
   return (
-    <Card style={[styles.card, styles.unread]}>
+    <Card style={[styles.card, isUnread ? styles.unread : styles.read]}>
       <Pressable onPress={onPress}>
         <View style={styles.top}>
           <AppIcon name={categoryIcon(item.category)} size={17} color={accent} variant="soft" accent={accent} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>{item.title}</Text>
+            <View style={styles.titleRow}>
+              {isUnread ? <View style={styles.unreadDot} /> : null}
+              <Text style={[styles.title, !isUnread && styles.titleRead]}>{item.title}</Text>
+              {!isUnread ? (
+                <View style={styles.readBadge}>
+                  <Text style={styles.readBadgeText}>Read</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.category}>{item.category.replace('_', ' ')}</Text>
           </View>
           <StatusBadge label={item.severity} tone={severityTone(item.severity)} />
         </View>
-        <Text style={styles.message} numberOfLines={expanded ? undefined : 2}>
+        <Text style={[styles.message, !isUnread && styles.messageRead]} numberOfLines={expanded ? undefined : 2}>
           {item.message}
         </Text>
-        {!expanded ? <Text style={styles.tapHint}>Tap to read · swipe down to refresh</Text> : null}
+        {!expanded ? (
+          <Text style={styles.tapHint}>
+            {isUnread ? 'Tap to open and mark as read' : 'Tap to expand · swipe down to refresh'}
+          </Text>
+        ) : null}
       </Pressable>
       {expanded ? (
         <>
           <Text style={styles.time}>{new Date(item.time).toLocaleString()}</Text>
-          <Pressable style={styles.dismissBtn} onPress={onDismiss} disabled={dismissing}>
-            <Text style={styles.dismissText}>{dismissing ? 'Removing…' : 'Mark as read'}</Text>
-          </Pressable>
+          {markingRead ? <Text style={styles.markingText}>Marking as read…</Text> : null}
         </>
       ) : null}
     </Card>
@@ -157,19 +215,23 @@ const styles = StyleSheet.create({
   scroll: { padding: 18, gap: 12 },
   card: { gap: 8 },
   unread: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  read: { borderColor: Colors.border, backgroundColor: Colors.white, opacity: 0.95 },
   top: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  title: { fontSize: 15, fontWeight: '700', color: Colors.secondary },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  title: { flexShrink: 1, fontSize: 15, fontWeight: '700', color: Colors.secondary },
+  titleRead: { fontWeight: '600', color: Colors.textSecondary },
+  readBadge: {
+    borderRadius: 999,
+    backgroundColor: Colors.backgroundElement,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  readBadgeText: { fontSize: 10, fontWeight: '600', color: Colors.textMuted },
   category: { fontSize: 11, color: Colors.textMuted, marginTop: 2, textTransform: 'capitalize' },
   message: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20 },
+  messageRead: { color: Colors.textMuted },
   tapHint: { fontSize: 11, fontWeight: '600', color: Colors.primary },
   time: { fontSize: 11, color: Colors.placeholder },
-  dismissBtn: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    backgroundColor: Colors.primary,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  dismissText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
+  markingText: { fontSize: 11, color: Colors.textMuted, marginTop: 4 },
 });

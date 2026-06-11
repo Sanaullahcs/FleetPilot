@@ -31,7 +31,15 @@ class DriverPortalController extends Controller
             return response()->json([
                 'data' => [
                     'date' => Carbon::today()->toDateString(),
-                    'summary' => ['total' => 0, 'scheduled' => 0, 'in_progress' => 0, 'completed' => 0],
+                    'summary' => [
+                        'total' => 0,
+                        'incoming' => 0,
+                        'scheduled' => 0,
+                        'in_progress' => 0,
+                        'completed' => 0,
+                        'cancelled' => 0,
+                        'missed' => 0,
+                    ],
                     'runs' => [],
                 ],
             ]);
@@ -43,74 +51,186 @@ class DriverPortalController extends Controller
             ->where('driver_id', $driver->id)
             ->whereDate('service_date', $date)
             ->where('status', '!=', 'cancelled')
-            ->with([
-                'run:id,route_id,name,scheduled_start_time,scheduled_end_time,direction,status',
-                'run.route:id,name,code,type,school_id',
-                'run.route.school:id,name,code',
-                'vehicle:id,vehicle_number,type,license_plate',
-            ])
+            ->with($this->assignmentRelations())
             ->orderBy('service_date')
             ->get()
             ->sortBy(fn (RunAssignment $a) => $a->run?->scheduled_start_time ?? '99:99')
             ->values();
 
-        $runs = $assignments->map(function (RunAssignment $assignment) {
-            $run = $assignment->run;
-
-            return [
-                'assignment_id' => $assignment->id,
-                'status' => $assignment->status,
-                'actual_start_time' => $assignment->actual_start_time?->toIso8601String(),
-                'actual_end_time' => $assignment->actual_end_time?->toIso8601String(),
-                'run' => $run ? [
-                    'id' => $run->id,
-                    'name' => $run->name,
-                    'direction' => $run->direction,
-                    'scheduled_start_time' => $run->scheduled_start_time,
-                    'scheduled_end_time' => $run->scheduled_end_time,
-                    'status' => $run->status,
-                ] : null,
-                'route' => $run?->route ? [
-                    'id' => $run->route->id,
-                    'name' => $run->route->name,
-                    'code' => $run->route->code,
-                    'type' => $run->route->type,
-                    'school' => $run->route->school ? [
-                        'id' => $run->route->school->id,
-                        'name' => $run->route->school->name,
-                        'code' => $run->route->school->code,
-                    ] : null,
-                ] : null,
-                'vehicle' => $assignment->vehicle ? [
-                    'id' => $assignment->vehicle->id,
-                    'vehicle_number' => $assignment->vehicle->vehicle_number,
-                    'type' => $assignment->vehicle->type,
-                    'license_plate' => $assignment->vehicle->license_plate,
-                ] : null,
-            ];
-        })->all();
-
-        $summary = [
-            'total' => count($runs),
-            'scheduled' => collect($runs)->where('status', 'scheduled')->count(),
-            'in_progress' => collect($runs)->where('status', 'in_progress')->count(),
-            'completed' => collect($runs)->where('status', 'completed')->count(),
-        ];
+        $runs = $assignments->map(fn (RunAssignment $assignment) => $this->mapAssignment($assignment, $date))->all();
 
         return response()->json([
             'data' => [
                 'date' => $date->toDateString(),
-                'driver' => [
-                    'id' => $driver->id,
-                    'employee_id' => $driver->employee_id,
-                    'full_name' => $driver->full_name,
-                    'phone' => $driver->phone,
-                    'status' => $driver->status,
-                ],
-                'summary' => $summary,
+                'driver' => $this->formatDriverSummary($driver),
+                'summary' => $this->summarizeRuns($runs),
                 'runs' => $runs,
             ],
         ]);
+    }
+
+    public function schedule(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $driver = $this->resolveDriver($user);
+        $today = Carbon::today();
+
+        $range = $request->query('range', 'this_week');
+        [$start, $end] = $this->resolveScheduleRange($request, $range, $today);
+
+        if ($end->diffInDays($start) > 62) {
+            abort(422, 'Date range cannot exceed 62 days.');
+        }
+
+        $statusFilter = $request->query('status', 'all');
+        $includeEmptyDays = $request->boolean('include_empty_days', in_array($range, ['this_week', 'today'], true));
+
+        $assignments = RunAssignment::query()
+            ->where('driver_id', $driver->id)
+            ->whereBetween('service_date', [$start->toDateString(), $end->toDateString()])
+            ->with($this->assignmentRelations())
+            ->orderBy('service_date')
+            ->get()
+            ->groupBy(fn (RunAssignment $assignment) => $assignment->service_date->toDateString());
+
+        $days = [];
+        $allRuns = [];
+        $cursor = $start->copy();
+
+        while ($cursor->lte($end)) {
+            $dateStr = $cursor->toDateString();
+            $dayRuns = ($assignments->get($dateStr, collect()))
+                ->sortBy(fn (RunAssignment $a) => $a->run?->scheduled_start_time ?? '99:99')
+                ->values()
+                ->map(fn (RunAssignment $assignment) => $this->mapAssignment($assignment, $today))
+                ->all();
+
+            $filteredDayRuns = $this->filterRunsByScheduleState($dayRuns, $statusFilter);
+
+            if ($includeEmptyDays || count($filteredDayRuns) > 0) {
+                $days[] = [
+                    'date' => $dateStr,
+                    'weekday' => strtolower($cursor->englishDayOfWeek),
+                    'label' => $cursor->format('D j'),
+                    'label_long' => $cursor->format('l, M j'),
+                    'is_today' => $cursor->isToday(),
+                    'is_past' => $cursor->lt($today),
+                    'is_future' => $cursor->gt($today),
+                    'summary' => $this->summarizeRuns($dayRuns),
+                    'runs' => $filteredDayRuns,
+                ];
+            }
+
+            foreach ($dayRuns as $run) {
+                $allRuns[] = $run;
+            }
+
+            $cursor->addDay();
+        }
+
+        $filteredRuns = $this->filterRunsByScheduleState($allRuns, $statusFilter);
+
+        return response()->json([
+            'data' => [
+                'range' => $range,
+                'range_start' => $start->toDateString(),
+                'range_end' => $end->toDateString(),
+                'week_start' => $start->toDateString(),
+                'week_end' => $end->toDateString(),
+                'today' => $today->toDateString(),
+                'status_filter' => $statusFilter,
+                'driver' => $this->formatDriverSummary($driver),
+                'summary' => $this->summarizeRuns($allRuns),
+                'filtered_summary' => $this->summarizeRuns($filteredRuns),
+                'days' => $days,
+                'runs' => $filteredRuns,
+            ],
+        ]);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function resolveScheduleRange(Request $request, string $range, Carbon $today): array
+    {
+        if ($range === 'custom') {
+            $start = $request->query('start')
+                ? Carbon::parse($request->query('start'))->startOfDay()
+                : $today->copy()->startOfWeek(Carbon::MONDAY);
+            $end = $request->query('end')
+                ? Carbon::parse($request->query('end'))->endOfDay()
+                : $start->copy()->endOfWeek(Carbon::SUNDAY);
+
+            if ($end->lt($start)) {
+                abort(422, 'The end date must be on or after the start date.');
+            }
+
+            return [$start, $end];
+        }
+
+        return match ($range) {
+            'today' => [$today->copy()->startOfDay(), $today->copy()->endOfDay()],
+            'last_7' => [$today->copy()->subDays(7)->startOfDay(), $today->copy()->endOfDay()],
+            'last_14' => [$today->copy()->subDays(14)->startOfDay(), $today->copy()->endOfDay()],
+            'last_30' => [$today->copy()->subDays(30)->startOfDay(), $today->copy()->endOfDay()],
+            'next_7' => [$today->copy()->startOfDay(), $today->copy()->addDays(7)->endOfDay()],
+            'next_14' => [$today->copy()->startOfDay(), $today->copy()->addDays(14)->endOfDay()],
+            'next_30' => [$today->copy()->startOfDay(), $today->copy()->addDays(30)->endOfDay()],
+            'rolling_60' => [$today->copy()->subDays(30)->startOfDay(), $today->copy()->addDays(30)->endOfDay()],
+            default => [$today->copy()->startOfWeek(Carbon::MONDAY), $today->copy()->endOfWeek(Carbon::SUNDAY)],
+        };
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $runs
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterRunsByScheduleState(array $runs, string $statusFilter): array
+    {
+        if ($statusFilter === 'all' || $statusFilter === '') {
+            return $runs;
+        }
+
+        $allowed = collect(explode(',', $statusFilter))
+            ->map(fn (string $value) => trim(strtolower($value)))
+            ->filter()
+            ->all();
+
+        if ($allowed === []) {
+            return $runs;
+        }
+
+        return array_values(array_filter(
+            $runs,
+            fn (array $run) => in_array($run['schedule_state'] ?? '', $allowed, true),
+        ));
+    }
+
+    private function resolveScheduleState(RunAssignment $assignment, Carbon $today): string
+    {
+        if ($assignment->status === 'cancelled') {
+            return 'cancelled';
+        }
+
+        if ($assignment->status === 'completed') {
+            return 'completed';
+        }
+
+        if ($assignment->status === 'in_progress') {
+            return 'in_progress';
+        }
+
+        $serviceDate = $assignment->service_date->copy()->startOfDay();
+
+        if ($serviceDate->lt($today)) {
+            return 'missed';
+        }
+
+        if ($serviceDate->gt($today)) {
+            return 'incoming';
+        }
+
+        return 'scheduled';
     }
 
     public function profile(Request $request): JsonResponse
@@ -421,6 +541,104 @@ class DriverPortalController extends Controller
         }
 
         return $driver;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function assignmentRelations(): array
+    {
+        return [
+            'run:id,route_id,name,scheduled_start_time,scheduled_end_time,direction,status',
+            'run.route:id,name,code,type,school_id',
+            'run.route.school:id,name,code',
+            'vehicle:id,vehicle_number,type,license_plate',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatDriverSummary(Driver $driver): array
+    {
+        return [
+            'id' => $driver->id,
+            'employee_id' => $driver->employee_id,
+            'full_name' => $driver->full_name,
+            'phone' => $driver->phone,
+            'status' => $driver->status,
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $runs
+     * @return array{
+     *   total: int,
+     *   incoming: int,
+     *   scheduled: int,
+     *   in_progress: int,
+     *   completed: int,
+     *   cancelled: int,
+     *   missed: int
+     * }
+     */
+    private function summarizeRuns(array $runs): array
+    {
+        $collection = collect($runs);
+
+        return [
+            'total' => count($runs),
+            'incoming' => $collection->where('schedule_state', 'incoming')->count(),
+            'scheduled' => $collection->where('schedule_state', 'scheduled')->count(),
+            'in_progress' => $collection->where('schedule_state', 'in_progress')->count(),
+            'completed' => $collection->where('schedule_state', 'completed')->count(),
+            'cancelled' => $collection->where('schedule_state', 'cancelled')->count(),
+            'missed' => $collection->where('schedule_state', 'missed')->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapAssignment(RunAssignment $assignment, ?Carbon $today = null): array
+    {
+        $today ??= Carbon::today();
+        $run = $assignment->run;
+        $scheduleState = $this->resolveScheduleState($assignment, $today);
+
+        return [
+            'assignment_id' => $assignment->id,
+            'service_date' => $assignment->service_date->toDateString(),
+            'status' => $assignment->status,
+            'schedule_state' => $scheduleState,
+            'actual_start_time' => $assignment->actual_start_time?->toIso8601String(),
+            'actual_end_time' => $assignment->actual_end_time?->toIso8601String(),
+            'run' => $run ? [
+                'id' => $run->id,
+                'name' => $run->name,
+                'direction' => $run->direction,
+                'scheduled_start_time' => $run->scheduled_start_time,
+                'scheduled_end_time' => $run->scheduled_end_time,
+                'status' => $run->status,
+            ] : null,
+            'route' => $run?->route ? [
+                'id' => $run->route->id,
+                'name' => $run->route->name,
+                'code' => $run->route->code,
+                'type' => $run->route->type,
+                'school' => $run->route->school ? [
+                    'id' => $run->route->school->id,
+                    'name' => $run->route->school->name,
+                    'code' => $run->route->school->code,
+                ] : null,
+            ] : null,
+            'vehicle' => $assignment->vehicle ? [
+                'id' => $assignment->vehicle->id,
+                'vehicle_number' => $assignment->vehicle->vehicle_number,
+                'type' => $assignment->vehicle->type,
+                'license_plate' => $assignment->vehicle->license_plate,
+            ] : null,
+        ];
     }
 
     /**

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -101,22 +102,25 @@ export default function RootLayout() {
   return (
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <StatusBar style="dark" />
-          <AppRoot />
-          <SweetAlertHost />
-        </SafeAreaProvider>
+        <GestureHandlerRootView style={styles.flex}>
+          <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <AppRoot />
+            <SweetAlertHost />
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
       </QueryClientProvider>
     </AppErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   appRoot: {
     flex: 1,
   },
   splashOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 999,
     elevation: 999,
   },

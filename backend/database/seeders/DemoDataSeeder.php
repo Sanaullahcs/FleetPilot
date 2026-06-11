@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\Stop;
 use App\Models\Vehicle;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DemoDataSeeder extends Seeder
@@ -35,6 +36,7 @@ class DemoDataSeeder extends Seeder
         $this->seedRunAssignments($org->id);
         $this->seedParentLinks($org->id);
         $this->linkMobileDemoUsers($org->id);
+        $this->seedDriverScheduleHistory($org->id);
         $this->seedStopsAndRunStops($org->id, $schools);
         $this->seedStudentStopAssignments($org->id);
     }
@@ -273,24 +275,36 @@ class DemoDataSeeder extends Seeder
             return;
         }
 
+        $weekStart = now()->startOfWeek();
+        $weekDates = collect(range(0, 6))
+            ->map(fn (int $offset) => $weekStart->copy()->addDays($offset))
+            ->filter(fn (Carbon $date) => $date->isWeekday())
+            ->values();
+
         foreach ($drivers->values() as $i => $driver) {
             $vehicle = $vehicles->get($i);
-            $run = $runs->get($i % $runs->count());
-            if (! $run || ! $vehicle) {
+            if (! $vehicle) {
                 continue;
             }
 
-            RunAssignment::updateOrCreate(
-                [
-                    'run_id' => $run->id,
-                    'service_date' => now()->toDateString(),
-                ],
-                [
-                    'driver_id' => $driver->id,
-                    'vehicle_id' => $vehicle->id,
-                    'status' => $i % 3 === 0 ? 'in_progress' : 'scheduled',
-                ],
-            );
+            foreach ($weekDates as $dayIndex => $date) {
+                $run = $runs->get(($i + $dayIndex) % $runs->count());
+                if (! $run) {
+                    continue;
+                }
+
+                RunAssignment::updateOrCreate(
+                    [
+                        'run_id' => $run->id,
+                        'service_date' => $date->toDateString(),
+                    ],
+                    [
+                        'driver_id' => $driver->id,
+                        'vehicle_id' => $vehicle->id,
+                        'status' => $date->isToday() && $i % 3 === 0 ? 'in_progress' : 'scheduled',
+                    ],
+                );
+            }
         }
     }
 
@@ -363,11 +377,89 @@ class DemoDataSeeder extends Seeder
         );
 
         if ($run && $vehicle) {
+            $weekStart = now()->startOfWeek();
+            foreach (range(0, 4) as $offset) {
+                $date = $weekStart->copy()->addDays($offset);
+                RunAssignment::updateOrCreate(
+                    [
+                        'run_id' => $run->id,
+                        'service_date' => $date->toDateString(),
+                    ],
+                    [
+                        'driver_id' => $driver->id,
+                        'vehicle_id' => $vehicle->id,
+                        'status' => $date->isToday() ? 'scheduled' : 'scheduled',
+                    ],
+                );
+            }
+
+            $secondRun = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+                ->where('status', 'active')
+                ->where('id', '!=', $run->id)
+                ->orderBy('name')
+                ->first();
+
+            if ($secondRun) {
+                foreach (range(0, 4) as $offset) {
+                    $date = $weekStart->copy()->addDays($offset);
+                    RunAssignment::updateOrCreate(
+                        [
+                            'run_id' => $secondRun->id,
+                            'service_date' => $date->toDateString(),
+                        ],
+                        [
+                            'driver_id' => $driver->id,
+                            'vehicle_id' => $vehicle->id,
+                            'status' => 'scheduled',
+                        ],
+                    );
+                }
+            }
+        }
+    }
+
+    private function seedDriverScheduleHistory(string $orgId): void
+    {
+        $driver = Driver::where('organization_id', $orgId)->where('employee_id', 'EMP-1000')->first();
+        $vehicle = Vehicle::where('organization_id', $orgId)->orderBy('vehicle_number')->first();
+        $runs = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
+        if (! $driver || ! $vehicle || $runs->isEmpty()) {
+            return;
+        }
+
+        $primary = $runs->first();
+        $alternate = $runs->get(1) ?? $primary;
+
+        foreach ([3, 5, 8, 12, 18, 22] as $daysAgo) {
+            $date = now()->subDays($daysAgo);
+            if (! $date->isWeekday()) {
+                continue;
+            }
+
             RunAssignment::updateOrCreate(
+                ['run_id' => $primary->id, 'service_date' => $date->toDateString()],
                 [
-                    'run_id' => $run->id,
-                    'service_date' => now()->toDateString(),
+                    'driver_id' => $driver->id,
+                    'vehicle_id' => $vehicle->id,
+                    'status' => $daysAgo <= 8 ? 'completed' : ($daysAgo === 12 ? 'cancelled' : 'scheduled'),
+                    'actual_start_time' => $daysAgo <= 8 ? $date->copy()->setTime(7, 5) : null,
+                    'actual_end_time' => $daysAgo <= 8 ? $date->copy()->setTime(8, 15) : null,
                 ],
+            );
+        }
+
+        foreach ([7, 14, 21, 28] as $daysAhead) {
+            $date = now()->addDays($daysAhead);
+            if (! $date->isWeekday()) {
+                continue;
+            }
+
+            RunAssignment::updateOrCreate(
+                ['run_id' => $alternate->id, 'service_date' => $date->toDateString()],
                 [
                     'driver_id' => $driver->id,
                     'vehicle_id' => $vehicle->id,

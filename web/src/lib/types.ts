@@ -502,6 +502,86 @@ export interface ParentTrackingResponse {
   tracks: ParentTrack[];
 }
 
+export interface DriverScheduleSummary {
+  total: number;
+  incoming: number;
+  scheduled: number;
+  in_progress: number;
+  completed: number;
+  cancelled: number;
+  missed: number;
+}
+
+export interface DriverPortalRun {
+  assignment_id: string;
+  service_date: string;
+  status: string;
+  schedule_state?: string;
+  actual_start_time?: string | null;
+  actual_end_time?: string | null;
+  run: {
+    id: string;
+    name: string;
+    direction: string | null;
+    scheduled_start_time: string | null;
+    scheduled_end_time: string | null;
+    status: string;
+  } | null;
+  route: {
+    id: string;
+    name: string;
+    code: string | null;
+    type: string | null;
+    school: { id: string; name: string; code: string | null } | null;
+  } | null;
+  vehicle: {
+    id: string;
+    vehicle_number: string;
+    type: string;
+    license_plate: string | null;
+  } | null;
+}
+
+export interface DriverScheduleDay {
+  date: string;
+  weekday: string;
+  label: string;
+  label_long?: string;
+  is_today: boolean;
+  is_past?: boolean;
+  is_future?: boolean;
+  summary: DriverScheduleSummary;
+  runs: DriverPortalRun[];
+}
+
+export interface DriverScheduleResponse {
+  range: string;
+  range_start: string;
+  range_end: string;
+  week_start: string;
+  week_end: string;
+  today: string;
+  status_filter?: string;
+  driver: {
+    id: string;
+    employee_id: string | null;
+    full_name: string;
+    phone: string | null;
+    status: string;
+  } | null;
+  summary: DriverScheduleSummary;
+  filtered_summary?: DriverScheduleSummary;
+  days: DriverScheduleDay[];
+  runs?: DriverPortalRun[];
+}
+
+export interface DriverTodayResponse {
+  date: string;
+  driver: DriverScheduleResponse["driver"];
+  summary: DriverScheduleSummary;
+  runs: DriverPortalRun[];
+}
+
 export interface VehicleDetail {
   id: string;
   vehicle_number: string;

@@ -1,4 +1,4 @@
-import { LiveMapPreview } from '@/components/maps/live-map-preview';
+import { ParentTrackingMap } from '@/components/maps/parent-tracking-map';
 import type { ParentTrackItem } from '@/lib/mobile-types';
 
 export function ParentLiveMap(props: {
@@ -11,5 +11,5 @@ export function ParentLiveMap(props: {
   hideOverlay?: boolean;
   hideChrome?: boolean;
 }) {
-  return <LiveMapPreview {...props} />;
+  return <ParentTrackingMap {...props} hideOverlay={props.hideOverlay || props.hideChrome} />;
 }

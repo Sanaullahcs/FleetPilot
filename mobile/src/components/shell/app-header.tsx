@@ -4,6 +4,7 @@ import { Ionicons } from '@/components/ui/icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FleetPilotLogoMark } from '@/components/brand/logo-mark';
 import { Colors } from '@/constants/theme';
+import { getMobileRole, mobileHomeHref } from '@/constants/app';
 import { useAuthStore } from '@/store/auth';
 
 export function AppHeader({
@@ -26,11 +27,17 @@ export function AppHeader({
   const user = useAuthStore((s) => s.user);
   const router = useRouter();
   const segments = useSegments();
+  const mobileRole = getMobileRole(user);
   const onTabRoot = segments[0] === '(tabs)';
   const canGoBack = router.canGoBack();
   const autoBack = !onTabRoot && canGoBack;
   const shouldShowBack = showBack ?? (onBackPress ? true : autoBack);
   const handleBack = onBackPress ?? (autoBack ? () => router.back() : undefined);
+
+  const goHome = () => {
+    if (!mobileRole) return;
+    router.push(mobileHomeHref(mobileRole));
+  };
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + 8 }]}>
@@ -40,7 +47,15 @@ export function AppHeader({
             <Ionicons name="chevron-back" size={22} color={Colors.secondary} />
           </Pressable>
         ) : (
-          <FleetPilotLogoMark size={38} />
+          <Pressable
+            style={styles.logoBtn}
+            onPress={goHome}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Go to home"
+          >
+            <FleetPilotLogoMark size={38} />
+          </Pressable>
         )}
         <View style={styles.textCol}>
           <Text style={styles.greeting}>{title}</Text>
@@ -82,6 +97,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  logoBtn: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bell: {
     width: 42,

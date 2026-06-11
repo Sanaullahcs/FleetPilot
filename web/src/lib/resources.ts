@@ -10,6 +10,9 @@ import type {
   DispatchBoard,
   DispatchAssignment,
   DispatchRunRow,
+  DriverPortalRun,
+  DriverScheduleResponse,
+  DriverTodayResponse,
   ParentChildView,
   ParentRecord,
   ParentStudentLink,
@@ -299,6 +302,28 @@ export async function getParentChildren(): Promise<ParentChildView[]> {
 
 export async function getParentTracking(): Promise<ParentTrackingResponse> {
   const { data } = await api.get<{ data: ParentTrackingResponse }>("/parent/tracking");
+  return data.data;
+}
+
+export async function getDriverToday(): Promise<DriverTodayResponse> {
+  const { data } = await api.get<{ data: DriverTodayResponse }>("/driver/runs/today");
+  return data.data;
+}
+
+export async function getDriverSchedule(params?: {
+  range?: import("@/lib/driver-schedule").DriverScheduleRange;
+  start?: string;
+  end?: string;
+  status?: import("@/lib/driver-schedule").DriverScheduleState;
+}): Promise<DriverScheduleResponse> {
+  const { data } = await api.get<{ data: DriverScheduleResponse }>("/driver/schedule", {
+    params: {
+      range: params?.range ?? "this_week",
+      start: params?.start,
+      end: params?.end,
+      status: params?.status && params.status !== "all" ? params.status : undefined,
+    },
+  });
   return data.data;
 }
 

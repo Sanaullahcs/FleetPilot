@@ -19,3 +19,7 @@ export function getMobileRole(user: { role?: string; roles?: string[] } | null |
 
 export const MOBILE_ROLE_DENIED_MESSAGE =
   'This app is for drivers and parents. Please sign in on the web dashboard for staff access.';
+
+export function mobileHomeHref(role: MobileRole): '/home' | '/today' {
+  return role === 'parent' ? '/home' : '/today';
+}

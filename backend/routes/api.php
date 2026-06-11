@@ -80,6 +80,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/parent/tracking', [ParentPortalController::class, 'tracking']);
 
     Route::get('/driver/runs/today', [DriverPortalController::class, 'runsToday']);
+    Route::get('/driver/schedule', [DriverPortalController::class, 'schedule']);
     Route::get('/driver/profile', [DriverPortalController::class, 'profile']);
     Route::put('/driver/profile', [DriverPortalController::class, 'updateProfile']);
     Route::get('/driver/assignments/{assignment}', [DriverPortalController::class, 'assignmentShow']);

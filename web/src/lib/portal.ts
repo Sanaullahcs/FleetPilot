@@ -19,6 +19,8 @@ export function getPortalTitle(role: UserRole | undefined): string {
       return "Admin Dashboard";
     case "dispatcher":
       return "Dispatch Dashboard";
+    case "driver":
+      return "Driver Portal";
     case "parent":
       return "Parent Portal";
     default:
@@ -34,6 +36,7 @@ export function getRoleLabel(role: UserRole | undefined): string {
 const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Overview",
   "/dashboard/dispatch": "Dispatch",
+  "/dashboard/my-schedule": "My schedule",
   "/dashboard/my-children": "My children",
   "/dashboard/students": "Students",
   "/dashboard/parents": "Parents",
@@ -74,6 +77,11 @@ export function getDashboardWelcome(role: UserRole | undefined, firstName: strin
       return {
         title: `Welcome back, ${firstName}`,
         description: "Monitor daily routes, drivers, vehicles, and live fleet operations.",
+      };
+    case "driver":
+      return {
+        title: `Welcome, ${firstName}`,
+        description: "Review your weekly assignments, routes, and vehicle details.",
       };
     case "parent":
       return {

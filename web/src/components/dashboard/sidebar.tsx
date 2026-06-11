@@ -21,6 +21,11 @@ const parentNav: NavItem[] = [
   { label: "My children", href: "/dashboard/my-children", icon: NavIconStudents },
 ];
 
+const driverNav: NavItem[] = [
+  { label: "My schedule", href: "/dashboard/my-schedule", icon: NavIconSchedule },
+  { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
+];
+
 const platformNav: NavItem[] = [
   { label: "Platform overview", href: "/dashboard", icon: NavIconGrid },
   { label: "Organizations", href: "/dashboard/organizations", icon: NavIconBuilding },
@@ -172,10 +177,13 @@ function SidebarInner({
 }) {
   const isSuperAdmin = user.role === "super_admin";
   const isParent = user.role === "parent";
+  const isDriver = user.role === "driver";
   const nav = isSuperAdmin ? (
     <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} />
   ) : isParent ? (
     <NavSection items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} />
+  ) : isDriver ? (
+    <NavSection items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} />
   ) : (
     <>
       <NavSection items={operationsNav} user={user} pathname={pathname} onNavigate={onNavigate} />
@@ -349,6 +357,16 @@ function NavIconDispatch() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M2 6h12M5 9h2M9 9h2M5 11.5h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconSchedule() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2.5" y="3" width="11" height="10.5" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 2v2M11 2v2M2.5 6.5h11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <rect x="5" y="8.5" width="2" height="2" rx="0.5" fill="currentColor" />
+      <rect x="9" y="8.5" width="2" height="2" rx="0.5" fill="currentColor" />
     </svg>
   );
 }

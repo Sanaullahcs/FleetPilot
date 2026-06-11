@@ -41,9 +41,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       pathname.startsWith("/dashboard/schools") ||
       pathname.startsWith("/dashboard/routes") ||
       pathname.startsWith("/dashboard/users") ||
-      pathname.startsWith("/dashboard/roles");
+      pathname.startsWith("/dashboard/roles") ||
+      pathname.startsWith("/dashboard/my-schedule");
     if (blocked) {
       router.replace("/dashboard/my-children");
+    }
+  }, [user, pathname, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== "driver") return;
+    const blocked =
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/parents") ||
+      pathname.startsWith("/dashboard/dispatch") ||
+      pathname.startsWith("/dashboard/radar") ||
+      pathname.startsWith("/dashboard/drivers") ||
+      pathname.startsWith("/dashboard/vehicles") ||
+      pathname.startsWith("/dashboard/schools") ||
+      pathname.startsWith("/dashboard/routes") ||
+      pathname.startsWith("/dashboard/users") ||
+      pathname.startsWith("/dashboard/roles") ||
+      pathname.startsWith("/dashboard/my-children") ||
+      pathname.startsWith("/dashboard/organizations");
+    if (blocked) {
+      router.replace("/dashboard/my-schedule");
     }
   }, [user, pathname, router]);
 

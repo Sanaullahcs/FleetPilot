@@ -41,6 +41,7 @@ import { fetchChatConversations, fetchChatMessages, markChatConversationRead, se
 import type { ChatMessage } from '@/lib/chat-types';
 
 import { showSweetAlert } from '@/store/sweet-alert';
+import { useChatBannerStore } from '@/store/chat-banner';
 
 
 
@@ -115,6 +116,11 @@ export function ChatThreadScreen() {
   const keyboardOffset = useKeyboardBottomOffset();
 
   const composerBottomPad = keyboardHeight > 0 ? 0 : Math.max(insets.bottom, 8);
+  const hideBanner = useChatBannerStore((s) => s.hideBanner);
+
+  useEffect(() => {
+    hideBanner();
+  }, [conversationId, hideBanner]);
 
   const listRef = useRef<FlatList>(null);
 
@@ -161,6 +167,7 @@ export function ChatThreadScreen() {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] });
 
       queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['mobile-notifications'] });
 
     },
 
@@ -203,6 +210,7 @@ export function ChatThreadScreen() {
         if (!cancelled) {
 
           queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+          queryClient.invalidateQueries({ queryKey: ['mobile-notifications'] });
 
         }
 

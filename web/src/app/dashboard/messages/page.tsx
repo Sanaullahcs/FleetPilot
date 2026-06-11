@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, Button, EmptyState } from "@/components/ui/primitives";
 import { getApiErrorMessage } from "@/lib/api";
@@ -40,18 +40,25 @@ export default function MessagesPage() {
   const conversationsQuery = useQuery({
     queryKey: ["dashboard-chat-conversations"],
     queryFn: listDashboardChatConversations,
-    refetchInterval: 15_000,
+    refetchInterval: 5_000,
   });
 
-  const conversations = conversationsQuery.data ?? [];
+  const conversations = conversationsQuery.data?.items ?? [];
+  const unreadTotal = conversationsQuery.data?.unread_total ?? 0;
   const activeId = selectedId ?? conversations[0]?.id ?? null;
 
   const messagesQuery = useQuery({
     queryKey: ["dashboard-chat-messages", activeId],
     queryFn: () => listDashboardChatMessages(activeId!),
     enabled: !!activeId,
-    refetchInterval: 5_000,
+    refetchInterval: 4_000,
   });
+
+  useEffect(() => {
+    if (messagesQuery.isSuccess && activeId) {
+      void queryClient.invalidateQueries({ queryKey: ["dashboard-chat-conversations"] });
+    }
+  }, [messagesQuery.isSuccess, activeId, queryClient]);
 
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === activeId) ?? null,
@@ -78,7 +85,11 @@ export default function MessagesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Messages"
-        subtitle="Monitor parent, driver, and dispatch conversations with the correct participants."
+        subtitle={
+          unreadTotal > 0
+            ? `${unreadTotal} unread conversation${unreadTotal === 1 ? "" : "s"} across parent, driver, and dispatch threads.`
+            : "Monitor parent, driver, and dispatch conversations with the correct participants."
+        }
       />
 
       <div className="grid min-h-[560px] grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[320px_1fr]">
@@ -115,11 +126,18 @@ export default function MessagesPage() {
                           </p>
                         ) : null}
                       </div>
-                      {item.last_message ? (
-                        <span className="shrink-0 text-[10px] font-semibold text-slate-400">
-                          {formatTime(item.last_message.time)}
-                        </span>
-                      ) : null}
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        {item.last_message ? (
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            {formatTime(item.last_message.time)}
+                          </span>
+                        ) : null}
+                        {item.unread_count > 0 ? (
+                          <span className="rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                            {item.unread_count > 99 ? "99+" : item.unread_count}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </button>
                 );

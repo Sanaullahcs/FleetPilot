@@ -571,8 +571,10 @@ export async function updateRolePermissions(roleId: string, permissionIds: strin
 }
 
 export async function listDashboardChatConversations() {
-  const { data } = await api.get<{ data: { items: DashboardChatConversation[] } }>("/chat/conversations");
-  return data.data.items;
+  const { data } = await api.get<{ data: { items: DashboardChatConversation[]; unread_total: number } }>(
+    "/chat/conversations",
+  );
+  return data.data;
 }
 
 export async function listDashboardChatMessages(conversationId: string) {
@@ -584,6 +586,13 @@ export async function sendDashboardChatMessage(conversationId: string, body: str
   const { data } = await api.post<{ data: DashboardChatMessage }>(`/chat/conversations/${conversationId}/messages`, {
     body,
   });
+  return data.data;
+}
+
+export async function markDashboardChatRead(conversationId: string) {
+  const { data } = await api.post<{ data: { conversation_id: string; read: boolean } }>(
+    `/chat/conversations/${conversationId}/read`,
+  );
   return data.data;
 }
 

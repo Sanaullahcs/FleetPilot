@@ -53,7 +53,26 @@ class MobileChatService
             ->where('organization_id', $staff->organization_id)
             ->orderByDesc('last_message_at')
             ->get()
-            ->map(fn (MobileChatConversation $c) => $this->staffConversationPayload($c))
+            ->map(fn (MobileChatConversation $c) => $this->staffConversationPayload($c, $staff))
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function listForSchoolContact(User $staff): Collection
+    {
+        if (! $staff->school_id) {
+            return collect();
+        }
+
+        return MobileChatConversation::query()
+            ->where('organization_id', $staff->organization_id)
+            ->where('type', 'parent_school')
+            ->where('metadata->school_id', $staff->school_id)
+            ->orderByDesc('last_message_at')
+            ->get()
+            ->map(fn (MobileChatConversation $c) => $this->staffConversationPayload($c, $staff))
             ->values();
     }
 
@@ -67,9 +86,130 @@ class MobileChatService
             return;
         }
 
+        if ($user->role === 'school_contact') {
+            if ($conversation->type !== 'parent_school') {
+                abort(403);
+            }
+            if (($conversation->metadata['school_id'] ?? null) !== $user->school_id) {
+                abort(403);
+            }
+
+            return;
+        }
+
         if (! in_array($user->id, $conversation->participant_user_ids ?? [], true)) {
             abort(403, 'You are not a participant in this conversation.');
         }
+    }
+
+    public function sendMessage(User $user, MobileChatConversation $conversation, string $body): MobileChatMessage
+    {
+        $this->authorizeConversation($user, $conversation);
+
+        $body = trim($body);
+        if ($body === '') {
+            abort(422, 'Message body is required.');
+        }
+
+        $message = MobileChatMessage::create([
+            'conversation_id' => $conversation->id,
+            'sender_user_id' => $user->id,
+            'body' => $body,
+        ]);
+
+        $conversation->update(['last_message_at' => now()]);
+
+        return $message->load('sender:id,first_name,last_name,role');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function notificationItemsForUser(User $user, bool $includeRead = false): array
+    {
+        $this->ensureConversations($user);
+        $items = [];
+
+        $conversations = MobileChatConversation::query()
+            ->where('organization_id', $user->organization_id)
+            ->whereJsonContains('participant_user_ids', $user->id)
+            ->orderByDesc('last_message_at')
+            ->get()
+            ->filter(fn (MobileChatConversation $c) => $this->isVisibleToUser($c, $user));
+
+        foreach ($conversations as $conversation) {
+            $lastIncoming = $conversation->messages()
+                ->where('sender_user_id', '!=', $user->id)
+                ->with('sender:id,first_name,last_name')
+                ->latest()
+                ->first();
+
+            if (! $lastIncoming) {
+                continue;
+            }
+
+            $unreadQuery = $conversation->messages()->where('sender_user_id', '!=', $user->id);
+            $lastRead = $this->lastReadAt($user, $conversation->id);
+            if ($lastRead) {
+                $unreadQuery->where('created_at', '>', $lastRead);
+            }
+            $unread = $unreadQuery->count();
+            $read = $unread === 0;
+
+            if (! $includeRead && $read) {
+                continue;
+            }
+
+            [$title] = $this->resolveConversationDisplay($conversation, $user);
+            $senderName = $lastIncoming->sender
+                ? trim("{$lastIncoming->sender->first_name} {$lastIncoming->sender->last_name}")
+                : 'Someone';
+
+            $items[] = [
+                'id' => 'chat:'.$conversation->id,
+                'category' => 'message',
+                'severity' => 'info',
+                'title' => $read
+                    ? "Message · {$title}"
+                    : ($unread > 1 ? "{$unread} new messages · {$title}" : "New message from {$senderName}"),
+                'message' => Str::limit($lastIncoming->body, 120),
+                'time' => $lastIncoming->created_at->toIso8601String(),
+                'read' => $read,
+                'conversation_id' => $conversation->id,
+            ];
+        }
+
+        return $items;
+    }
+
+    public function markChatNotificationRead(User $user, string $notificationId): bool
+    {
+        if (! str_starts_with($notificationId, 'chat:')) {
+            return false;
+        }
+
+        $conversationId = substr($notificationId, 5);
+        $conversation = MobileChatConversation::query()->find($conversationId);
+        if (! $conversation) {
+            return false;
+        }
+
+        $this->authorizeConversation($user, $conversation);
+        $this->markConversationRead($user, $conversation);
+
+        return true;
+    }
+
+    public function markAllConversationsRead(User $user): void
+    {
+        $this->ensureConversations($user);
+
+        MobileChatConversation::query()
+            ->where('organization_id', $user->organization_id)
+            ->whereJsonContains('participant_user_ids', $user->id)
+            ->get()
+            ->filter(fn (MobileChatConversation $c) => $this->isVisibleToUser($c, $user))
+            ->each(fn (MobileChatConversation $c) => $this->markConversationRead($user, $c));
     }
 
     /**
@@ -100,12 +240,15 @@ class MobileChatService
 
         [$title, $subtitle, $avatarType] = $this->resolveConversationDisplay($conversation, $user);
 
+        $metadata = $conversation->metadata ?? [];
+
         return [
             'id' => $conversation->id,
             'type' => $conversation->type,
             'title' => $title,
             'subtitle' => $subtitle,
             'avatar_type' => $avatarType,
+            'student_id' => $metadata['student_id'] ?? null,
             'last_message' => $last ? [
                 'body' => Str::limit($last->body, 80),
                 'time' => $last->created_at->toIso8601String(),
@@ -119,10 +262,20 @@ class MobileChatService
     /**
      * @return array<string, mixed>
      */
-    public function staffConversationPayload(MobileChatConversation $conversation): array
+    public function staffConversationPayload(MobileChatConversation $conversation, ?User $staff = null): array
     {
         $last = $conversation->messages()->latest()->first();
         $metadata = $conversation->metadata ?? [];
+        $unread = 0;
+
+        if ($staff) {
+            $unreadQuery = $conversation->messages()->where('sender_user_id', '!=', $staff->id);
+            $lastRead = $this->lastReadAt($staff, $conversation->id);
+            if ($lastRead) {
+                $unreadQuery->where('created_at', '>', $lastRead);
+            }
+            $unread = min($unreadQuery->count(), 99);
+        }
 
         return [
             'id' => $conversation->id,
@@ -135,6 +288,7 @@ class MobileChatService
                 'time' => $last->created_at->toIso8601String(),
                 'sender_name' => $last->sender ? trim("{$last->sender->first_name} {$last->sender->last_name}") : 'System',
             ] : null,
+            'unread_count' => $unread,
             'updated_at' => ($conversation->last_message_at ?? $conversation->updated_at)->toIso8601String(),
         ];
     }
@@ -250,19 +404,24 @@ class MobileChatService
             })->with(['assignedDriver.user', 'school'])->get()
             : collect();
 
-        $driver = $students->first()?->assignedDriver;
-        $school = $students->first()?->school;
-
-        if ($driver?->user_id && $students->first()) {
-            $this->ensureParentDriverConversation(
-                organizationId: $user->organization_id,
-                parentUser: $user,
-                driver: $driver,
-                student: $students->first(),
-            );
+        foreach ($students as $student) {
+            $driver = $student->assignedDriver;
+            if ($driver?->user_id) {
+                $this->ensureParentDriverConversation(
+                    organizationId: $user->organization_id,
+                    parentUser: $user,
+                    driver: $driver,
+                    student: $student,
+                );
+            }
         }
 
-        if ($school) {
+        $schools = $students->pluck('school')->filter()->unique('id');
+        foreach ($schools as $school) {
+            if (! $school instanceof School) {
+                continue;
+            }
+
             $exists = MobileChatConversation::query()
                 ->where('organization_id', $user->organization_id)
                 ->where('type', 'parent_school')
@@ -270,33 +429,35 @@ class MobileChatService
                 ->where('metadata->school_id', $school->id)
                 ->exists();
 
-            if (! $exists) {
-                $liaison = User::query()
-                    ->where('organization_id', $user->organization_id)
-                    ->where('school_id', $school->id)
-                    ->where('is_active', true)
-                    ->first();
-
-                $participants = array_values(array_unique(array_filter([
-                    $user->id,
-                    $liaison?->id,
-                ])));
-
-                $conversation = MobileChatConversation::create([
-                    'organization_id' => $user->organization_id,
-                    'type' => 'parent_school',
-                    'title' => $school->name,
-                    'participant_user_ids' => $participants ?: [$user->id],
-                    'metadata' => [
-                        'subtitle' => 'Transportation office',
-                        'school_id' => $school->id,
-                        'avatar_type' => 'school',
-                    ],
-                    'last_message_at' => now()->subHours(2),
-                ]);
-
-                $this->seedWelcome($conversation, null, "Hello from {$school->name} transportation. We're here for enrollment and route changes.");
+            if ($exists) {
+                continue;
             }
+
+            $liaison = User::query()
+                ->where('organization_id', $user->organization_id)
+                ->where('school_id', $school->id)
+                ->where('is_active', true)
+                ->first();
+
+            $participants = array_values(array_unique(array_filter([
+                $user->id,
+                $liaison?->id,
+            ])));
+
+            $conversation = MobileChatConversation::create([
+                'organization_id' => $user->organization_id,
+                'type' => 'parent_school',
+                'title' => $school->name,
+                'participant_user_ids' => $participants ?: [$user->id],
+                'metadata' => [
+                    'subtitle' => 'Transportation office',
+                    'school_id' => $school->id,
+                    'avatar_type' => 'school',
+                ],
+                'last_message_at' => now()->subHours(2),
+            ]);
+
+            $this->seedWelcome($conversation, null, "Hello from {$school->name} transportation. We're here for enrollment and route changes.");
         }
 
         $supportExists = MobileChatConversation::query()
@@ -333,8 +494,7 @@ class MobileChatService
         $exists = MobileChatConversation::query()
             ->where('organization_id', $organizationId)
             ->where('type', 'parent_driver')
-            ->whereJsonContains('participant_user_ids', $parentUser->id)
-            ->whereJsonContains('participant_user_ids', $driver->user_id)
+            ->where('metadata->student_id', $student->id)
             ->exists();
 
         if ($exists) {

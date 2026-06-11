@@ -58,22 +58,15 @@ class MobileChatController extends Controller
     public function send(Request $request, MobileChatConversation $conversation): JsonResponse
     {
         $user = $request->user();
-        $this->chat->authorizeConversation($user, $conversation);
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
-        $message = MobileChatMessage::create([
-            'conversation_id' => $conversation->id,
-            'sender_user_id' => $user->id,
-            'body' => trim($data['body']),
-        ]);
-
-        $conversation->update(['last_message_at' => now()]);
+        $message = $this->chat->sendMessage($user, $conversation, $data['body']);
 
         return response()->json([
-            'data' => $this->chat->messagePayload($message->load('sender:id,first_name,last_name,role'), $user->id),
+            'data' => $this->chat->messagePayload($message, $user->id),
         ], 201);
     }
 }

@@ -18,13 +18,21 @@ class DashboardChatController extends Controller
     public function conversations(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'dispatcher'], true)) {
+
+        if (in_array($user->role, ['admin', 'dispatcher'], true)) {
+            $items = $this->chat->listForStaff($user);
+        } elseif ($user->role === 'school_contact') {
+            $items = $this->chat->listForSchoolContact($user);
+        } else {
             abort(403);
         }
 
-        $items = $this->chat->listForStaff($user);
-
-        return response()->json(['data' => ['items' => $items->values()->all()]]);
+        return response()->json([
+            'data' => [
+                'items' => $items->values()->all(),
+                'unread_total' => $items->sum('unread_count'),
+            ],
+        ]);
     }
 
     public function messages(Request $request, MobileChatConversation $conversation): JsonResponse
@@ -39,28 +47,32 @@ class DashboardChatController extends Controller
             ->get()
             ->map(fn (MobileChatMessage $m) => $this->chat->messagePayload($m, $user->id));
 
+        $this->chat->markConversationRead($user, $conversation);
+
         return response()->json(['data' => $messages]);
+    }
+
+    public function markRead(Request $request, MobileChatConversation $conversation): JsonResponse
+    {
+        $user = $request->user();
+        $this->chat->authorizeConversation($user, $conversation);
+        $this->chat->markConversationRead($user, $conversation);
+
+        return response()->json(['data' => ['conversation_id' => $conversation->id, 'read' => true]]);
     }
 
     public function send(Request $request, MobileChatConversation $conversation): JsonResponse
     {
         $user = $request->user();
-        $this->chat->authorizeConversation($user, $conversation);
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
-        $message = MobileChatMessage::create([
-            'conversation_id' => $conversation->id,
-            'sender_user_id' => $user->id,
-            'body' => trim($data['body']),
-        ]);
-
-        $conversation->update(['last_message_at' => now()]);
+        $message = $this->chat->sendMessage($user, $conversation, $data['body']);
 
         return response()->json([
-            'data' => $this->chat->messagePayload($message->load('sender:id,first_name,last_name,role'), $user->id),
+            'data' => $this->chat->messagePayload($message, $user->id),
         ], 201);
     }
 }

@@ -69,7 +69,7 @@ export function MessagesScreen() {
   const conversations = useQuery({
     queryKey: ['chat-conversations'],
     queryFn: fetchChatConversations,
-    refetchInterval: 15_000,
+    refetchInterval: 5_000,
   });
 
   useFocusEffect(

@@ -95,9 +95,10 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/mobile/chat/conversations/{conversation}/read', [MobileChatController::class, 'markRead']);
     Route::post('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'send']);
 
-    Route::get('/chat/conversations', [DashboardChatController::class, 'conversations'])->middleware('permission:routes.view');
-    Route::get('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'messages'])->middleware('permission:routes.view');
-    Route::post('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'send'])->middleware('permission:routes.view');
+    Route::get('/chat/conversations', [DashboardChatController::class, 'conversations']);
+    Route::get('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'messages']);
+    Route::post('/chat/conversations/{conversation}/read', [DashboardChatController::class, 'markRead']);
+    Route::post('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'send']);
 
     // Parents (admin)
     Route::get('/parents', [ParentController::class, 'index'])->middleware('permission:students.view');

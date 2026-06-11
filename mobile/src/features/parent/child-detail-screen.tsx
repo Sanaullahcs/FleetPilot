@@ -17,6 +17,7 @@ import { PhotoAvatar } from '@/components/ui/photo-avatar';
 import { Colors, RoleAccents } from '@/constants/theme';
 import { formatTimeRange } from '@/lib/format';
 import { fetchParentChildren, fetchParentTracking } from '@/lib/mobile-api';
+import { findDriverConversationForStudent } from '@/lib/chat-api';
 import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
 
 export function ChildDetailScreen() {
@@ -40,6 +41,23 @@ export function ChildDetailScreen() {
   const live = track?.tracking_status === 'in_progress';
 
   const openFullMap = () => router.push({ pathname: '/track-map', params: { studentId: child!.student.id } });
+
+  const openDriverChat = async () => {
+    if (!studentId) {
+      router.push('/messages');
+      return;
+    }
+    try {
+      const conversation = await findDriverConversationForStudent(studentId);
+      if (conversation) {
+        router.push(`/chat/${conversation.id}`);
+        return;
+      }
+    } catch {
+      // fall through to messages list
+    }
+    router.push('/messages');
+  };
 
   const callDriver = () => {
     const phone = track?.vehicle?.driver?.phone ?? child?.assigned_driver?.phone;
@@ -132,7 +150,7 @@ export function ChildDetailScreen() {
             contentContainerStyle={styles.actionsRow}
           >
             <ActionChip icon="call-outline" label="Call" onPress={callDriver} />
-            <ActionChip icon="chatbubbles-outline" label="Chat" onPress={() => router.push('/messages')} />
+            <ActionChip icon="chatbubbles-outline" label="Chat" onPress={() => void openDriverChat()} />
             <ActionChip
               icon="calendar-outline"
               label="Absence"

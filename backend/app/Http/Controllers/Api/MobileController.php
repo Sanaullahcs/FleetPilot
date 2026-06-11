@@ -8,12 +8,17 @@ use App\Models\Organization;
 use App\Models\ParentAccount;
 use App\Models\RunAssignment;
 use App\Models\Student;
+use App\Services\MobileChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class MobileController extends Controller
 {
+    public function __construct(private readonly MobileChatService $chat)
+    {
+    }
+
     public function appInfo(Request $request): JsonResponse
     {
         $org = $this->resolveOrganization($request);
@@ -106,6 +111,11 @@ class MobileController extends Controller
             $items = array_merge($items, $this->parentNotifications($user));
         }
 
+        $includeRead = $request->boolean('include_read');
+        if (in_array($user->role, ['driver', 'parent'], true)) {
+            $items = array_merge($items, $this->chat->notificationItemsForUser($user, $includeRead));
+        }
+
         $items = $this->applyReadState($user, $items);
         $unread = collect($items)->where('read', false)->count();
 
@@ -125,6 +135,11 @@ class MobileController extends Controller
     public function markNotificationRead(Request $request, string $notificationId): JsonResponse
     {
         $user = $request->user();
+
+        if ($this->chat->markChatNotificationRead($user, $notificationId)) {
+            return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+        }
+
         $meta = $user->profile_meta ?? [];
         $readIds = $meta['read_notification_ids'] ?? [];
 
@@ -150,6 +165,12 @@ class MobileController extends Controller
         if ($user->role === 'parent') {
             $items = array_merge($items, $this->parentNotifications($user));
         }
+
+        if (in_array($user->role, ['driver', 'parent'], true)) {
+            $items = array_merge($items, $this->chat->notificationItemsForUser($user, true));
+        }
+
+        $this->chat->markAllConversationsRead($user);
 
         $ids = collect($items)->pluck('id')->all();
         $meta = $user->profile_meta ?? [];

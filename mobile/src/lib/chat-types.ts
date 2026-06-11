@@ -8,6 +8,7 @@ export interface ChatConversation {
   title: string;
   subtitle: string | null;
   avatar_type: ChatAvatarType;
+  student_id?: string | null;
   last_message: {
     body: string;
     time: string;

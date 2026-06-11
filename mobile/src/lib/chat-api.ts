@@ -26,3 +26,12 @@ export function markChatConversationRead(conversationId: string) {
     { method: 'POST' },
   ).then((r) => r.data);
 }
+
+export async function findDriverConversationForStudent(studentId: string) {
+  const data = await fetchChatConversations();
+  return (
+    data.items.find((item) => item.type === 'parent_driver' && item.student_id === studentId) ??
+    data.items.find((item) => item.type === 'parent_driver') ??
+    null
+  );
+}

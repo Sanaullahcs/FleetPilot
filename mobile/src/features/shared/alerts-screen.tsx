@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { AppHeader } from '@/components/shell/app-header';
 import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 import { Card, EmptyState, StatusBadge } from '@/components/ui/primitives';
@@ -22,6 +23,7 @@ function categoryIcon(category: string): AppIconName {
   if (category === 'tracking') return 'navigate';
   if (category === 'student') return 'school';
   if (category === 'account') return 'person';
+  if (category === 'message') return 'chatbubbles';
   return 'notifications';
 }
 
@@ -29,11 +31,13 @@ function categoryColor(category: string) {
   if (category === 'compliance') return Colors.warning;
   if (category === 'tracking') return Colors.success;
   if (category === 'assignment') return Colors.primary;
+  if (category === 'message') return Colors.accent;
   return Colors.accent;
 }
 
 export function AlertsScreen() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const tabBarInset = useTabBarInset();
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -65,6 +69,7 @@ export function AlertsScreen() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['mobile-notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
     },
   });
 
@@ -91,6 +96,7 @@ export function AlertsScreen() {
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['mobile-notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
     },
   });
 
@@ -135,6 +141,14 @@ export function AlertsScreen() {
                 expanded={expandedId === item.id}
                 markingRead={markReadMutation.isPending && markReadMutation.variables === item.id}
                 onPress={() => {
+                  if (item.category === 'message' && item.conversation_id) {
+                    if (!item.read) {
+                      markReadMutation.mutate(item.id);
+                    }
+                    router.push(`/chat/${item.conversation_id}`);
+                    return;
+                  }
+
                   const opening = expandedId !== item.id;
                   setExpandedId(opening ? item.id : null);
                   if (opening && !item.read) {
@@ -193,7 +207,11 @@ function AlertCard({
         </Text>
         {!expanded ? (
           <Text style={styles.tapHint}>
-            {isUnread ? 'Tap to open and mark as read' : 'Tap to expand · swipe down to refresh'}
+            {item.category === 'message'
+              ? 'Tap to open chat'
+              : isUnread
+                ? 'Tap to open and mark as read'
+                : 'Tap to expand · swipe down to refresh'}
           </Text>
         ) : null}
       </Pressable>

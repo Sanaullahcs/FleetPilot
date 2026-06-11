@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { TabIcon } from '@/components/ui/tab-icon';
+import { ChatMessageBannerHost } from '@/components/chat/chat-message-banner';
 import { fetchMobileNotifications } from '@/lib/mobile-api';
 import { fetchChatConversations } from '@/lib/chat-api';
+import { useChatMessageNotifications } from '@/hooks/use-chat-message-notifications';
 import { useAuthStore } from '@/store/auth';
 import { getMobileRole } from '@/constants/app';
 import { tabBarStyle } from '@/components/shell/tab-bar-styles';
@@ -24,12 +26,15 @@ export default function TabLayout() {
     queryKey: ['mobile-notifications'],
     queryFn: fetchMobileNotifications,
     enabled: isAuthed,
+    refetchInterval: isAuthed ? 8_000 : false,
   });
   const chat = useQuery({
     queryKey: ['chat-conversations'],
     queryFn: fetchChatConversations,
     enabled: isAuthed,
+    refetchInterval: isAuthed ? 4_000 : false,
   });
+  useChatMessageNotifications(isAuthed);
   const unreadAlerts = notifications.data?.unread ?? 0;
   const unreadMessages = chat.data?.unread_total ?? 0;
 
@@ -46,7 +51,9 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
+    <>
+      <ChatMessageBannerHost />
+      <Tabs
       key={mobileRole}
       initialRouteName={isDriver ? 'today' : 'home'}
       screenOptions={{
@@ -118,5 +125,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }

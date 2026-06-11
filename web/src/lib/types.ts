@@ -651,6 +651,7 @@ export interface DashboardChatConversation {
     time: string;
     sender_name: string;
   } | null;
+  unread_count: number;
   updated_at: string;
 }
 

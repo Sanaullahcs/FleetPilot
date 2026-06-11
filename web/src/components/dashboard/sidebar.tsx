@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { AuthUser, UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { getRoleLabel } from "@/lib/portal";
 import { FleetPilotLogo } from "@/components/brand/logo";
 import { brand } from "@/lib/brand";
+import { listDashboardChatConversations } from "@/lib/resources";
 
 interface NavItem {
   label: string;
@@ -35,7 +38,7 @@ const platformNav: NavItem[] = [
 const operationsNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: NavIconGrid, excludeRoles: ["parent"] },
   { label: "Dispatch", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
-  { label: "Messages", href: "/dashboard/messages", permission: "routes.view", icon: NavIconMessages },
+  { label: "Messages", href: "/dashboard/messages", roles: ["admin", "dispatcher", "school_contact"], icon: NavIconMessages },
   { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
   {
     label: "Students",
@@ -64,7 +67,7 @@ const adminNav: NavItem[] = [
 
 function canSee(user: AuthUser, item: NavItem): boolean {
   if (user.role === "super_admin") return true;
-  if (item.roles?.length && !item.roles.includes(user.role)) return false;
+  if (item.roles?.length && !item.roles.includes(user.role) && user.role !== "admin") return false;
   if (item.excludeRoles?.includes(user.role)) return false;
   if (!item.permission) return true;
   if (user.role === "admin") return true;
@@ -77,12 +80,14 @@ function NavSection({
   user,
   pathname,
   onNavigate,
+  badges,
 }: {
   title?: string;
   items: NavItem[];
   user: AuthUser;
   pathname: string;
   onNavigate?: () => void;
+  badges?: Record<string, number>;
 }) {
   const visible = items.filter((item) => canSee(user, item));
   if (!visible.length) return null;
@@ -129,6 +134,11 @@ function NavSection({
               <Icon />
             </span>
             <span className="truncate">{item.label}</span>
+            {badges?.[item.href] && badges[item.href] > 0 ? (
+              <span className="ml-auto rounded-full bg-brand-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                {badges[item.href] > 99 ? "99+" : badges[item.href]}
+              </span>
+            ) : null}
           </Link>
         );
       })}
@@ -178,6 +188,19 @@ function SidebarInner({
   const isSuperAdmin = user.role === "super_admin";
   const isParent = user.role === "parent";
   const isDriver = user.role === "driver";
+  const canUseChat = ["admin", "dispatcher", "school_contact"].includes(user.role);
+  const chatQuery = useQuery({
+    queryKey: ["dashboard-chat-conversations"],
+    queryFn: listDashboardChatConversations,
+    enabled: canUseChat,
+    refetchInterval: canUseChat ? 8_000 : false,
+  });
+  const navBadges = useMemo(
+    () => ({
+      "/dashboard/messages": chatQuery.data?.unread_total ?? 0,
+    }),
+    [chatQuery.data?.unread_total],
+  );
   const nav = isSuperAdmin ? (
     <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} />
   ) : isParent ? (
@@ -186,7 +209,13 @@ function SidebarInner({
     <NavSection items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} />
   ) : (
     <>
-      <NavSection items={operationsNav} user={user} pathname={pathname} onNavigate={onNavigate} />
+      <NavSection
+        items={operationsNav}
+        user={user}
+        pathname={pathname}
+        onNavigate={onNavigate}
+        badges={navBadges}
+      />
       <NavSection title="Administration" items={adminNav} user={user} pathname={pathname} onNavigate={onNavigate} />
     </>
   );

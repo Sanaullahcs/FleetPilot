@@ -9,9 +9,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth';
-import { fetchMe, logout } from '@/lib/auth-api';
+import { fetchMe, signOut } from '@/lib/auth-api';
 import { FleetPilotLogoMark } from '@/components/brand/logo-mark';
 
 const roleAccent = (role?: string) => {
@@ -29,25 +31,26 @@ const roleLabel = (role?: string) => {
 export function HomeScreen() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const clear = useAuthStore((s) => s.clear);
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetchMe()
       .then((profile) => {
         if (!isMobileRole(profile.role)) {
-          logout().finally(() => clear());
+          signOut({ queryClient }).finally(() => router.replace('/sign-in'));
           return;
         }
         setUser(profile);
       })
       .catch(() => {});
-  }, [setUser, clear]);
+  }, [setUser, queryClient, router]);
 
   const accent = roleAccent(user?.role);
 
   const onLogout = async () => {
-    await logout();
-    await clear();
+    await signOut({ queryClient });
+    router.replace('/sign-in');
   };
 
   return (

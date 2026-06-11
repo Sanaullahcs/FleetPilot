@@ -1,9 +1,10 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@/components/ui/icons';
 import { AppHeader } from '@/components/shell/app-header';
+import { KeyboardFormScreen } from '@/components/ui/keyboard-form-screen';
 import { Card, PrimaryButton } from '@/components/ui/primitives';
 import { Colors, RoleAccents } from '@/constants/theme';
 import { ui } from '@/constants/ui-styles';
@@ -20,6 +21,7 @@ type PickerKind = 'relationship' | 'state' | null;
 export function EditProfileScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const scrollRef = useRef<ScrollView>(null);
   const storedUser = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const isDriver = storedUser?.role === 'driver';
@@ -166,7 +168,7 @@ export function EditProfileScreen() {
   return (
     <View style={styles.root}>
       <AppHeader title="Edit profile" subtitle="Update your account details" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardFormScreen scrollRef={scrollRef} contentContainerStyle={styles.scroll}>
         {loading ? <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} /> : null}
 
         {error ? (
@@ -239,7 +241,7 @@ export function EditProfileScreen() {
           onPress={() => save.mutate()}
           disabled={save.isPending}
         />
-      </ScrollView>
+      </KeyboardFormScreen>
 
       {picker ? (
         <View style={styles.pickerOverlay}>

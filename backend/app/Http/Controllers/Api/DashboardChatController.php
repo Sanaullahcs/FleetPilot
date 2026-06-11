@@ -9,7 +9,7 @@ use App\Services\MobileChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class MobileChatController extends Controller
+class DashboardChatController extends Controller
 {
     public function __construct(private readonly MobileChatService $chat)
     {
@@ -18,15 +18,13 @@ class MobileChatController extends Controller
     public function conversations(Request $request): JsonResponse
     {
         $user = $request->user();
-        $items = $this->chat->listForUser($user);
-        $unread = $items->sum('unread_count');
+        if (! in_array($user->role, ['admin', 'dispatcher'], true)) {
+            abort(403);
+        }
 
-        return response()->json([
-            'data' => [
-                'items' => $items->values()->all(),
-                'unread_total' => $unread,
-            ],
-        ]);
+        $items = $this->chat->listForStaff($user);
+
+        return response()->json(['data' => ['items' => $items->values()->all()]]);
     }
 
     public function messages(Request $request, MobileChatConversation $conversation): JsonResponse
@@ -41,18 +39,7 @@ class MobileChatController extends Controller
             ->get()
             ->map(fn (MobileChatMessage $m) => $this->chat->messagePayload($m, $user->id));
 
-        $this->chat->markConversationRead($user, $conversation);
-
         return response()->json(['data' => $messages]);
-    }
-
-    public function markRead(Request $request, MobileChatConversation $conversation): JsonResponse
-    {
-        $user = $request->user();
-        $this->chat->authorizeConversation($user, $conversation);
-        $this->chat->markConversationRead($user, $conversation);
-
-        return response()->json(['data' => ['conversation_id' => $conversation->id, 'read' => true]]);
     }
 
     public function send(Request $request, MobileChatConversation $conversation): JsonResponse

@@ -6,11 +6,13 @@ import { createCaptchaChallenge, isCaptchaAnswerValid, type CaptchaChallenge } f
 
 export function CaptchaField({
   onValidChange,
+  onFocus,
   resetKey = 0,
   compact = false,
   error,
 }: {
   onValidChange: (valid: boolean) => void;
+  onFocus?: () => void;
   resetKey?: number | string;
   compact?: boolean;
   /** Parent validation message (e.g. on submit when empty or wrong). */
@@ -61,6 +63,7 @@ export function CaptchaField({
         <TextInput
           value={value}
           onChangeText={setValue}
+          onFocus={onFocus}
           onBlur={() => setTouched(true)}
           keyboardType="number-pad"
           placeholder="Answer"

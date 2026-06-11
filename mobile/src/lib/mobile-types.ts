@@ -99,7 +99,7 @@ export interface ParentTrackItem {
   student_id: string;
   student_name: string;
   tracking_status: string;
-  school: { id: string; name: string; code: string } | null;
+  school: { id: string; name: string; code: string; latitude?: number | null; longitude?: number | null } | null;
   run: {
     id: string;
     name: string;

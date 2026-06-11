@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,18 +10,19 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@/components/ui/icons';
 import { AppHeader } from '@/components/shell/app-header';
-import { Card } from '@/components/ui/primitives';
+import { KeyboardFormScreen } from '@/components/ui/keyboard-form-screen';import { Card } from '@/components/ui/primitives';
 import { IconListItem } from '@/components/ui/icon-list-item';
 import { ui } from '@/constants/ui-styles';
 import { Colors } from '@/constants/theme';
-import { deleteAccount } from '@/lib/auth-api';
+import { useQueryClient } from '@tanstack/react-query';
+import { deleteAccount, signOut } from '@/lib/auth-api';
 import { ApiError } from '@/lib/api';
 import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
 import { useAuthStore } from '@/store/auth';
 
 export function DeleteAccountScreen() {
   const router = useRouter();
-  const clear = useAuthStore((s) => s.clear);
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -40,7 +40,8 @@ export function DeleteAccountScreen() {
         setSubmitting(true);
         try {
           await deleteAccount(password);
-          await clear();
+          await signOut({ queryClient });
+          router.replace('/sign-in');
           showSweetAlert({ type: 'success', title: 'Account deleted', message: 'Your account has been permanently removed.' });
         } catch (e) {
           if (e instanceof ApiError) {
@@ -61,8 +62,7 @@ export function DeleteAccountScreen() {
   return (
     <View style={styles.root}>
       <AppHeader title="Delete account" subtitle="Permanent account removal" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Card style={styles.warning}>
+      <KeyboardFormScreen contentContainerStyle={styles.scroll}>        <Card style={styles.warning}>
           <View style={styles.warningRow}>
             <Ionicons name="warning-outline" size={22} color={Colors.danger} />
             <Text style={styles.warningTitle}>This action is permanent</Text>
@@ -127,11 +127,10 @@ export function DeleteAccountScreen() {
         <Pressable onPress={() => router.push({ pathname: '/legal/[document]', params: { document: 'account-deletion' } })}>
           <Text style={styles.policyLink}>Read the full Account Deletion Policy</Text>
         </Pressable>
-      </ScrollView>
+      </KeyboardFormScreen>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.backgroundElement },
   scroll: { padding: 18, paddingBottom: 40, gap: 14 },

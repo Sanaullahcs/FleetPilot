@@ -19,3 +19,10 @@ export function sendChatMessage(conversationId: string, body: string) {
     body: { body },
   }).then((r) => r.data);
 }
+
+export function markChatConversationRead(conversationId: string) {
+  return apiRequest<{ data: { conversation_id: string; read: boolean } }>(
+    `/mobile/chat/conversations/${conversationId}/read`,
+    { method: 'POST' },
+  ).then((r) => r.data);
+}

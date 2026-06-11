@@ -2,6 +2,8 @@ import { api } from "@/lib/api";
 import type {
   AdminRole,
   AdminUser,
+  DashboardChatConversation,
+  DashboardChatMessage,
   DashboardAnalytics,
   DashboardNotifications,
   DashboardStats,
@@ -541,6 +543,23 @@ export async function updateRolePermissions(roleId: string, permissionIds: strin
     permission_ids: permissionIds,
   });
   return data;
+}
+
+export async function listDashboardChatConversations() {
+  const { data } = await api.get<{ data: { items: DashboardChatConversation[] } }>("/chat/conversations");
+  return data.data.items;
+}
+
+export async function listDashboardChatMessages(conversationId: string) {
+  const { data } = await api.get<{ data: DashboardChatMessage[] }>(`/chat/conversations/${conversationId}/messages`);
+  return data.data;
+}
+
+export async function sendDashboardChatMessage(conversationId: string, body: string) {
+  const { data } = await api.post<{ data: DashboardChatMessage }>(`/chat/conversations/${conversationId}/messages`, {
+    body,
+  });
+  return data.data;
 }
 
 export const USER_ROLES: { label: string; value: UserRole }[] = [

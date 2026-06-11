@@ -15,6 +15,19 @@ export function fetchMobileNotifications() {
   ).then((r) => r.data);
 }
 
+export function markNotificationRead(notificationId: string) {
+  return apiRequest<{ data: { id: string; read: boolean } }>(
+    `/mobile/notifications/${encodeURIComponent(notificationId)}/read`,
+    { method: 'POST' },
+  ).then((r) => r.data);
+}
+
+export function markAllNotificationsRead() {
+  return apiRequest<{ data: { marked: number } }>('/mobile/notifications/read-all', {
+    method: 'POST',
+  }).then((r) => r.data);
+}
+
 export function fetchDriverToday() {
   return apiRequest<{ data: DriverTodayPayload }>('/driver/runs/today').then((r) => r.data);
 }

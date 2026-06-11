@@ -22,8 +22,13 @@ export function SweetAlertHost() {
   };
 
   const confirm = () => {
-    state.onConfirm?.();
-    state.hide();
+    void (async () => {
+      try {
+        await state.onConfirm?.();
+      } finally {
+        state.hide();
+      }
+    })();
   };
 
   return (

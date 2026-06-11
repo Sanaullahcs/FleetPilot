@@ -2,8 +2,9 @@
   "expo": {
     "name": "FleetPilot",
     "slug": "fleetpilot-mobile",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
+    "newArchEnabled": false,
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "light",
@@ -15,13 +16,15 @@
       }
     },
     "android": {
+      "package": "com.fleetpilot.mobile",
+      "versionCode": 3,
+      "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "userInterfaceStyle": "light",
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "avdId": "Pixel_7_Pro_API_34",
       "queries": [
@@ -73,11 +76,20 @@
         {
           "locationWhenInUsePermission": "FleetPilot uses your location to show turn-by-turn navigation to each stop."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "edgeToEdgeEnabled": false
+          },
+          "newArchEnabled": false
+        }
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     }
   }
 }

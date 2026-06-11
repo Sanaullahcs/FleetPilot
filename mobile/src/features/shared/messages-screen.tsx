@@ -1,12 +1,14 @@
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AppHeader } from '@/components/shell/app-header';
 import { EmptyState, PressableCard, SectionHeader } from '@/components/ui/primitives';
 import { PhotoAvatar } from '@/components/ui/photo-avatar';
 import { Colors } from '@/constants/theme';
 import { fetchChatConversations } from '@/lib/chat-api';
 import type { ChatAvatarType, ChatConversation } from '@/lib/chat-types';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useAuthStore } from '@/store/auth';
 
 function avatarVariant(type: ChatAvatarType): 'person' | 'bus' | 'school' {
@@ -57,9 +59,12 @@ function ConversationRow({ item, onPress }: { item: ChatConversation; onPress: (
 }
 
 export function MessagesScreen() {
+  const tabBarInset = useTabBarInset();
   const user = useAuthStore((s) => s.user);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isDriver = user?.role === 'driver';
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   const conversations = useQuery({
     queryKey: ['chat-conversations'],
@@ -67,25 +72,40 @@ export function MessagesScreen() {
     refetchInterval: 15_000,
   });
 
+  useFocusEffect(
+    useCallback(() => {
+      void queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+    }, [queryClient]),
+  );
+
   const openThread = (id: string) => {
     router.push({ pathname: '/chat/[conversationId]', params: { conversationId: id } });
+  };
+
+  const onRefresh = async () => {
+    setPullRefreshing(true);
+    try {
+      await conversations.refetch();
+    } finally {
+      setPullRefreshing(false);
+    }
   };
 
   return (
     <View style={styles.root}>
       <AppHeader
         title="Messages"
-        subtitle={isDriver ? 'Dispatch support & updates' : 'Drivers, school & support'}
+        subtitle={isDriver ? 'Parents on your route & dispatch support' : 'Drivers, school & support'}
       />
       <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={conversations.isFetching} onRefresh={() => conversations.refetch()} />}
+        contentContainerStyle={[styles.scroll, { paddingBottom: tabBarInset + 16 }]}
+        refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onRefresh} />}
       >
         <SectionHeader
           title="Conversations"
           subtitle={
             isDriver
-              ? 'Chat with dispatch for route help and technical support'
+              ? 'Chat with parents on your route and dispatch support'
               : 'Message your driver, school office, or FleetPilot support'
           }
         />

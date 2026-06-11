@@ -1,6 +1,6 @@
 export type ChatConversationType = 'driver_support' | 'parent_driver' | 'parent_school';
 
-export type ChatAvatarType = 'support' | 'driver' | 'school';
+export type ChatAvatarType = 'support' | 'driver' | 'school' | 'parent';
 
 export interface ChatConversation {
   id: string;

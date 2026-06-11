@@ -30,6 +30,7 @@ const platformNav: NavItem[] = [
 const operationsNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: NavIconGrid, excludeRoles: ["parent"] },
   { label: "Dispatch", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
+  { label: "Messages", href: "/dashboard/messages", permission: "routes.view", icon: NavIconMessages },
   { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
   {
     label: "Students",
@@ -348,6 +349,13 @@ function NavIconDispatch() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M2 6h12M5 9h2M9 9h2M5 11.5h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconMessages() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1H5l-2.5 2v-2.5a1 1 0 01-1-1v-4.5a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   );
 }

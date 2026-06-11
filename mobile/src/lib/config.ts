@@ -22,6 +22,11 @@ function resolveDevMachineHost(): string | null {
 }
 
 function resolveApiUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+
   // Android emulator reaches the host machine via 10.0.2.2, not LAN IP.
   if (Platform.OS === 'android' && !Device.isDevice) {
     return 'http://10.0.2.2:8000/api/v1';
@@ -34,9 +39,9 @@ function resolveApiUrl(): string {
     return `http://${devHost}:8000/api/v1`;
   }
 
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    return envUrl;
+  // Standalone release builds on a physical device must not use the emulator loopback.
+  if (Platform.OS === 'android' && Device.isDevice) {
+    return 'http://192.168.100.212:8000/api/v1';
   }
 
   if (Platform.OS === 'android') {

@@ -24,13 +24,24 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       const userJson = await SecureStore.getItemAsync(USER_KEY);
+      let user: AuthUser | null = null;
+
+      if (userJson) {
+        try {
+          user = JSON.parse(userJson) as AuthUser;
+        } catch {
+          await SecureStore.deleteItemAsync(USER_KEY);
+          user = null;
+        }
+      }
+
       set({
         token: token ?? null,
-        user: userJson ? (JSON.parse(userJson) as AuthUser) : null,
+        user,
         loading: false,
       });
     } catch {
-      set({ loading: false });
+      set({ token: null, user: null, loading: false });
     }
   },
 

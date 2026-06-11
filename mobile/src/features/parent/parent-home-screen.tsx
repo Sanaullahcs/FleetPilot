@@ -1,4 +1,5 @@
 import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Ionicons, type IconName } from '@/components/ui/icons';
@@ -9,8 +10,9 @@ import { IconListItem } from '@/components/ui/icon-list-item';
 import { AppIcon } from '@/components/ui/app-icon';
 import { Colors, RoleAccents } from '@/constants/theme';
 import { fetchMobileNotifications, fetchParentChildren } from '@/lib/mobile-api';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useAuthStore } from '@/store/auth';
-import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
+import { showConfirmAlert } from '@/store/sweet-alert';
 
 import type { ParentChildItem } from '@/lib/mobile-types';
 
@@ -23,14 +25,28 @@ function childStatus(item: ParentChildItem) {
 }
 
 export function ParentHomeScreen() {
+  const tabBarInset = useTabBarInset();
   const user = useAuthStore((s) => s.user);
   const router = useRouter();
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const refreshLock = useRef(false);
   const notifications = useQuery({ queryKey: ['mobile-notifications'], queryFn: fetchMobileNotifications });
   const children = useQuery({ queryKey: ['parent-children'], queryFn: fetchParentChildren });
 
-  const openChild = (studentId: string, name: string) => {
-    showSweetAlert({ type: 'info', title: 'Opening profile', message: `Loading details for ${name}.` });
+  const openChild = (studentId: string) => {
     router.push({ pathname: '/child/[studentId]', params: { studentId } });
+  };
+
+  const onRefresh = async () => {
+    if (refreshLock.current) return;
+    refreshLock.current = true;
+    setPullRefreshing(true);
+    try {
+      await Promise.all([children.refetch(), notifications.refetch()]);
+    } finally {
+      refreshLock.current = false;
+      setPullRefreshing(false);
+    }
   };
 
   return (
@@ -42,16 +58,8 @@ export function ParentHomeScreen() {
         onAlertsPress={() => router.push('/alerts')}
       />
       <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={children.isFetching}
-            onRefresh={() => {
-              children.refetch();
-              showSweetAlert({ type: 'success', title: 'Refreshed', message: 'Latest student data loaded.' });
-            }}
-          />
-        }
+        contentContainerStyle={[styles.scroll, { paddingBottom: tabBarInset + 16 }]}
+        refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onRefresh} />}
       >
         <SectionHeader title="My children" subtitle="Tap a child for details and live status" />
 
@@ -85,7 +93,7 @@ export function ParentHomeScreen() {
               <PressableCard
                 key={item.student.id}
                 style={styles.childCard}
-                onPress={() => openChild(item.student.id, name)}
+                onPress={() => openChild(item.student.id)}
               >
                 <View style={styles.childRow}>
                   <PhotoAvatar name={name} size={52} seed={item.student.id} />

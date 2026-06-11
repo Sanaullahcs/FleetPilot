@@ -559,3 +559,30 @@ export interface PermissionGroup {
   resource: string;
   permissions: { id: string; name: string; slug: string; resource: string; action: string }[];
 }
+
+export interface DashboardChatConversation {
+  id: string;
+  type: "driver_support" | "parent_driver" | "parent_school";
+  title: string;
+  subtitle: string | null;
+  participants: { name: string; role: string }[];
+  last_message: {
+    body: string;
+    time: string;
+    sender_name: string;
+  } | null;
+  updated_at: string;
+}
+
+export interface DashboardChatMessage {
+  id: string;
+  body: string;
+  is_system: boolean;
+  is_mine: boolean;
+  time: string;
+  sender: {
+    id: string | null;
+    name: string;
+    role: string;
+  };
+}

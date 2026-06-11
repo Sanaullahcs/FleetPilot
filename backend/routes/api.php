@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DispatchController;
+use App\Http\Controllers\Api\DashboardChatController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\FleetRadarController;
 use App\Http\Controllers\Api\DriverController;
@@ -85,10 +86,17 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/driver/assignments/{assignment}/start', [DriverPortalController::class, 'startAssignment']);
     Route::post('/driver/assignments/{assignment}/stops/{runStop}/complete', [DriverPortalController::class, 'completeStop']);
     Route::get('/mobile/notifications', [MobileController::class, 'notifications']);
+    Route::post('/mobile/notifications/read-all', [MobileController::class, 'markAllNotificationsRead']);
+    Route::post('/mobile/notifications/{notificationId}/read', [MobileController::class, 'markNotificationRead']);
     Route::get('/mobile/support', [MobileController::class, 'support']);
     Route::get('/mobile/chat/conversations', [MobileChatController::class, 'conversations']);
     Route::get('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'messages']);
+    Route::post('/mobile/chat/conversations/{conversation}/read', [MobileChatController::class, 'markRead']);
     Route::post('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'send']);
+
+    Route::get('/chat/conversations', [DashboardChatController::class, 'conversations'])->middleware('permission:routes.view');
+    Route::get('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'messages'])->middleware('permission:routes.view');
+    Route::post('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'send'])->middleware('permission:routes.view');
 
     // Parents (admin)
     Route::get('/parents', [ParentController::class, 'index'])->middleware('permission:students.view');

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter, useSegments } from 'expo-router';
 import { Ionicons } from '@/components/ui/icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FleetPilotLogoMark } from '@/components/brand/logo-mark';
@@ -11,21 +12,31 @@ export function AppHeader({
   unread = 0,
   onAlertsPress,
   onBackPress,
+  showBack,
 }: {
   title: string;
   subtitle?: string;
   unread?: number;
   onAlertsPress?: () => void;
   onBackPress?: () => void;
+  /** Force show/hide back button. Defaults to auto on non-tab screens. */
+  showBack?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
+  const router = useRouter();
+  const segments = useSegments();
+  const onTabRoot = segments[0] === '(tabs)';
+  const canGoBack = router.canGoBack();
+  const autoBack = !onTabRoot && canGoBack;
+  const shouldShowBack = showBack ?? (onBackPress ? true : autoBack);
+  const handleBack = onBackPress ?? (autoBack ? () => router.back() : undefined);
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + 8 }]}>
       <View style={styles.row}>
-        {onBackPress ? (
-          <Pressable style={styles.backBtn} onPress={onBackPress} hitSlop={8}>
+        {shouldShowBack && handleBack ? (
+          <Pressable style={styles.backBtn} onPress={handleBack} hitSlop={8} accessibilityLabel="Go back">
             <Ionicons name="chevron-back" size={22} color={Colors.secondary} />
           </Pressable>
         ) : (

@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Ionicons } from '@/components/ui/icons';
@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/shell/app-header';
 import { Card, ListRow, StatusBadge } from '@/components/ui/primitives';
 import { PhotoAvatar } from '@/components/ui/photo-avatar';
 import { Colors, RoleAccents } from '@/constants/theme';
-import { logout, fetchMe } from '@/lib/auth-api';
+import { fetchMe, signOut } from '@/lib/auth-api';
 import { fetchDriverProfile } from '@/lib/mobile-api';
 import { useAuthStore } from '@/store/auth';
 import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
@@ -15,8 +15,8 @@ import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
 export function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const clear = useAuthStore((s) => s.clear);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isDriver = user?.role === 'driver';
   const accent = isDriver ? RoleAccents.driver : RoleAccents.parent;
 
@@ -42,9 +42,8 @@ export function ProfileScreen() {
 
   const onLogout = () => {
     showConfirmAlert('Sign out?', 'You will need to sign in again to access the app.', async () => {
-      await logout();
-      await clear();
-      showSweetAlert({ type: 'success', title: 'Signed out', message: 'See you next time.' });
+      await signOut({ queryClient });
+      router.replace('/sign-in');
     }, { confirmText: 'Sign out' });
   };
 

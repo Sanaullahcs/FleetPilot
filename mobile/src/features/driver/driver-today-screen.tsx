@@ -10,6 +10,7 @@ import { fetchChatConversations } from '@/lib/chat-api';
 import { formatRunDirection, formatRunStatus, formatTime } from '@/lib/format';
 import { fetchDriverToday, fetchMobileNotifications } from '@/lib/mobile-api';
 import type { DriverTodayPayload } from '@/lib/mobile-types';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useAuthStore } from '@/store/auth';
 
 type RunItem = DriverTodayPayload['runs'][number];
@@ -32,6 +33,7 @@ function runActionIcon(): IconName {
 }
 
 export function DriverTodayScreen() {
+  const tabBarInset = useTabBarInset();
   const user = useAuthStore((s) => s.user);
   const router = useRouter();
 
@@ -62,7 +64,7 @@ export function DriverTodayScreen() {
         onAlertsPress={() => router.push('/alerts')}
       />
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: tabBarInset + 16 }]}
         refreshControl={<RefreshControl refreshing={today.isFetching && !today.isLoading} onRefresh={onRefresh} />}
       >
         <View style={styles.hubRow}>

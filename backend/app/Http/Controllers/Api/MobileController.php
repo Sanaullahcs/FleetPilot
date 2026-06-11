@@ -106,13 +106,72 @@ class MobileController extends Controller
             $items = array_merge($items, $this->parentNotifications($user));
         }
 
+        $items = $this->applyReadState($user, $items);
+        $unread = collect($items)->where('read', false)->count();
+
+        if (! $request->boolean('include_read')) {
+            $items = array_values(array_filter($items, fn (array $item) => ! $item['read']));
+        }
+
         return response()->json([
             'data' => [
                 'items' => $items,
                 'total' => count($items),
-                'unread' => collect($items)->where('read', false)->count(),
+                'unread' => $unread,
             ],
         ]);
+    }
+
+    public function markNotificationRead(Request $request, string $notificationId): JsonResponse
+    {
+        $user = $request->user();
+        $meta = $user->profile_meta ?? [];
+        $readIds = $meta['read_notification_ids'] ?? [];
+
+        if (! in_array($notificationId, $readIds, true)) {
+            $readIds[] = $notificationId;
+        }
+
+        $meta['read_notification_ids'] = array_values($readIds);
+        $user->update(['profile_meta' => $meta]);
+
+        return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+    }
+
+    public function markAllNotificationsRead(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $items = [];
+
+        if ($user->role === 'driver') {
+            $items = array_merge($items, $this->driverNotifications($user));
+        }
+
+        if ($user->role === 'parent') {
+            $items = array_merge($items, $this->parentNotifications($user));
+        }
+
+        $ids = collect($items)->pluck('id')->all();
+        $meta = $user->profile_meta ?? [];
+        $meta['read_notification_ids'] = array_values(array_unique(array_merge($meta['read_notification_ids'] ?? [], $ids)));
+        $user->update(['profile_meta' => $meta]);
+
+        return response()->json(['data' => ['marked' => count($ids)]]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function applyReadState($user, array $items): array
+    {
+        $readIds = $user->profile_meta['read_notification_ids'] ?? [];
+
+        return array_map(function (array $item) use ($readIds) {
+            $item['read'] = in_array($item['id'], $readIds, true) || ($item['read'] ?? false);
+
+            return $item;
+        }, $items);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppDevice;
 use App\Models\Driver;
 use App\Models\Organization;
 use App\Models\ParentAccount;
@@ -94,6 +95,61 @@ class MobileController extends Controller
                         'answer' => 'Open Profile → Delete account. You will need your password. Deletion is permanent for app access.',
                     ],
                 ],
+            ],
+        ]);
+    }
+
+    public function registerDevice(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'device_token' => ['required', 'string', 'max:500'],
+            'device_type' => ['required', 'in:ios,android,web'],
+            'device_name' => ['nullable', 'string', 'max:120'],
+            'app_version' => ['nullable', 'string', 'max:20'],
+            'os_version' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $device = AppDevice::query()->updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'device_token' => $data['device_token'],
+            ],
+            [
+                'device_type' => $data['device_type'],
+                'device_name' => $data['device_name'] ?? null,
+                'app_version' => $data['app_version'] ?? null,
+                'os_version' => $data['os_version'] ?? null,
+                'is_active' => true,
+                'last_used_at' => now(),
+            ],
+        );
+
+        return response()->json([
+            'data' => [
+                'id' => $device->id,
+                'registered' => true,
+            ],
+        ]);
+    }
+
+    public function unregisterDevice(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'device_token' => ['required', 'string', 'max:500'],
+        ]);
+
+        AppDevice::query()
+            ->where('user_id', $user->id)
+            ->where('device_token', $data['device_token'])
+            ->update(['is_active' => false]);
+
+        return response()->json([
+            'data' => [
+                'unregistered' => true,
             ],
         ]);
     }

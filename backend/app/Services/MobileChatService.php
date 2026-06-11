@@ -15,6 +15,10 @@ use Illuminate\Support\Str;
 
 class MobileChatService
 {
+    public function __construct(private readonly ExpoPushService $push)
+    {
+    }
+
     public function ensureConversations(User $user): void
     {
         if ($user->role === 'driver') {
@@ -119,7 +123,62 @@ class MobileChatService
 
         $conversation->update(['last_message_at' => now()]);
 
-        return $message->load('sender:id,first_name,last_name,role');
+        $message->load('sender:id,first_name,last_name,role');
+        $this->notifyMessageRecipients($conversation, $message, $user);
+
+        return $message;
+    }
+
+    private function notifyMessageRecipients(
+        MobileChatConversation $conversation,
+        MobileChatMessage $message,
+        User $sender,
+    ): void {
+        $recipientIds = collect($conversation->participant_user_ids ?? [])
+            ->filter(fn (string $id) => $id !== $sender->id)
+            ->values();
+
+        if ($recipientIds->isEmpty()) {
+            return;
+        }
+
+        $senderName = trim("{$sender->first_name} {$sender->last_name}") ?: 'New message';
+
+        User::query()
+            ->whereIn('id', $recipientIds)
+            ->get()
+            ->each(function (User $recipient) use ($conversation, $message, $sender, $senderName) {
+                if (! $this->pushEnabledForUser($recipient)) {
+                    return;
+                }
+
+                [$title] = $this->resolveConversationDisplay($conversation, $recipient);
+
+                $this->push->sendToUser($recipient, [
+                    'title' => $senderName,
+                    'body' => Str::limit($message->body, 160),
+                    'data' => [
+                        'type' => 'chat_message',
+                        'click_action' => 'open_chat',
+                        'conversation_id' => $conversation->id,
+                        'thread_title' => $title,
+                    ],
+                ]);
+            });
+    }
+
+    private function pushEnabledForUser(User $user): bool
+    {
+        if ($user->role === 'parent') {
+            $account = ParentAccount::query()->where('user_id', $user->id)->first();
+            $prefs = $account?->notification_preferences ?? [];
+
+            return ($prefs['push'] ?? true) === true;
+        }
+
+        $prefs = $user->profile_meta['notification_preferences'] ?? [];
+
+        return ($prefs['push'] ?? true) === true;
     }
 
     /**

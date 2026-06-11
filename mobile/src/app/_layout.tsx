@@ -15,6 +15,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '@/store/auth';
 import { SweetAlertHost } from '@/components/ui/sweet-alert-host';
 import { AppSplashScreen } from '@/components/splash/app-splash-screen';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { Colors } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -44,6 +45,14 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
     }
     return this.props.children;
   }
+}
+
+function PushNotificationBootstrap() {
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const enabled = !!(token && user && (user.role === 'driver' || user.role === 'parent'));
+  usePushNotifications(enabled);
+  return null;
 }
 
 function AppRoot() {
@@ -79,6 +88,7 @@ function AppRoot() {
 
   return (
     <View style={styles.appRoot}>
+      <PushNotificationBootstrap />
       <Stack screenOptions={{ headerShown: false }} />
       {showOverlay ? (
         <View style={styles.splashOverlay} pointerEvents="auto">

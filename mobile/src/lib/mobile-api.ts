@@ -30,6 +30,26 @@ export function markAllNotificationsRead() {
   }).then((r) => r.data);
 }
 
+export function registerMobileDevice(payload: {
+  device_token: string;
+  device_type: 'ios' | 'android' | 'web';
+  device_name?: string;
+  app_version?: string;
+  os_version?: string;
+}) {
+  return apiRequest<{ data: { id: string; registered: boolean } }>('/mobile/devices', {
+    method: 'POST',
+    body: payload,
+  }).then((r) => r.data);
+}
+
+export function unregisterMobileDevice(deviceToken: string) {
+  return apiRequest<{ data: { unregistered: boolean } }>('/mobile/devices', {
+    method: 'DELETE',
+    body: { device_token: deviceToken },
+  }).then((r) => r.data);
+}
+
 export function fetchDriverToday() {
   return apiRequest<{ data: DriverTodayPayload }>('/driver/runs/today').then((r) => r.data);
 }

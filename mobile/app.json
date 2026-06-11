@@ -86,6 +86,14 @@
           },
           "newArchEnabled": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#4F5BA9",
+          "defaultChannel": "messages"
+        }
       ]
     ],
     "experiments": {

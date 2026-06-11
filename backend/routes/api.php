@@ -87,6 +87,8 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/driver/assignments/{assignment}/start', [DriverPortalController::class, 'startAssignment']);
     Route::post('/driver/assignments/{assignment}/stops/{runStop}/complete', [DriverPortalController::class, 'completeStop']);
     Route::get('/mobile/notifications', [MobileController::class, 'notifications']);
+    Route::post('/mobile/devices', [MobileController::class, 'registerDevice']);
+    Route::delete('/mobile/devices', [MobileController::class, 'unregisterDevice']);
     Route::post('/mobile/notifications/read-all', [MobileController::class, 'markAllNotificationsRead']);
     Route::post('/mobile/notifications/{notificationId}/read', [MobileController::class, 'markNotificationRead']);
     Route::get('/mobile/support', [MobileController::class, 'support']);

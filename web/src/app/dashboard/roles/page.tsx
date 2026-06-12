@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PageHeader, Button, Badge, Spinner } from "@/components/ui/primitives";
+import { PageHeader, Button, Badge, Spinner, SearchInput } from "@/components/ui/primitives";
+import { RolesStatRow } from "@/components/dashboard/resource-stat-rows";
 import { PageState } from "@/components/ui/page-state";
 import { toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
@@ -13,6 +14,7 @@ import { cn, titleCase } from "@/lib/utils";
 export default function RolesPage() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
   const { data: roles, isLoading, isError, error, refetch } = useQuery({
@@ -26,6 +28,17 @@ export default function RolesPage() {
   });
 
   const selected = roles?.find((r) => r.id === selectedId) ?? null;
+
+  const filteredRoles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return roles ?? [];
+    return (roles ?? []).filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        r.slug.toLowerCase().includes(q) ||
+        titleCase(r.slug.replace(/_/g, " ")).toLowerCase().includes(q),
+    );
+  }, [roles, search]);
 
   useEffect(() => {
     if (roles?.length && !selectedId) setSelectedId(roles[0].id);
@@ -64,12 +77,30 @@ export default function RolesPage() {
     });
   };
 
+  const permissionCount = useMemo(
+    () => (groups ?? []).reduce((sum, g) => sum + (g.permissions?.length ?? 0), 0),
+    [groups],
+  );
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Roles & permissions"
         description="Configure what each role can view, create, update, or delete across FleetPilot."
       />
+
+      <RolesStatRow
+        roleCount={roles?.length ?? 0}
+        permissionCount={permissionCount}
+        selectedPermissionCount={checked.size}
+        groupCount={groups?.length ?? 0}
+        isLoading={isLoading || loadingPerms}
+      />
+
+      <div className="fp-card p-4">
+        <label className="fp-label mb-1.5 block">Search roles</label>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search by role name…" />
+      </div>
 
       <PageState
         isLoading={isLoading}
@@ -85,7 +116,7 @@ export default function RolesPage() {
             <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Roles</p>
             </div>
-            {roles?.map((role) => (
+            {filteredRoles.map((role) => (
               <RoleListItem
                 key={role.id}
                 role={role}

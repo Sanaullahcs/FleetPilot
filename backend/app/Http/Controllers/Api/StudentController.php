@@ -57,6 +57,39 @@ class StudentController extends Controller
         return response()->json($students);
     }
 
+    public function stats(Request $request): JsonResponse
+    {
+        $orgId = $request->user()->organization_id;
+        $parentIds = $this->parentStudentIds($request->user());
+        $schoolId = $this->schoolScopeId($request->user());
+
+        $students = Student::forOrganization($orgId)
+            ->when($parentIds !== null, fn ($q) => $q->whereIn('id', $parentIds ?: ['00000000-0000-0000-0000-000000000000']))
+            ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId));
+
+        $total = (clone $students)->count();
+        $active = (clone $students)->where('status', 'active')->count();
+        $assigned = (clone $students)->where('status', 'active')->whereNotNull('assigned_driver_id')->count();
+        $withParents = (clone $students)->where('status', 'active')->whereHas('parentAccounts')->count();
+        $specialNeeds = (clone $students)->where('status', 'active')->where(function ($q) {
+            $q->where('has_iep', true)
+                ->orWhere('requires_wheelchair', true)
+                ->orWhere('requires_aide', true);
+        })->count();
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'active' => $active,
+                'assigned' => $assigned,
+                'unassigned' => max(0, $active - $assigned),
+                'with_parents' => $withParents,
+                'special_needs' => $specialNeeds,
+                'assignment_pct' => $active > 0 ? (int) round($assigned / $active * 100) : 0,
+            ],
+        ]);
+    }
+
     public function show(Request $request, Student $student): JsonResponse
     {
         $this->authorizeStudentAccess($request, $student);

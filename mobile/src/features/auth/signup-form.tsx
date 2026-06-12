@@ -33,6 +33,7 @@ import { AuthFormField, authInputStyle } from '@/components/auth/auth-form-field
 import { CaptchaField } from '@/components/auth/captcha-field';
 import { TermsCheckbox } from '@/components/auth/terms-checkbox';
 import type { LegalDocumentId } from '@/lib/mobile-types';
+import { demoCredentialsForRole } from '@/features/auth/role-portals';
 
 type PickerKind =
   | 'organization'
@@ -103,9 +104,20 @@ export function SignupForm({
   }, [form.organizationId]);
 
   useEffect(() => {
-    if (roleProp) {
-      patch({ role: roleProp });
-    }
+    if (!roleProp) return;
+    const demo = demoCredentialsForRole(roleProp);
+    setForm((prev) => ({
+      ...prev,
+      role: roleProp,
+      email: demo.email,
+      password: demo.password,
+      passwordConfirm: demo.password,
+      firstName: demo.firstName,
+      lastName: demo.lastName,
+      phone: demo.phone,
+    }));
+    setFieldErrors({});
+    setFormError(null);
   }, [roleProp]);
 
   const accent = form.role === 'driver' ? RoleAccents.driver : RoleAccents.parent;
@@ -211,11 +223,22 @@ export function SignupForm({
             {(['parent', 'driver'] as SignupRole[]).map((r) => {
               const active = form.role === r;
               const color = r === 'driver' ? RoleAccents.driver : RoleAccents.parent;
+              const demo = demoCredentialsForRole(r);
               return (
                 <Pressable
                   key={r}
                   style={[styles.roleChip, active && { borderColor: color, backgroundColor: `${color}12` }]}
-                  onPress={() => patch({ role: r })}
+                  onPress={() =>
+                    patch({
+                      role: r,
+                      email: demo.email,
+                      password: demo.password,
+                      passwordConfirm: demo.password,
+                      firstName: demo.firstName,
+                      lastName: demo.lastName,
+                      phone: demo.phone,
+                    })
+                  }
                 >
                   <Ionicons
                     name={r === 'driver' ? 'bus-outline' : 'people-outline'}
@@ -265,8 +288,9 @@ export function SignupForm({
         <Field label="First name" value={form.firstName} onChange={(v) => patch({ firstName: v })} half error={fieldErrors.firstName} />
         <Field label="Last name" value={form.lastName} onChange={(v) => patch({ lastName: v })} half error={fieldErrors.lastName} />
       </View>
-      <Field
+      <IconField
         label="Email"
+        icon="mail-outline"
         value={form.email}
         onChange={(v) => patch({ email: v })}
         keyboard="email-address"
@@ -519,6 +543,48 @@ function SelectField({
   );
 }
 
+function IconField({
+  label,
+  icon,
+  value,
+  onChange,
+  half,
+  secure,
+  keyboard,
+  autoCapitalize,
+  placeholder,
+  error,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  value: string;
+  onChange: (v: string) => void;
+  half?: boolean;
+  secure?: boolean;
+  keyboard?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
+  autoCapitalize?: 'none' | 'characters' | 'sentences' | 'words';
+  placeholder?: string;
+  error?: string;
+}) {
+  return (
+    <AuthFormField label={label} error={error} style={half ? styles.half : undefined}>
+      <View style={[styles.inputRow, authInputStyle(Boolean(error))]}>
+        <Ionicons name={icon} size={18} color={error ? Colors.danger : Colors.placeholder} />
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          secureTextEntry={secure}
+          keyboardType={keyboard}
+          autoCapitalize={autoCapitalize ?? 'words'}
+          placeholder={placeholder}
+          placeholderTextColor={Colors.placeholder}
+          style={styles.iconInput}
+        />
+      </View>
+    </AuthFormField>
+  );
+}
+
 function Field({
   label,
   value,
@@ -580,6 +646,18 @@ const styles = StyleSheet.create({
   field: { marginBottom: 12 },
   half: { flex: 1 },
   row2: { flexDirection: 'row', gap: 10 },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: Colors.surface,
+  },
+  iconInput: { flex: 1, fontSize: 15, color: Colors.secondary, padding: 0 },
   select: {
     flexDirection: 'row',
     alignItems: 'center',

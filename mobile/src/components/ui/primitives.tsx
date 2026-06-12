@@ -89,17 +89,26 @@ export function EmptyState({
   message,
   icon = 'file-tray-outline',
   accent = Colors.primary,
+  actionLabel,
+  onAction,
 }: {
   title: string;
   message: string;
   icon?: IconName;
   accent?: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   return (
     <View style={styles.empty}>
       <AppIcon name={icon} size={28} color={accent} variant="soft" accent={accent} />
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyMessage}>{message}</Text>
+      {actionLabel && onAction ? (
+        <Pressable style={[styles.emptyAction, { borderColor: `${accent}44` }]} onPress={onAction}>
+          <Text style={[styles.emptyActionText, { color: accent }]}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -199,6 +208,15 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 20, gap: 10 },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: Colors.secondary, marginBottom: 6 },
   emptyMessage: { fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  emptyAction: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.surface,
+  },
+  emptyActionText: { fontSize: 14, fontWeight: '700' },
   avatar: { alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: '800' },
   listRow: {

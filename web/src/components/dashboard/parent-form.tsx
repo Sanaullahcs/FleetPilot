@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -150,6 +150,9 @@ export function ParentFormModal({
   });
 
   const form = isEdit ? editForm : createForm;
+  const editRelationship = useWatch({ control: editForm.control, name: "relationship" });
+  const createRelationship = useWatch({ control: createForm.control, name: "relationship" });
+  const relationship = (isEdit ? editRelationship : createRelationship) ?? "guardian";
 
   return (
     <Modal
@@ -164,10 +167,10 @@ export function ParentFormModal({
       size="md"
       footer={
         <ModalFooter
-          formId={FORM_ID}
           onCancel={onClose}
           submitLabel={saveMutation.isPending ? "Saving…" : isEdit ? "Save changes" : "Create parent"}
-          loading={saveMutation.isPending}
+          submitForm={FORM_ID}
+          pending={saveMutation.isPending}
         />
       }
     >
@@ -199,7 +202,7 @@ export function ParentFormModal({
           </Field>
           <Field label="Relationship (default for new links)">
             <SearchableSelect
-              value={form.watch("relationship") ?? "guardian"}
+              value={relationship}
               onChange={(v) => form.setValue("relationship", v)}
               options={RELATIONSHIP_OPTIONS}
               showAllOption={false}

@@ -3,17 +3,23 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppDevice;
 use App\Models\Driver;
 use App\Models\Organization;
 use App\Models\ParentAccount;
 use App\Models\RunAssignment;
 use App\Models\Student;
+use App\Services\MobileChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class MobileController extends Controller
 {
+    public function __construct(private readonly MobileChatService $chat)
+    {
+    }
+
     public function appInfo(Request $request): JsonResponse
     {
         $org = $this->resolveOrganization($request);
@@ -93,6 +99,61 @@ class MobileController extends Controller
         ]);
     }
 
+    public function registerDevice(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'device_token' => ['required', 'string', 'max:500'],
+            'device_type' => ['required', 'in:ios,android,web'],
+            'device_name' => ['nullable', 'string', 'max:120'],
+            'app_version' => ['nullable', 'string', 'max:20'],
+            'os_version' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $device = AppDevice::query()->updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'device_token' => $data['device_token'],
+            ],
+            [
+                'device_type' => $data['device_type'],
+                'device_name' => $data['device_name'] ?? null,
+                'app_version' => $data['app_version'] ?? null,
+                'os_version' => $data['os_version'] ?? null,
+                'is_active' => true,
+                'last_used_at' => now(),
+            ],
+        );
+
+        return response()->json([
+            'data' => [
+                'id' => $device->id,
+                'registered' => true,
+            ],
+        ]);
+    }
+
+    public function unregisterDevice(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'device_token' => ['required', 'string', 'max:500'],
+        ]);
+
+        AppDevice::query()
+            ->where('user_id', $user->id)
+            ->where('device_token', $data['device_token'])
+            ->update(['is_active' => false]);
+
+        return response()->json([
+            'data' => [
+                'unregistered' => true,
+            ],
+        ]);
+    }
+
     public function notifications(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -106,13 +167,88 @@ class MobileController extends Controller
             $items = array_merge($items, $this->parentNotifications($user));
         }
 
+        $includeRead = $request->boolean('include_read');
+        if (in_array($user->role, ['driver', 'parent'], true)) {
+            $items = array_merge($items, $this->chat->notificationItemsForUser($user, $includeRead));
+        }
+
+        $items = $this->applyReadState($user, $items);
+        $unread = collect($items)->where('read', false)->count();
+
+        if (! $request->boolean('include_read')) {
+            $items = array_values(array_filter($items, fn (array $item) => ! $item['read']));
+        }
+
         return response()->json([
             'data' => [
                 'items' => $items,
                 'total' => count($items),
-                'unread' => collect($items)->where('read', false)->count(),
+                'unread' => $unread,
             ],
         ]);
+    }
+
+    public function markNotificationRead(Request $request, string $notificationId): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($this->chat->markChatNotificationRead($user, $notificationId)) {
+            return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+        }
+
+        $meta = $user->profile_meta ?? [];
+        $readIds = $meta['read_notification_ids'] ?? [];
+
+        if (! in_array($notificationId, $readIds, true)) {
+            $readIds[] = $notificationId;
+        }
+
+        $meta['read_notification_ids'] = array_values($readIds);
+        $user->update(['profile_meta' => $meta]);
+
+        return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+    }
+
+    public function markAllNotificationsRead(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $items = [];
+
+        if ($user->role === 'driver') {
+            $items = array_merge($items, $this->driverNotifications($user));
+        }
+
+        if ($user->role === 'parent') {
+            $items = array_merge($items, $this->parentNotifications($user));
+        }
+
+        if (in_array($user->role, ['driver', 'parent'], true)) {
+            $items = array_merge($items, $this->chat->notificationItemsForUser($user, true));
+        }
+
+        $this->chat->markAllConversationsRead($user);
+
+        $ids = collect($items)->pluck('id')->all();
+        $meta = $user->profile_meta ?? [];
+        $meta['read_notification_ids'] = array_values(array_unique(array_merge($meta['read_notification_ids'] ?? [], $ids)));
+        $user->update(['profile_meta' => $meta]);
+
+        return response()->json(['data' => ['marked' => count($ids)]]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function applyReadState($user, array $items): array
+    {
+        $readIds = $user->profile_meta['read_notification_ids'] ?? [];
+
+        return array_map(function (array $item) use ($readIds) {
+            $item['read'] = in_array($item['id'], $readIds, true) || ($item['read'] ?? false);
+
+            return $item;
+        }, $items);
     }
 
     /**

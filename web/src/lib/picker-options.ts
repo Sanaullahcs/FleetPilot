@@ -1,5 +1,58 @@
+import type { SelectOption } from "@/components/ui/dropdown-menu";
 import type { Driver, Vehicle } from "@/lib/types";
 import type { RichPickerOption } from "@/lib/assignment-picker-store";
+import { titleCase } from "@/lib/utils";
+
+export function formatVehicleSelectLabel(vehicle: {
+  vehicle_number: string;
+  type: string;
+  license_plate?: string | null;
+}) {
+  const typeLabel = titleCase(vehicle.type.replace(/_/g, " "));
+  return vehicle.license_plate
+    ? `${vehicle.vehicle_number} · ${typeLabel} · ${vehicle.license_plate}`
+    : `${vehicle.vehicle_number} · ${typeLabel}`;
+}
+
+/** Ensures driver default vehicles appear in the vehicle dropdown with readable labels. */
+export function buildVehicleSelectOptions(
+  vehicles: Vehicle[],
+  drivers: Driver[] = [],
+  extras: Array<{ id: string; vehicle_number: string; type: string; license_plate?: string | null }> = [],
+): SelectOption[] {
+  const map = new Map<string, SelectOption>();
+
+  for (const vehicle of vehicles) {
+    map.set(vehicle.id, {
+      label: formatVehicleSelectLabel(vehicle),
+      value: vehicle.id,
+      searchText: [vehicle.vehicle_number, vehicle.license_plate, vehicle.make, vehicle.model, vehicle.type]
+        .filter(Boolean)
+        .join(" "),
+    });
+  }
+
+  for (const driver of drivers) {
+    const dv = driver.default_vehicle;
+    if (!dv?.id || map.has(dv.id)) continue;
+    map.set(dv.id, {
+      label: formatVehicleSelectLabel(dv),
+      value: dv.id,
+      sublabel: "Driver default vehicle",
+      searchText: [dv.vehicle_number, dv.type, driver.first_name, driver.last_name].filter(Boolean).join(" "),
+    });
+  }
+
+  for (const extra of extras) {
+    if (!extra.id || map.has(extra.id)) continue;
+    map.set(extra.id, {
+      label: formatVehicleSelectLabel(extra),
+      value: extra.id,
+    });
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+}
 
 export function buildDriverPickerOptions(drivers: Driver[]): RichPickerOption[] {
   return drivers.map((d) => {

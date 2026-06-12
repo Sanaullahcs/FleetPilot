@@ -43,6 +43,28 @@ class VehicleController extends Controller
         return response()->json($vehicles);
     }
 
+    public function stats(Request $request): JsonResponse
+    {
+        $orgId = $request->user()->organization_id;
+        $vehicles = Vehicle::forOrganization($orgId);
+
+        $total = (clone $vehicles)->count();
+        $active = (clone $vehicles)->where('status', 'active')->count();
+        $activeAssigned = (clone $vehicles)->where('status', 'active')->whereHas('assignedDriver')->count();
+        $maintenance = (clone $vehicles)->where('status', 'maintenance')->count();
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'active' => $active,
+                'assigned' => $activeAssigned,
+                'unassigned' => max(0, $active - $activeAssigned),
+                'maintenance' => $maintenance,
+                'assignment_pct' => $active > 0 ? (int) round($activeAssigned / $active * 100) : 0,
+            ],
+        ]);
+    }
+
     public function show(Request $request, Vehicle $vehicle): JsonResponse
     {
         $this->authorizeOrg($request, $vehicle);

@@ -36,6 +36,14 @@ export interface AuthUser {
   zip?: string | null;
   job_title?: string | null;
   role: UserRole;
+  school_id?: string | null;
+  school?: {
+    id: string;
+    name: string;
+    code: string;
+    city?: string | null;
+    state?: string | null;
+  } | null;
   organization: OrganizationSummary | null;
   roles: string[];
   permissions: string[];
@@ -370,6 +378,7 @@ export interface DispatchBoard {
     in_progress: number;
   };
   runs: DispatchRunRow[];
+  filtered_total?: number;
 }
 
 export interface ParentStudentLink {
@@ -502,6 +511,86 @@ export interface ParentTrackingResponse {
   tracks: ParentTrack[];
 }
 
+export interface DriverScheduleSummary {
+  total: number;
+  incoming: number;
+  scheduled: number;
+  in_progress: number;
+  completed: number;
+  cancelled: number;
+  missed: number;
+}
+
+export interface DriverPortalRun {
+  assignment_id: string;
+  service_date: string;
+  status: string;
+  schedule_state?: string;
+  actual_start_time?: string | null;
+  actual_end_time?: string | null;
+  run: {
+    id: string;
+    name: string;
+    direction: string | null;
+    scheduled_start_time: string | null;
+    scheduled_end_time: string | null;
+    status: string;
+  } | null;
+  route: {
+    id: string;
+    name: string;
+    code: string | null;
+    type: string | null;
+    school: { id: string; name: string; code: string | null } | null;
+  } | null;
+  vehicle: {
+    id: string;
+    vehicle_number: string;
+    type: string;
+    license_plate: string | null;
+  } | null;
+}
+
+export interface DriverScheduleDay {
+  date: string;
+  weekday: string;
+  label: string;
+  label_long?: string;
+  is_today: boolean;
+  is_past?: boolean;
+  is_future?: boolean;
+  summary: DriverScheduleSummary;
+  runs: DriverPortalRun[];
+}
+
+export interface DriverScheduleResponse {
+  range: string;
+  range_start: string;
+  range_end: string;
+  week_start: string;
+  week_end: string;
+  today: string;
+  status_filter?: string;
+  driver: {
+    id: string;
+    employee_id: string | null;
+    full_name: string;
+    phone: string | null;
+    status: string;
+  } | null;
+  summary: DriverScheduleSummary;
+  filtered_summary?: DriverScheduleSummary;
+  days: DriverScheduleDay[];
+  runs?: DriverPortalRun[];
+}
+
+export interface DriverTodayResponse {
+  date: string;
+  driver: DriverScheduleResponse["driver"];
+  summary: DriverScheduleSummary;
+  runs: DriverPortalRun[];
+}
+
 export interface VehicleDetail {
   id: string;
   vehicle_number: string;
@@ -558,4 +647,125 @@ export interface AdminRole {
 export interface PermissionGroup {
   resource: string;
   permissions: { id: string; name: string; slug: string; resource: string; action: string }[];
+}
+
+export interface DashboardChatConversation {
+  id: string;
+  type: "driver_support" | "driver_school" | "parent_driver" | "parent_school" | "parent_support" | "staff_direct";
+  title: string;
+  subtitle: string | null;
+  participants: { name: string; role: string }[];
+  last_message: {
+    body: string;
+    time: string;
+    sender_name: string;
+  } | null;
+  unread_count: number;
+  updated_at: string;
+}
+
+export interface DashboardChatContact {
+  user_id: string;
+  name: string;
+  role: string;
+  subtitle: string;
+  conversation_id: string | null;
+}
+
+export interface DashboardChatMessage {
+  id: string;
+  body: string;
+  is_system: boolean;
+  is_mine: boolean;
+  time: string;
+  sender: {
+    id: string | null;
+    name: string;
+    role: string;
+  };
+}
+
+export interface SchoolPortalAlert {
+  id: string;
+  severity: "info" | "warning" | "danger";
+  title: string;
+  message: string;
+}
+
+export interface SchoolPortalRouteRun {
+  id: string;
+  name: string;
+  direction: string;
+  scheduled_start_time: string | null;
+  scheduled_end_time: string | null;
+  status: string;
+}
+
+export interface SchoolPortalRoute {
+  id: string;
+  name: string;
+  code: string | null;
+  type: string;
+  status: string;
+  runs_count: number;
+  runs: SchoolPortalRouteRun[];
+}
+
+export interface SchoolPortalAssignment {
+  id: string;
+  service_date: string | null;
+  status: string;
+  run: {
+    id: string;
+    name: string;
+    direction: string;
+    scheduled_start_time: string | null;
+  } | null;
+  route: {
+    id: string;
+    name: string;
+    code: string | null;
+    type: string;
+  } | null;
+  driver: {
+    id: string;
+    full_name: string;
+    employee_id: string | null;
+    phone: string | null;
+  } | null;
+  vehicle: {
+    id: string;
+    vehicle_number: string;
+    type: string;
+    license_plate: string | null;
+  } | null;
+}
+
+export interface SchoolPortalPayload {
+  school: {
+    id: string;
+    name: string;
+    code: string | null;
+    district: string | null;
+    grade_levels: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    phone: string | null;
+    principal_name: string | null;
+    website: string | null;
+    bell_times: Record<string, string> | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
+  stats: {
+    students_total: number;
+    students_active: number;
+    routes_active: number;
+    runs_today: number;
+  };
+  routes: SchoolPortalRoute[];
+  today_assignments: SchoolPortalAssignment[];
+  alerts: SchoolPortalAlert[];
 }

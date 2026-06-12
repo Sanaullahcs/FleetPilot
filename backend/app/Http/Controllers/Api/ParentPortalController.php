@@ -149,6 +149,8 @@ class ParentPortalController extends Controller
                 'id' => $student->school->id,
                 'name' => $student->school->name,
                 'code' => $student->school->code,
+                'latitude' => $student->school->latitude !== null ? (float) $student->school->latitude : null,
+                'longitude' => $student->school->longitude !== null ? (float) $student->school->longitude : null,
             ] : null,
             'run' => $assignment?->run ? [
                 'id' => $assignment->run->id,

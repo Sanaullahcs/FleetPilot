@@ -1,108 +1,109 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@/components/ui/icons';
-import { Colors, RoleAccents } from '@/constants/theme';
+import { TrackMapIllustration } from '@/components/maps/track-map-illustration';
+import { Colors } from '@/constants/theme';
 import type { ParentTrackItem } from '@/lib/mobile-types';
+
+function pickActive(tracks: ParentTrackItem[], focusTrack?: ParentTrackItem | null) {
+  return (
+    focusTrack ??
+    tracks.find((t) => t.vehicle && t.tracking_status === 'in_progress') ??
+    tracks.find((t) => t.vehicle) ??
+    tracks[0]
+  );
+}
 
 export function LiveMapPreview({
   tracks,
-  center,
+  focusTrack,
+  height,
+  fullScreen = false,
+  onExpand,
+  hideOverlay = false,
 }: {
   tracks: ParentTrackItem[];
   center?: { lat: number; lng: number };
+  focusTrack?: ParentTrackItem | null;
+  height?: number;
+  fullScreen?: boolean;
+  onExpand?: () => void;
+  hideOverlay?: boolean;
+  hideChrome?: boolean;
 }) {
-  const active = tracks.find((t) => t.vehicle && t.tracking_status === 'in_progress') ?? tracks[0];
+  const { width } = useWindowDimensions();
+  const active = pickActive(tracks, focusTrack);
   const vehicle = active?.vehicle;
+  const live = active?.tracking_status === 'in_progress';
+  const mapHeight = height ?? Math.min(Math.round(width * 0.48), 260);
+
+  const summary = vehicle
+    ? `Bus #${vehicle.vehicle_number}  ·  ${Math.round(vehicle.speed_mph)} mph  ·  ${Math.round(vehicle.heading)}°`
+    : 'Waiting for GPS';
+
+  const content = (
+    <>
+      <TrackMapIllustration live={live} fill={fullScreen} height={fullScreen ? undefined : mapHeight} />
+      {onExpand ? (
+        <View style={styles.expandHint} pointerEvents="none">
+          <Ionicons name="expand-outline" size={16} color={Colors.textMuted} />
+        </View>
+      ) : null}
+      {!hideOverlay && active ? (
+        <View style={styles.caption}>
+          {live ? <View style={styles.liveDot} /> : null}
+          <Text style={styles.captionText} numberOfLines={1}>{summary}</Text>
+        </View>
+      ) : null}
+    </>
+  );
+
+  if (onExpand) {
+    return (
+      <Pressable
+        style={[styles.wrap, fullScreen && styles.wrapFull, !fullScreen && { height: mapHeight }]}
+        onPress={onExpand}
+        accessibilityRole="button"
+        accessibilityLabel="Open full screen map"
+      >
+        {content}
+      </Pressable>
+    );
+  }
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.grid}>
-        {Array.from({ length: 6 }).map((_, row) => (
-          <View key={row} style={styles.gridRow}>
-            {Array.from({ length: 8 }).map((__, col) => (
-              <View key={col} style={styles.gridCell} />
-            ))}
-          </View>
-        ))}
-      </View>
-      <View style={styles.routeLine} />
-      <View style={[styles.busPin, { left: '58%', top: '42%' }]}>
-        <View style={styles.busCircle}>
-          <Ionicons name="bus" size={18} color={Colors.white} />
-        </View>
-        <View style={styles.busPulse} />
-      </View>
-      <View style={[styles.stopPin, { left: '22%', top: '62%' }]}>
-        <Ionicons name="location" size={16} color={RoleAccents.parent} />
-      </View>
-      <View style={styles.overlay}>
-        <Text style={styles.title}>{vehicle ? `Bus #${vehicle.vehicle_number}` : 'Live map'}</Text>
-        <Text style={styles.sub}>
-          {vehicle
-            ? `${Math.round(vehicle.speed_mph)} mph · Heading ${Math.round(vehicle.heading)}°`
-            : center
-              ? `${center.lat.toFixed(3)}, ${center.lng.toFixed(3)}`
-              : 'Waiting for GPS signal'}
-        </Text>
-      </View>
+    <View style={[styles.wrap, fullScreen && styles.wrapFull, !fullScreen && { height: mapHeight }]}>
+      {content}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    minHeight: 180,
-    backgroundColor: '#DDE8F5',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  grid: { ...StyleSheet.absoluteFill, opacity: 0.35 },
-  gridRow: { flex: 1, flexDirection: 'row' },
-  gridCell: { flex: 1, borderWidth: 0.5, borderColor: '#94A3B8' },
-  routeLine: {
+  wrap: { width: '100%', overflow: 'hidden', position: 'relative', backgroundColor: '#E8EEF8' },
+  wrapFull: { flex: 1 },
+  expandHint: {
     position: 'absolute',
-    left: '18%',
-    top: '55%',
-    width: '50%',
-    height: 4,
-    backgroundColor: Colors.primary,
-    borderRadius: 999,
-    transform: [{ rotate: '-18deg' }],
-    opacity: 0.55,
-  },
-  busPin: { position: 'absolute', alignItems: 'center' },
-  busCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primary,
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: Colors.white,
-    zIndex: 2,
   },
-  busPulse: {
-    position: 'absolute',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: `${Colors.primary}33`,
-    top: -10,
-    zIndex: 1,
-  },
-  stopPin: { position: 'absolute' },
-  overlay: {
+  caption: {
     position: 'absolute',
     left: 12,
     right: 12,
     bottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 12,
-    paddingHorizontal: 12,
     paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingHorizontal: 14,
   },
-  title: { fontSize: 14, fontWeight: '800', color: Colors.secondary },
-  sub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.success },
+  captionText: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.secondary, letterSpacing: -0.2 },
 });

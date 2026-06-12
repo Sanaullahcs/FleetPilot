@@ -10,7 +10,10 @@ import { fetchChatConversations } from '@/lib/chat-api';
 import { formatRunDirection, formatRunStatus, formatTime } from '@/lib/format';
 import { fetchDriverToday, fetchMobileNotifications } from '@/lib/mobile-api';
 import type { DriverTodayPayload } from '@/lib/mobile-types';
+import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useAuthStore } from '@/store/auth';
+import { getMobileRole } from '@/constants/app';
+import { getQueryErrorMessage } from '@/lib/query-utils';
 
 type RunItem = DriverTodayPayload['runs'][number];
 
@@ -32,12 +35,27 @@ function runActionIcon(): IconName {
 }
 
 export function DriverTodayScreen() {
+  const tabBarInset = useTabBarInset();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+  const mobileRole = getMobileRole(user);
   const router = useRouter();
 
-  const notifications = useQuery({ queryKey: ['mobile-notifications'], queryFn: fetchMobileNotifications });
-  const chat = useQuery({ queryKey: ['chat-conversations'], queryFn: fetchChatConversations });
-  const today = useQuery({ queryKey: ['driver-today'], queryFn: fetchDriverToday });
+  const notifications = useQuery({
+    queryKey: ['mobile-notifications'],
+    queryFn: fetchMobileNotifications,
+    enabled: !!token && mobileRole === 'driver',
+  });
+  const chat = useQuery({
+    queryKey: ['chat-conversations'],
+    queryFn: fetchChatConversations,
+    enabled: !!token && mobileRole === 'driver',
+  });
+  const today = useQuery({
+    queryKey: ['driver-today'],
+    queryFn: fetchDriverToday,
+    enabled: !!token && mobileRole === 'driver',
+  });
 
   const unread = notifications.data?.unread ?? 0;
   const unreadMessages = chat.data?.unread_total ?? 0;
@@ -62,7 +80,7 @@ export function DriverTodayScreen() {
         onAlertsPress={() => router.push('/alerts')}
       />
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: tabBarInset + 16 }]}
         refreshControl={<RefreshControl refreshing={today.isFetching && !today.isLoading} onRefresh={onRefresh} />}
       >
         <View style={styles.hubRow}>
@@ -110,6 +128,15 @@ export function DriverTodayScreen() {
 
         {today.isLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
+        ) : today.isError ? (
+          <EmptyState
+            title="Couldn't load today's runs"
+            message={getQueryErrorMessage(today.error)}
+            icon="cloud-offline-outline"
+            accent={Colors.danger}
+            actionLabel="Try again"
+            onAction={() => void today.refetch()}
+          />
         ) : today.data?.runs.length ? (
           today.data.runs.map((item) => (
             <RunCard key={item.assignment_id} item={item} onOpen={() => openRun(item.assignment_id)} />

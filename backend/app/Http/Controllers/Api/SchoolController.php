@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Http\Controllers\Concerns\SortsQueries;
 use App\Models\Route;
 use App\Models\School;
@@ -12,13 +13,16 @@ use Illuminate\Http\Request;
 
 class SchoolController extends Controller
 {
+    use ResolvesAccessScope;
     use SortsQueries;
 
     public function index(Request $request): JsonResponse
     {
         $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
 
         $schools = $this->baseQuery($orgId)
+            ->when($schoolId, fn ($q) => $q->where('id', $schoolId))
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -170,5 +174,10 @@ class SchoolController extends Controller
     private function authorizeOrg(Request $request, School $school): void
     {
         abort_unless($school->organization_id === $request->user()->organization_id, 404);
+
+        $schoolId = $this->schoolScopeId($request->user());
+        if ($schoolId && $school->id !== $schoolId) {
+            abort(403, 'You can only access your assigned school.');
+        }
     }
 }

@@ -1,14 +1,24 @@
-import { Redirect } from 'expo-router';
+import { Redirect, useRootNavigationState } from 'expo-router';
 import { useAuthStore } from '@/store/auth';
+import { getMobileRole } from '@/constants/app';
 
+/** Post-login entry — sends users to the correct home tab. */
 export default function Index() {
-  const role = useAuthStore((s) => s.user?.role);
+  const navigationState = useRootNavigationState();
+  const { token, user, loading } = useAuthStore();
+  const mobileRole = getMobileRole(user);
+  const allowed = !!(token && user && mobileRole);
 
-  if (role === 'driver') {
-    return <Redirect href="/today" />;
+  // Redirecting before the navigation container is ready crashes release APKs.
+  if (!navigationState?.key || loading) {
+    return null;
   }
 
-  if (role === 'parent') {
+  if (!allowed) {
+    return <Redirect href="/sign-in" />;
+  }
+
+  if (mobileRole === 'parent') {
     return <Redirect href="/home" />;
   }
 

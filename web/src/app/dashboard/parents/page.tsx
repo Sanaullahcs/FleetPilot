@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { ParentStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -15,7 +16,7 @@ import { getApiErrorMessage } from "@/lib/api";
 import { deleteParent, listParents, updateParent } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
 import { titleCase } from "@/lib/utils";
-import { useTableSort } from "@/lib/table-utils";
+import { idColumn, useTableSort } from "@/lib/table-utils";
 import type { ParentRecord } from "@/lib/types";
 
 const ACTIVE_OPTIONS = [
@@ -56,6 +57,7 @@ export default function ParentsPage() {
     mutationFn: (id: string) => deleteParent(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["parents"] });
+      queryClient.invalidateQueries({ queryKey: ["parent-stats"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toastSuccess("Parent deleted");
     },
@@ -103,6 +105,7 @@ export default function ParentsPage() {
   };
 
   const columns: Column<ParentRecord>[] = [
+    idColumn("email", (p) => p.user?.email),
     {
       key: "name",
       header: "Name",
@@ -167,6 +170,8 @@ export default function ParentsPage() {
           )
         }
       />
+
+      <ParentStatRow />
 
       <FilterBar
         search={search}

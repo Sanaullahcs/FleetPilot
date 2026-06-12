@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Http\Controllers\Concerns\SortsQueries;
 use App\Models\Route;
 use Illuminate\Http\JsonResponse;
@@ -10,20 +11,24 @@ use Illuminate\Http\Request;
 
 class RouteController extends Controller
 {
+    use ResolvesAccessScope;
     use SortsQueries;
 
     public function index(Request $request): JsonResponse
     {
         $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
 
         $routes = Route::forOrganization($orgId)
             ->with('school:id,name')
             ->withCount('runs')
+            ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId))
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%");
             })
-            ->when($request->string('type')->toString(), fn ($q, $type) => $q->where('type', $type));
+            ->when($request->string('type')->toString(), fn ($q, $type) => $q->where('type', $type))
+            ->when($request->string('status')->toString(), fn ($q, $status) => $q->where('status', $status));
 
         $this->applyListSort($routes, $request, [
             'code', 'name', 'type', 'status',
@@ -32,6 +37,31 @@ class RouteController extends Controller
         $routes = $routes->paginate($request->integer('per_page', 15));
 
         return response()->json($routes);
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
+
+        $routes = Route::forOrganization($orgId)
+            ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId));
+
+        $total = (clone $routes)->count();
+        $active = (clone $routes)->where('status', 'active')->count();
+        $inactive = (clone $routes)->where('status', 'inactive')->count();
+        $draft = (clone $routes)->where('status', 'draft')->count();
+        $schoolsServed = (clone $routes)->whereNotNull('school_id')->distinct()->count('school_id');
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'active' => $active,
+                'inactive' => $inactive,
+                'draft' => $draft,
+                'schools_served' => $schoolsServed,
+            ],
+        ]);
     }
 
     public function show(Request $request, Route $route): JsonResponse
@@ -110,5 +140,10 @@ class RouteController extends Controller
     private function authorizeOrg(Request $request, Route $route): void
     {
         abort_unless($route->organization_id === $request->user()->organization_id, 404);
+
+        $schoolId = $this->schoolScopeId($request->user());
+        if ($schoolId && $route->school_id !== $schoolId) {
+            abort(403, 'You can only access routes for your school.');
+        }
     }
 }

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, Button } from "@/components/ui/primitives";
+import { VehicleStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -200,6 +201,8 @@ export default function VehiclesPage() {
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add vehicle</Button>
         )}
       />
+
+      <VehicleStatRow />
 
       <FilterBar
         search={search}

@@ -8,11 +8,14 @@ export interface MobileNotification {
   message: string;
   time: string;
   read: boolean;
+  conversation_id?: string;
 }
 
 export interface DriverRunItem {
   assignment_id: string;
+  service_date?: string;
   status: string;
+  schedule_state?: string;
   actual_start_time?: string | null;
   actual_end_time?: string | null;
   run: {
@@ -49,11 +52,51 @@ export interface DriverTodayPayload {
   } | null;
   summary: {
     total: number;
+    incoming?: number;
     scheduled: number;
     in_progress: number;
     completed: number;
+    cancelled?: number;
+    missed?: number;
   };
   runs: DriverRunItem[];
+}
+
+export interface DriverScheduleSummary {
+  total: number;
+  incoming: number;
+  scheduled: number;
+  in_progress: number;
+  completed: number;
+  cancelled: number;
+  missed: number;
+}
+
+export interface DriverScheduleDay {
+  date: string;
+  weekday: string;
+  label: string;
+  label_long?: string;
+  is_today: boolean;
+  is_past?: boolean;
+  is_future?: boolean;
+  summary: DriverScheduleSummary;
+  runs: DriverRunItem[];
+}
+
+export interface DriverSchedulePayload {
+  range: string;
+  range_start: string;
+  range_end: string;
+  week_start: string;
+  week_end: string;
+  today: string;
+  status_filter?: string;
+  driver: DriverTodayPayload['driver'];
+  summary: DriverScheduleSummary;
+  filtered_summary?: DriverScheduleSummary;
+  days: DriverScheduleDay[];
+  runs?: DriverRunItem[];
 }
 
 export interface ParentChildItem {
@@ -99,7 +142,7 @@ export interface ParentTrackItem {
   student_id: string;
   student_name: string;
   tracking_status: string;
-  school: { id: string; name: string; code: string } | null;
+  school: { id: string; name: string; code: string; latitude?: number | null; longitude?: number | null } | null;
   run: {
     id: string;
     name: string;

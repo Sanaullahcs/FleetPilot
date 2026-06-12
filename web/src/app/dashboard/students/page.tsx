@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { StudentStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -16,7 +17,7 @@ import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
 import { promptChangeStatus } from "@/lib/status-alerts";
 import { STUDENT_STATUS_OPTIONS } from "@/lib/status-options";
 import { getApiErrorMessage } from "@/lib/api";
-import { deleteStudent, listStudents, updateStudentStatus } from "@/lib/resources";
+import { deleteStudent, listSchools, listStudents, updateStudentStatus } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
 import { titleCase } from "@/lib/utils";
 import { idColumn, useTableSort } from "@/lib/table-utils";
@@ -29,20 +30,52 @@ const STATUS_OPTIONS = [
   { label: "Transferred", value: "transferred" },
 ];
 
+const GRADE_OPTIONS = ["PK", "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((g) => ({
+  label: g === "K" ? "Kindergarten" : g === "PK" ? "Pre-K" : `Grade ${g}`,
+  value: g,
+}));
+
+const DRIVER_ASSIGNMENT_OPTIONS = [
+  { label: "Has driver", value: "assigned" },
+  { label: "No driver", value: "unassigned" },
+];
+
 export default function StudentsPage() {
   const can = usePermission();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [schoolId, setSchoolId] = useState("");
+  const [grade, setGrade] = useState("");
+  const [assignment, setAssignment] = useState("");
   const [page, setPage] = useState(1);
   const { sortKey, sortDir, onSortChange, sortParams } = useTableSort("student_number");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [parentLinksStudent, setParentLinksStudent] = useState<Student | null>(null);
 
+  const { data: schoolsPage } = useQuery({
+    queryKey: ["schools", "student-filter"],
+    queryFn: () => listSchools({ per_page: 200, sort_by: "name", sort_dir: "asc" }),
+  });
+
+  const schoolOptions = useMemo(
+    () => (schoolsPage?.data ?? []).map((s) => ({ label: s.name, value: s.id, sublabel: s.code ?? undefined })),
+    [schoolsPage?.data],
+  );
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["students", { search, status, page, sortKey, sortDir }],
-    queryFn: () => listStudents({ search, status, page, ...sortParams }),
+    queryKey: ["students", { search, status, schoolId, grade, assignment, page, sortKey, sortDir }],
+    queryFn: () =>
+      listStudents({
+        search,
+        status,
+        school_id: schoolId || undefined,
+        grade: grade || undefined,
+        assignment: assignment as "" | "assigned" | "unassigned",
+        page,
+        ...sortParams,
+      }),
   });
 
   const removeMutation = useMutation({
@@ -68,12 +101,20 @@ export default function StudentsPage() {
   const clearFilters = () => {
     setSearch("");
     setStatus("");
+    setSchoolId("");
+    setGrade("");
+    setAssignment("");
     setPage(1);
   };
 
   const activePills = [
     ...(search ? [{ key: "search", label: `Search: ${search}` }] : []),
     ...(status ? [{ key: "status", label: `Status: ${titleCase(status)}` }] : []),
+    ...(schoolId
+      ? [{ key: "school_id", label: `School: ${schoolOptions.find((s) => s.value === schoolId)?.label ?? schoolId}` }]
+      : []),
+    ...(grade ? [{ key: "grade", label: `Grade: ${grade}` }] : []),
+    ...(assignment ? [{ key: "assignment", label: assignment === "assigned" ? "Has driver" : "No driver" }] : []),
   ];
 
   const handleDelete = async (student: Student) => {
@@ -161,6 +202,8 @@ export default function StudentsPage() {
         }
       />
 
+      <StudentStatRow />
+
       <ParentLinkingGuide />
 
       <FilterBar
@@ -177,12 +220,36 @@ export default function StudentsPage() {
             onChange: (v) => { setStatus(v); setPage(1); },
             options: STATUS_OPTIONS,
           },
+          {
+            key: "school_id",
+            label: "School",
+            value: schoolId,
+            onChange: (v) => { setSchoolId(v); setPage(1); },
+            options: schoolOptions,
+          },
+          {
+            key: "grade",
+            label: "Grade",
+            value: grade,
+            onChange: (v) => { setGrade(v); setPage(1); },
+            options: GRADE_OPTIONS,
+          },
+          {
+            key: "assignment",
+            label: "Driver",
+            value: assignment,
+            onChange: (v) => { setAssignment(v); setPage(1); },
+            options: DRIVER_ASSIGNMENT_OPTIONS,
+          },
         ]}
       />
 
       <ActiveFilterPills items={activePills} onRemove={(key) => {
         if (key === "search") setSearch("");
         if (key === "status") setStatus("");
+        if (key === "school_id") setSchoolId("");
+        if (key === "grade") setGrade("");
+        if (key === "assignment") setAssignment("");
         setPage(1);
       }} />
 

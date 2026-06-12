@@ -45,6 +45,31 @@ class UserController extends Controller
         return response()->json($users);
     }
 
+    public function stats(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $isSuperAdmin = $actor->role === 'super_admin';
+
+        $users = User::query()
+            ->when(! $isSuperAdmin, fn ($q) => $q->where('organization_id', $actor->organization_id))
+            ->when($isSuperAdmin, fn ($q) => $q->where('role', '!=', 'super_admin'));
+
+        $total = (clone $users)->count();
+        $active = (clone $users)->where('is_active', true)->count();
+        $dispatchers = (clone $users)->where('role', 'dispatcher')->count();
+        $admins = (clone $users)->where('role', 'admin')->count();
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'active' => $active,
+                'inactive' => max(0, $total - $active),
+                'dispatchers' => $dispatchers,
+                'admins' => $admins,
+            ],
+        ]);
+    }
+
     public function show(Request $request, User $user): JsonResponse
     {
         $this->authorizeOrg($request, $user);

@@ -270,21 +270,21 @@ export function NotificationBell({ userId }: { userId: string }) {
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "relative flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-slate-600 transition",
-          "hover:border-slate-200 hover:bg-slate-50",
-          open && "border-slate-200 bg-slate-50",
+          "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-slate-600 transition",
+          "hover:border-slate-200 hover:bg-white",
+          open && "border-slate-200 bg-white",
           hasUnread && "text-brand-primary",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/40",
         )}
       >
         <BellIcon />
         {hasUnread && (
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-[#f8f9fc]">
             {items.length > 9 ? "9+" : items.length}
           </span>
         )}
         {hasUnread && (
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 animate-ping rounded-full bg-red-400 opacity-60" aria-hidden />
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-ping rounded-full bg-red-400 opacity-60" aria-hidden />
         )}
       </button>
       {panel}

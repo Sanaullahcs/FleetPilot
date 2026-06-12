@@ -9,12 +9,15 @@ use App\Models\ParentStudent;
 use App\Models\Route;
 use App\Models\Run;
 use App\Models\RunAssignment;
+use App\Models\Role;
 use App\Models\School;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Stop;
 use App\Models\Vehicle;
+use App\Services\MobileChatService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DemoDataSeeder extends Seeder
@@ -27,6 +30,7 @@ class DemoDataSeeder extends Seeder
         }
 
         $schools = $this->seedSchools($org->id);
+        $this->seedSchoolContact($org->id, $schools);
         $this->seedVehicles($org->id);
         $this->seedDrivers($org->id);
         $this->seedStudents($org->id, $schools);
@@ -35,6 +39,8 @@ class DemoDataSeeder extends Seeder
         $this->seedRunAssignments($org->id);
         $this->seedParentLinks($org->id);
         $this->linkMobileDemoUsers($org->id);
+        $this->seedMobileChatThreads();
+        $this->seedDriverScheduleHistory($org->id);
         $this->seedStopsAndRunStops($org->id, $schools);
         $this->seedStudentStopAssignments($org->id);
     }
@@ -110,6 +116,42 @@ class DemoDataSeeder extends Seeder
         }
 
         return $schools;
+    }
+
+    /**
+     * @param  array<int, \App\Models\School>  $schools
+     */
+    private function seedSchoolContact(string $orgId, array $schools): void
+    {
+        $school = collect($schools)->firstWhere('code', 'LES') ?? $schools[0] ?? null;
+        if (! $school) {
+            return;
+        }
+
+        $role = Role::query()
+            ->where('organization_id', $orgId)
+            ->where('slug', 'school_contact')
+            ->first();
+
+        $user = User::updateOrCreate(
+            ['email' => 'school@fleetpilot.test'],
+            [
+                'organization_id' => $orgId,
+                'password_hash' => 'password',
+                'first_name' => 'Sydney',
+                'last_name' => 'Lincoln',
+                'role' => 'school_contact',
+                'school_id' => $school->id,
+                'job_title' => 'Transportation Coordinator',
+                'phone' => '(555) 200-4100',
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        );
+
+        if ($role) {
+            $user->roles()->syncWithoutDetaching([$role->id]);
+        }
     }
 
     private function seedVehicles(string $orgId): void
@@ -273,24 +315,36 @@ class DemoDataSeeder extends Seeder
             return;
         }
 
+        $weekStart = now()->startOfWeek();
+        $weekDates = collect(range(0, 6))
+            ->map(fn (int $offset) => $weekStart->copy()->addDays($offset))
+            ->filter(fn (Carbon $date) => $date->isWeekday())
+            ->values();
+
         foreach ($drivers->values() as $i => $driver) {
             $vehicle = $vehicles->get($i);
-            $run = $runs->get($i % $runs->count());
-            if (! $run || ! $vehicle) {
+            if (! $vehicle) {
                 continue;
             }
 
-            RunAssignment::updateOrCreate(
-                [
-                    'run_id' => $run->id,
-                    'service_date' => now()->toDateString(),
-                ],
-                [
-                    'driver_id' => $driver->id,
-                    'vehicle_id' => $vehicle->id,
-                    'status' => $i % 3 === 0 ? 'in_progress' : 'scheduled',
-                ],
-            );
+            foreach ($weekDates as $dayIndex => $date) {
+                $run = $runs->get(($i + $dayIndex) % $runs->count());
+                if (! $run) {
+                    continue;
+                }
+
+                RunAssignment::updateOrCreate(
+                    [
+                        'run_id' => $run->id,
+                        'service_date' => $date->toDateString(),
+                    ],
+                    [
+                        'driver_id' => $driver->id,
+                        'vehicle_id' => $vehicle->id,
+                        'status' => $date->isToday() && $i % 3 === 0 ? 'in_progress' : 'scheduled',
+                    ],
+                );
+            }
         }
     }
 
@@ -363,11 +417,89 @@ class DemoDataSeeder extends Seeder
         );
 
         if ($run && $vehicle) {
+            $weekStart = now()->startOfWeek();
+            foreach (range(0, 4) as $offset) {
+                $date = $weekStart->copy()->addDays($offset);
+                RunAssignment::updateOrCreate(
+                    [
+                        'run_id' => $run->id,
+                        'service_date' => $date->toDateString(),
+                    ],
+                    [
+                        'driver_id' => $driver->id,
+                        'vehicle_id' => $vehicle->id,
+                        'status' => $date->isToday() ? 'scheduled' : 'scheduled',
+                    ],
+                );
+            }
+
+            $secondRun = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+                ->where('status', 'active')
+                ->where('id', '!=', $run->id)
+                ->orderBy('name')
+                ->first();
+
+            if ($secondRun) {
+                foreach (range(0, 4) as $offset) {
+                    $date = $weekStart->copy()->addDays($offset);
+                    RunAssignment::updateOrCreate(
+                        [
+                            'run_id' => $secondRun->id,
+                            'service_date' => $date->toDateString(),
+                        ],
+                        [
+                            'driver_id' => $driver->id,
+                            'vehicle_id' => $vehicle->id,
+                            'status' => 'scheduled',
+                        ],
+                    );
+                }
+            }
+        }
+    }
+
+    private function seedDriverScheduleHistory(string $orgId): void
+    {
+        $driver = Driver::where('organization_id', $orgId)->where('employee_id', 'EMP-1000')->first();
+        $vehicle = Vehicle::where('organization_id', $orgId)->orderBy('vehicle_number')->first();
+        $runs = Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
+
+        if (! $driver || ! $vehicle || $runs->isEmpty()) {
+            return;
+        }
+
+        $primary = $runs->first();
+        $alternate = $runs->get(1) ?? $primary;
+
+        foreach ([3, 5, 8, 12, 18, 22] as $daysAgo) {
+            $date = now()->subDays($daysAgo);
+            if (! $date->isWeekday()) {
+                continue;
+            }
+
             RunAssignment::updateOrCreate(
+                ['run_id' => $primary->id, 'service_date' => $date->toDateString()],
                 [
-                    'run_id' => $run->id,
-                    'service_date' => now()->toDateString(),
+                    'driver_id' => $driver->id,
+                    'vehicle_id' => $vehicle->id,
+                    'status' => $daysAgo <= 8 ? 'completed' : ($daysAgo === 12 ? 'cancelled' : 'scheduled'),
+                    'actual_start_time' => $daysAgo <= 8 ? $date->copy()->setTime(7, 5) : null,
+                    'actual_end_time' => $daysAgo <= 8 ? $date->copy()->setTime(8, 15) : null,
                 ],
+            );
+        }
+
+        foreach ([7, 14, 21, 28] as $daysAhead) {
+            $date = now()->addDays($daysAhead);
+            if (! $date->isWeekday()) {
+                continue;
+            }
+
+            RunAssignment::updateOrCreate(
+                ['run_id' => $alternate->id, 'service_date' => $date->toDateString()],
                 [
                     'driver_id' => $driver->id,
                     'vehicle_id' => $vehicle->id,
@@ -502,6 +634,53 @@ class DemoDataSeeder extends Seeder
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+                }
+            }
+        }
+    }
+
+    private function seedMobileChatThreads(): void
+    {
+        $chat = app(MobileChatService::class);
+
+        foreach (['driver@fleetpilot.test', 'parent@fleetpilot.test'] as $email) {
+            $user = User::where('email', $email)->first();
+            if ($user) {
+                $chat->ensureConversations($user);
+            }
+        }
+
+        $parent = User::where('email', 'parent@fleetpilot.test')->first();
+        $driver = User::where('email', 'driver@fleetpilot.test')->first();
+
+        foreach (array_filter([$parent, $driver]) as $user) {
+            $conversations = \App\Models\MobileChatConversation::query()
+                ->whereJsonContains('participant_user_ids', $user->id)
+                ->get();
+
+            foreach ($conversations as $conversation) {
+                if ($conversation->messages()->where('is_system', false)->exists()) {
+                    continue;
+                }
+
+                $reply = match ($conversation->type) {
+                    'parent_driver' => 'Hi! I will be at the stop a few minutes early today.',
+                    'parent_school' => 'Feel free to message us about absences or route changes.',
+                    'parent_support' => 'Transportation dispatch here — how can we help with your route?',
+                    'driver_school' => 'Let us know if pickup or dismissal times change today.',
+                    'driver_support' => 'Dispatch here — message us about route changes or delays.',
+                    default => null,
+                };
+
+                if ($reply) {
+                    \App\Models\MobileChatMessage::create([
+                        'conversation_id' => $conversation->id,
+                        'sender_user_id' => collect($conversation->participant_user_ids)
+                            ->first(fn ($id) => $id !== $user->id),
+                        'body' => $reply,
+                        'is_system' => false,
+                    ]);
+                    $conversation->update(['last_message_at' => now()]);
                 }
             }
         }

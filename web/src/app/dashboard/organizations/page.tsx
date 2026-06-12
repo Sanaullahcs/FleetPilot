@@ -6,9 +6,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { PageHeader, Button, StatCard, Badge } from "@/components/ui/primitives";
+import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { OrganizationStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
-import { FilterBar } from "@/components/ui/filter-bar";
+import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
 import { RowActions } from "@/components/ui/row-actions";
 import { Modal, ModalFooter } from "@/components/ui/modal";
@@ -17,7 +18,6 @@ import { SearchableSelect } from "@/components/ui/dropdown-menu";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
 import { createOrganization, deleteOrganization, listOrganizations } from "@/lib/resources";
-import { brand } from "@/lib/brand";
 import { idColumn, useTableSort } from "@/lib/table-utils";
 import type { Organization } from "@/lib/types";
 
@@ -218,11 +218,7 @@ export default function OrganizationsPage() {
         action={<Button onClick={() => setModalOpen(true)}>+ Add organization</Button>}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Organizations" value={totalOrgs} accent={brand.primary} />
-        <StatCard label="Users (this page)" value={totalUsers} hint="Paginated subset" accent={brand.cyan} />
-        <StatCard label="Platform role" value="Super Admin" hint="Full tenant management" accent={brand.orange} />
-      </div>
+      <OrganizationStatRow totalOrgs={totalOrgs} totalUsers={totalUsers} isLoading={isLoading} />
 
       <FilterBar
         search={search}
@@ -230,6 +226,11 @@ export default function OrganizationsPage() {
         searchPlaceholder="Search organizations…"
         resultCount={data?.total}
         onClear={() => { setSearch(""); setPage(1); }}
+      />
+
+      <ActiveFilterPills
+        items={search ? [{ key: "search", label: `Search: ${search}` }] : []}
+        onRemove={() => { setSearch(""); setPage(1); }}
       />
 
       <PageState

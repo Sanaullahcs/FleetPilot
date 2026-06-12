@@ -1,60 +1,103 @@
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+
+import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
+import { Stack, useRootNavigationState } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useFonts } from 'expo-font';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { useAuthStore } from '@/store/auth';
-import { AuthScreen } from '@/features/auth/auth-screen';
-import { isMobileRole } from '@/constants/app';
 import { SweetAlertHost } from '@/components/ui/sweet-alert-host';
 import { AppSplashScreen } from '@/components/splash/app-splash-screen';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { getMobileRole } from '@/constants/app';
+import { Colors } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function AuthGate() {
-  const { token, user, loading, hydrate, clear } = useAuthStore();
-  const [splashVisible, setSplashVisible] = useState(true);
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
 
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (!loading) {
-      const timer = setTimeout(async () => {
-        setSplashVisible(false);
-        await SplashScreen.hideAsync();
-      }, 650);
-      return () => clearTimeout(timer);
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    if (!loading && token && user && !isMobileRole(user.role)) {
-      clear();
-    }
-  }, [loading, token, user, clear]);
-
-  if (loading || splashVisible) {
-    return <AppSplashScreen />;
+  static getDerivedStateFromError(error: Error) {
+    return { error };
   }
 
-  const allowed = token && user && isMobileRole(user.role);
-  return allowed ? (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="run/[assignmentId]" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="support" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="legal/[document]" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="delete-account" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="child/[studentId]" options={{ animation: 'slide_from_right' }} />
-      <Stack.Screen name="chat/[conversationId]" options={{ animation: 'slide_from_right' }} />
-    </Stack>
-  ) : (
-    <AuthScreen />
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('FleetPilot crashed:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorText}>{this.state.error.message}</Text>
+          <Pressable style={styles.errorBtn} onPress={() => this.setState({ error: null })}>
+            <Text style={styles.errorBtnText}>Try again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PushNotificationBootstrap() {
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const mobileRole = getMobileRole(user);
+  const enabled = !!(token && mobileRole);
+  usePushNotifications(enabled);
+  return null;
+}
+
+function AppRoot() {
+  const hydrate = useAuthStore((s) => s.hydrate);
+  const loading = useAuthStore((s) => s.loading);
+  const navigationState = useRootNavigationState();
+  const [ready, setReady] = useState(false);
+  const [fontsLoaded] = useFonts(Ionicons.font);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await hydrate();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } catch (e) {
+        console.error('Startup failed:', e);
+      } finally {
+        if (!cancelled) {
+          setReady(true);
+          await SplashScreen.hideAsync().catch(() => {});
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrate]);
+
+  const showOverlay = !ready || loading || !fontsLoaded || !navigationState?.key;
+
+  return (
+    <View style={styles.appRoot}>
+      <PushNotificationBootstrap />
+      <Stack screenOptions={{ headerShown: false }} />
+      {showOverlay ? (
+        <View style={styles.splashOverlay} pointerEvents="auto">
+          <AppSplashScreen />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -63,18 +106,51 @@ export default function RootLayout() {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
+          queries: { retry: 2, refetchOnWindowFocus: true, staleTime: 15_000 },
         },
       }),
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <AuthGate />
-        <SweetAlertHost />
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={styles.flex}>
+          <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <AppRoot />
+            <SweetAlertHost />
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  appRoot: {
+    flex: 1,
+  },
+  splashOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 999,
+    elevation: 999,
+  },
+  errorWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: Colors.backgroundAuth,
+  },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: Colors.secondary, marginBottom: 8 },
+  errorText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  errorBtn: {
+    marginTop: 16,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  errorBtnText: { color: Colors.white, fontWeight: '600' },
+});

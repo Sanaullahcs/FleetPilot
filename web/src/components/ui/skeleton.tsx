@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
+import { DashboardStatTileSkeleton } from "@/components/dashboard/dashboard-stat-tile";
 
 export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -50,9 +51,9 @@ export function ChartCardSkeleton({ tall = false }: { tall?: boolean }) {
 export function DashboardStatsSkeleton({ count = 8 }: { count?: number }) {
   const accents = [brand.primary, brand.cyan, brand.accent, brand.orange, brand.primaryDark, brand.chart[5], brand.chart[6], brand.cyan];
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <StatCardSkeleton key={i} accent={accents[i % accents.length]} />
+        <DashboardStatTileSkeleton key={i} accent={accents[i % accents.length]} />
       ))}
     </div>
   );

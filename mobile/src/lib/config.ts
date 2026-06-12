@@ -29,14 +29,18 @@ function resolveApiUrl(): string {
 
   const devHost = resolveDevMachineHost();
 
-  // Physical device / Expo Go: use the same LAN IP as the Metro bundler.
-  if (devHost) {
+  // Expo Go / dev: Metro's host is the PC's current LAN IP — prefer it over a stale .env.
+  if (__DEV__ && devHost) {
     return `http://${devHost}:8000/api/v1`;
   }
 
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) {
     return envUrl;
+  }
+
+  if (devHost) {
+    return `http://${devHost}:8000/api/v1`;
   }
 
   if (Platform.OS === 'android') {
@@ -48,6 +52,6 @@ function resolveApiUrl(): string {
 
 /**
  * Base URL for the FleetPilot API.
- * Auto-detects your PC's LAN IP when running in Expo Go on a phone.
+ * In Expo Go, auto-detects your PC's LAN IP from Metro. Release builds use EXPO_PUBLIC_API_URL.
  */
 export const API_URL = resolveApiUrl();

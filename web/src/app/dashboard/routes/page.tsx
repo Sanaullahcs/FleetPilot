@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { RouteStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -38,11 +39,18 @@ const TYPE_LABELS: Record<string, string> = {
   charter: "Charter",
 };
 
+const STATUS_OPTIONS = [
+  { label: "Active", value: "active" },
+  { label: "Inactive", value: "inactive" },
+  { label: "Draft", value: "draft" },
+];
+
 export default function RoutesPage() {
   const can = usePermission();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
+  const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const { sortKey, sortDir, onSortChange, sortParams } = useTableSort("code");
   const [viewingId, setViewingId] = useState<string | null>(null);
@@ -51,8 +59,8 @@ export default function RoutesPage() {
   const [editing, setEditing] = useState<RouteItem | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["routes", { search, type, page, sortKey, sortDir }],
-    queryFn: () => listRoutes({ search, type, page, ...sortParams }),
+    queryKey: ["routes", { search, type, status, page, sortKey, sortDir }],
+    queryFn: () => listRoutes({ search, type, status, page, ...sortParams }),
   });
 
   const removeMutation = useMutation({
@@ -137,29 +145,42 @@ export default function RoutesPage() {
         )}
       />
 
+      <RouteStatRow />
+
       <FilterBar
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1); }}
         searchPlaceholder="Search routes…"
         resultCount={data?.total}
-        onClear={() => { setSearch(""); setType(""); setPage(1); }}
-        filters={[{
-          key: "type",
-          label: "Route type",
-          value: type,
-          onChange: (v) => { setType(v); setPage(1); },
-          options: TYPE_OPTIONS,
-        }]}
+        onClear={() => { setSearch(""); setType(""); setStatus(""); setPage(1); }}
+        filters={[
+          {
+            key: "type",
+            label: "Route type",
+            value: type,
+            onChange: (v) => { setType(v); setPage(1); },
+            options: TYPE_OPTIONS,
+          },
+          {
+            key: "status",
+            label: "Status",
+            value: status,
+            onChange: (v) => { setStatus(v); setPage(1); },
+            options: STATUS_OPTIONS,
+          },
+        ]}
       />
 
       <ActiveFilterPills
         items={[
           ...(search ? [{ key: "search", label: `Search: ${search}` }] : []),
           ...(type ? [{ key: "type", label: `Type: ${TYPE_LABELS[type] ?? type}` }] : []),
+          ...(status ? [{ key: "status", label: `Status: ${titleCase(status)}` }] : []),
         ]}
         onRemove={(key) => {
           if (key === "search") setSearch("");
           if (key === "type") setType("");
+          if (key === "status") setStatus("");
           setPage(1);
         }}
       />

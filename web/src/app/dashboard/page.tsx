@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth";
 import {
   getDashboardAnalytics,
@@ -10,13 +10,31 @@ import {
   listSchools,
   type DashboardFilters,
 } from "@/lib/resources";
-import { PageHeader, StatCard, Button } from "@/components/ui/primitives";
+import { PageHeader, Button } from "@/components/ui/primitives";
+import { DashboardStatTile } from "@/components/dashboard/dashboard-stat-tile";
+import {
+  StudentsIcon,
+  DriverIcon,
+  VehicleIcon,
+  SchoolIcon,
+  RouteIcon,
+  DispatchIcon,
+  UserIcon,
+  ShieldIcon,
+  OrgIcon,
+  CrownIcon,
+} from "@/components/dashboard/stat-icons";
 import { DashboardChartsSkeleton, DashboardStatsSkeleton } from "@/components/ui/skeleton";
 import {
   FleetBarChart,
   RoutesByTypeChart,
 } from "@/components/dashboard/charts";
 import { FleetInsightsPanel } from "@/components/dashboard/fleet-insights-panel";
+import {
+  DashboardAnalyticsFilterBar,
+  DashboardRefreshingSection,
+} from "@/components/dashboard/dashboard-analytics-filter-bar";
+import { QuickActionTile, QuickActionsPanel } from "@/components/dashboard/quick-action-tile";
 import { DismissibleSection } from "@/components/dashboard/dismissible-section";
 import { useDashboardDismiss } from "@/hooks/use-dashboard-dismiss";
 import { brand } from "@/lib/brand";
@@ -26,29 +44,6 @@ import type { UserRole } from "@/lib/types";
 const OPS_ROLES: UserRole[] = ["admin", "dispatcher"];
 
 const DEFAULT_FILTERS: DashboardFilters = { period: "all" };
-
-function QuickAction({
-  href,
-  label,
-  description,
-  accent,
-}: {
-  href: string;
-  label: string;
-  description: string;
-  accent: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-    >
-      <div className="mb-2 h-1 w-10 rounded-full" style={{ background: accent }} />
-      <p className="font-semibold text-brand-secondary group-hover:text-brand-primary">{label}</p>
-      <p className="mt-0.5 text-xs text-slate-500">{description}</p>
-    </Link>
-  );
-}
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -61,11 +56,13 @@ export default function DashboardPage() {
   const statsQuery = useQuery({
     queryKey: ["dashboard-stats", filters],
     queryFn: () => getDashboardStats(filters),
+    placeholderData: keepPreviousData,
   });
 
   const analyticsQuery = useQuery({
     queryKey: ["dashboard-analytics", filters],
     queryFn: () => getDashboardAnalytics(filters),
+    placeholderData: keepPreviousData,
   });
 
   const schoolsQuery = useQuery({
@@ -80,12 +77,17 @@ export default function DashboardPage() {
   }));
 
   const patchFilters = (patch: Partial<DashboardFilters>) => {
-    setFilters((prev) => {
-      const next = { ...prev, ...patch };
-      delete next.route_type;
-      return next;
-    });
+    setFilters((prev) => ({ ...prev, ...patch }));
   };
+
+  const clearFilters = () => setFilters(DEFAULT_FILTERS);
+
+  const hasActiveFilters =
+    (filters.period && filters.period !== "all") ||
+    Boolean(filters.school_id) ||
+    Boolean(filters.route_type) ||
+    Boolean(filters.from) ||
+    Boolean(filters.to);
 
   const userId = user?.id ?? "anonymous";
   const adminBanner = useDashboardDismiss(userId, "admin-banner");
@@ -108,6 +110,7 @@ export default function DashboardPage() {
       hint: `${data?.students?.active ?? 0} active`,
       href: "/dashboard/students",
       accent: brand.primary,
+      icon: <StudentsIcon />,
     },
     {
       label: "Drivers",
@@ -115,6 +118,7 @@ export default function DashboardPage() {
       hint: `${data?.drivers?.active ?? 0} active`,
       href: "/dashboard/drivers",
       accent: brand.cyan,
+      icon: <DriverIcon />,
     },
     {
       label: "Vehicles",
@@ -122,6 +126,7 @@ export default function DashboardPage() {
       hint: `${data?.vehicles?.active ?? 0} in service`,
       href: "/dashboard/vehicles",
       accent: brand.accent,
+      icon: <VehicleIcon />,
     },
     {
       label: "Schools",
@@ -129,6 +134,7 @@ export default function DashboardPage() {
       hint: "Served districts",
       href: "/dashboard/schools",
       accent: brand.orange,
+      icon: <SchoolIcon />,
     },
     {
       label: "Routes",
@@ -136,6 +142,7 @@ export default function DashboardPage() {
       hint: `${data?.routes?.active ?? 0} active`,
       href: "/dashboard/routes",
       accent: brand.primaryDark,
+      icon: <RouteIcon />,
     },
     {
       label: "Runs",
@@ -143,6 +150,7 @@ export default function DashboardPage() {
       hint: "Scheduled services",
       href: "/dashboard/routes",
       accent: brand.chart[5],
+      icon: <DispatchIcon />,
     },
   ];
 
@@ -156,6 +164,7 @@ export default function DashboardPage() {
           hint: "Staff with portal access",
           href: "/dashboard/users",
           accent: brand.chart[6],
+          icon: <UserIcon />,
         },
         {
           label: "Fleet health",
@@ -169,6 +178,7 @@ export default function DashboardPage() {
           hint: "Operations score",
           href: "/dashboard",
           accent: brand.cyan,
+          icon: <ShieldIcon />,
         },
       ]
     : [];
@@ -185,14 +195,16 @@ export default function DashboardPage() {
             hint: "Operations score",
             href: "/dashboard",
             accent: brand.cyan,
+            icon: <ShieldIcon />,
           },
         ]
       : [];
 
   const allStatCards = [...cards, ...adminExtraCards, ...dispatcherExtraCards];
 
-  const statsLoading = statsQuery.isLoading || statsQuery.isFetching;
-  const analyticsLoading = analyticsQuery.isLoading || analyticsQuery.isFetching;
+  const statsInitialLoading = statsQuery.isLoading && !statsQuery.data;
+  const analyticsInitialLoading = analyticsQuery.isLoading && !analyticsQuery.data;
+  const analyticsRefreshing = statsQuery.isFetching || analyticsQuery.isFetching;
   const isError = statsQuery.isError || analyticsQuery.isError;
 
   return (
@@ -220,18 +232,16 @@ export default function DashboardPage() {
 
       {!isError && (
       <>
-        {isSuperAdmin && statsLoading && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <DashboardStatsSkeleton count={3} />
-          </div>
+        {isSuperAdmin && statsInitialLoading && (
+          <DashboardStatsSkeleton count={3} />
         )}
 
-        {isSuperAdmin && !statsLoading && data && (
+        {isSuperAdmin && !statsInitialLoading && data && (
           <div className="space-y-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <StatCard label="Organizations" value={data.organizations?.total ?? 0} accent={brand.primary} />
-              <StatCard label="Platform users" value={data.users?.total ?? 0} accent={brand.cyan} />
-              <StatCard label="Org admins" value={data.admins?.total ?? 0} accent={brand.orange} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <DashboardStatTile label="Organizations" value={data.organizations?.total ?? 0} accent={brand.primary} icon={<OrgIcon />} />
+              <DashboardStatTile label="Platform users" value={data.users?.total ?? 0} accent={brand.cyan} icon={<UserIcon />} />
+              <DashboardStatTile label="Org admins" value={data.admins?.total ?? 0} accent={brand.orange} icon={<CrownIcon />} />
             </div>
             <div className="fp-card p-6">
               <h3 className="text-sm font-bold text-brand-secondary">Platform control</h3>
@@ -302,29 +312,44 @@ export default function DashboardPage() {
         )}
 
         {!isSuperAdmin && (
-        statsLoading ? (
+          <DashboardAnalyticsFilterBar
+            filters={filters}
+            onChange={patchFilters}
+            onClear={clearFilters}
+            schoolOptions={schoolOptions}
+            isRefreshing={analyticsRefreshing && !statsInitialLoading}
+            hasActive={hasActiveFilters}
+          />
+        )}
+
+        {!isSuperAdmin && (
+        statsInitialLoading ? (
           <DashboardStatsSkeleton count={allStatCards.length || 8} />
         ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+        <DashboardRefreshingSection refreshing={statsQuery.isFetching && !statsInitialLoading}>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
           {allStatCards.map((card) => (
-            <Link key={card.label} href={card.href} className="group transition hover:-translate-y-0.5">
-              <StatCard
+            <Link key={card.label} href={card.href} className="block">
+              <DashboardStatTile
                 label={card.label}
                 value={card.value ?? 0}
                 hint={card.hint}
                 accent={card.accent}
+                icon={card.icon}
               />
             </Link>
           ))}
         </div>
+        </DashboardRefreshingSection>
         )
         )}
 
-        {!isSuperAdmin && analyticsLoading && <DashboardChartsSkeleton />}
+        {!isSuperAdmin && analyticsInitialLoading && <DashboardChartsSkeleton />}
 
-        {!isSuperAdmin && !analyticsLoading && analytics && (
-          <div className="space-y-4">
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2 lg:items-stretch">
+        {!isSuperAdmin && !analyticsInitialLoading && analytics && (
+          <DashboardRefreshingSection refreshing={analyticsQuery.isFetching && !analyticsInitialLoading}>
+            <div className="space-y-3">
+            <div className="grid min-w-0 gap-3 lg:grid-cols-2 lg:items-stretch">
               <FleetBarChart data={analytics.fleet_overview} />
               <RoutesByTypeChart data={analytics.routes_by_type} />
             </div>
@@ -332,15 +357,12 @@ export default function DashboardPage() {
             {isOpsViewer && insightsPanel.ready && !insightsPanel.dismissed && (
               <FleetInsightsPanel
                 analytics={analytics}
-                filters={filters}
-                onChange={patchFilters}
-                onClear={() => setFilters(DEFAULT_FILTERS)}
                 onDismiss={insightsPanel.dismiss}
-                schoolOptions={schoolOptions}
                 showPeopleCharts
               />
             )}
-          </div>
+            </div>
+            </DashboardRefreshingSection>
         )}
 
         {!isSuperAdmin && isAdmin && quickActions.ready && !quickActions.dismissed && (
@@ -349,15 +371,13 @@ export default function DashboardPage() {
             onDismiss={quickActions.dismiss}
             dismissLabel="Hide quick actions"
           >
-            <div className="fp-card p-6 pr-12">
-              <h3 className="text-sm font-bold text-brand-secondary">Quick actions</h3>
-              <p className="mt-0.5 text-xs text-slate-500">Common administration and fleet tasks</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <QuickAction href="/dashboard/dispatch" label="Today's dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
-                <QuickAction href="/dashboard/users" label="Users & access" description="Accounts, roles, passwords" accent={brand.orange} />
-                <QuickAction href="/dashboard/roles" label="Roles & permissions" description="RBAC and access control" accent={brand.cyan} />
-                <QuickAction href="/dashboard/routes" label="Manage routes" description="Routes and scheduled runs" accent={brand.accent} />
-              </div>
+            <div className="pr-10">
+              <QuickActionsPanel title="Quick actions" description="Common administration and fleet tasks">
+                <QuickActionTile href="/dashboard/dispatch" label="Today's dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
+                <QuickActionTile href="/dashboard/users" label="Users & access" description="Accounts, roles, passwords" accent={brand.orange} />
+                <QuickActionTile href="/dashboard/roles" label="Roles & permissions" description="RBAC and access control" accent={brand.cyan} />
+                <QuickActionTile href="/dashboard/routes" label="Manage routes" description="Routes and scheduled runs" accent={brand.accent} />
+              </QuickActionsPanel>
             </div>
           </DismissibleSection>
         )}
@@ -368,15 +388,13 @@ export default function DashboardPage() {
             onDismiss={quickActions.dismiss}
             dismissLabel="Hide quick actions"
           >
-            <div className="fp-card p-6 pr-12">
-              <h3 className="text-sm font-bold text-brand-secondary">Quick actions</h3>
-              <p className="mt-0.5 text-xs text-slate-500">Jump to common dispatch tasks</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <QuickAction href="/dashboard/dispatch" label="Today's dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
-                <QuickAction href="/dashboard/radar" label="Live radar" description="Track fleet GPS in real time" accent={brand.cyan} />
-                <QuickAction href="/dashboard/routes" label="Manage routes" description="View and edit daily runs" accent={brand.orange} />
-                <QuickAction href="/dashboard/drivers" label="Driver roster" description="Licenses and compliance" accent={brand.accent} />
-              </div>
+            <div className="pr-10">
+              <QuickActionsPanel title="Quick actions" description="Jump to common dispatch tasks">
+                <QuickActionTile href="/dashboard/dispatch" label="Today's dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
+                <QuickActionTile href="/dashboard/radar" label="Live radar" description="Track fleet GPS in real time" accent={brand.cyan} />
+                <QuickActionTile href="/dashboard/routes" label="Manage routes" description="View and edit daily runs" accent={brand.orange} />
+                <QuickActionTile href="/dashboard/drivers" label="Driver roster" description="Licenses and compliance" accent={brand.accent} />
+              </QuickActionsPanel>
             </div>
           </DismissibleSection>
         )}

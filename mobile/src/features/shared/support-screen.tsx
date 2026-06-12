@@ -1,7 +1,8 @@
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { AppHeader } from '@/components/shell/app-header';
+import { KeyboardFormScreen } from '@/components/ui/keyboard-form-screen';
 import { Card, ListRow } from '@/components/ui/primitives';
 import { Colors } from '@/constants/theme';
 import { fetchMobileSupport } from '@/lib/mobile-api';
@@ -14,7 +15,7 @@ export function SupportScreen() {
   return (
     <View style={styles.root}>
       <AppHeader title="Help & support" subtitle="Contact your transportation team" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <KeyboardFormScreen contentContainerStyle={styles.scroll}>
         {support.isLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
         ) : (
@@ -86,7 +87,7 @@ export function SupportScreen() {
             </Card>
           </>
         )}
-      </ScrollView>
+      </KeyboardFormScreen>
     </View>
   );
 }

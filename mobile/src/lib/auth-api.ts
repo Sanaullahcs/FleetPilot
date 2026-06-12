@@ -1,4 +1,7 @@
 import { apiRequest } from '@/lib/api';
+import { unregisterPushNotificationsFromBackend } from '@/lib/push-notifications';
+import { useAuthStore } from '@/store/auth';
+import type { QueryClient } from '@tanstack/react-query';
 import type {
   RegisterPayload,
   SignupAdmin,
@@ -77,6 +80,14 @@ export async function logout(): Promise<void> {
   } catch {
     // Ignore network/expiry errors; the client clears state regardless.
   }
+}
+
+/** Clears server session, local credentials, and cached API data. */
+export async function signOut(options?: { queryClient?: QueryClient }): Promise<void> {
+  await unregisterPushNotificationsFromBackend();
+  await logout();
+  await useAuthStore.getState().clear();
+  options?.queryClient?.clear();
 }
 
 export async function deleteAccount(password: string): Promise<void> {

@@ -41,11 +41,11 @@ export function FleetPilotLogo({
       {mark}
       {showText && (
         <div className="min-w-0">
-          <span className="block text-base font-bold tracking-tight text-brand-secondary">FleetPilot</span>
+          <span className="block text-base font-semibold text-slate-900">FleetPilot</span>
           {subtitle && (
             <span
               className={cn(
-                "block truncate text-[10px] font-medium text-slate-400 sm:text-[11px]",
+                "block truncate text-sm font-normal text-slate-500",
                 subtitleClassName,
               )}
             >

@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Redirect, useRootNavigationState, useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { ui } from '@/constants/ui-styles';
-import { isMobileRole, MOBILE_ROLE_DENIED_MESSAGE, type MobileRole } from '@/constants/app';
+import { isMobileRole, MOBILE_ROLE_DENIED_MESSAGE, getMobileRole, type MobileRole } from '@/constants/app';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -14,7 +15,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@/components/ui/icons';
 import { login } from '@/lib/auth-api';
 import { ApiError } from '@/lib/api';
@@ -25,6 +26,7 @@ import {
   type SignInField,
 } from '@/lib/auth-validation';
 import { useAuthStore } from '@/store/auth';
+import { API_URL } from '@/lib/config';
 import { FleetPilotLogoMark } from '@/components/brand/logo-mark';
 import { AuthMeshBackground } from '@/components/auth/auth-mesh-background';
 import { AuthFormAlert } from '@/components/auth/auth-form-alert';
@@ -33,7 +35,8 @@ import { CaptchaField } from '@/components/auth/captcha-field';
 import { LegalPolicyModal } from '@/components/legal/legal-policy-modal';
 import { SignupForm } from '@/features/auth/signup-form';
 import { RoleToggle } from '@/features/auth/role-toggle';
-import { ROLE_MISMATCH_MESSAGES, ROLE_PORTALS } from '@/features/auth/role-portals';
+import { ROLE_MISMATCH_MESSAGES, ROLE_PORTALS, demoCredentialsForRole } from '@/features/auth/role-portals';
+import { useKeyboardInset } from '@/hooks/use-keyboard-inset';
 import type { LegalDocumentId } from '@/lib/mobile-types';
 
 type AuthMode = 'signin' | 'signup';
@@ -46,15 +49,35 @@ function useAuthLayout() {
   return { width, height, wide, compact, tight };
 }
 
+function mobileHomeHref(role: MobileRole): '/home' | '/today' {
+  return role === 'parent' ? '/home' : '/today';
+}
+
 export function AuthScreen() {
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
+  const authLoading = useAuthStore((s) => s.loading);
+  const token = useAuthStore((s) => s.token);
+  const storedUser = useAuthStore((s) => s.user);
   const setSession = useAuthStore((s) => s.setSession);
-  const insets = useSafeAreaInsets();
+  const storedRole = getMobileRole(storedUser);
   const { wide, compact, tight } = useAuthLayout();
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardInset = useKeyboardInset();
+  const keyboardVisible = keyboardInset > 0;
+
+  useEffect(() => {
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const sub = Keyboard.addListener(hideEvent, () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => sub.remove();
+  }, []);
 
   const [role, setRole] = useState<MobileRole>('parent');
   const [mode, setMode] = useState<AuthMode>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() => demoCredentialsForRole('parent').email);
+  const [password, setPassword] = useState(() => demoCredentialsForRole('parent').password);
   const [showPassword, setShowPassword] = useState(false);
   const [captchaValid, setCaptchaValid] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors<SignInField>>({});
@@ -62,6 +85,10 @@ export function AuthScreen() {
   const [errorRoleHint, setErrorRoleHint] = useState<MobileRole | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocumentId | null>(null);
+
+  const scrollFocusedFieldIntoView = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  };
 
   const roleConfig = ROLE_PORTALS[role];
   const captchaResetKey = `${mode}-${role}`;
@@ -98,6 +125,9 @@ export function AuthScreen() {
     setRole(next);
     clearAuthErrors();
     setCaptchaValid(false);
+    const demo = demoCredentialsForRole(next);
+    setEmail(demo.email);
+    setPassword(demo.password);
   };
 
   const onSubmit = async () => {
@@ -122,13 +152,14 @@ export function AuthScreen() {
         return;
       }
       await setSession(res.access_token, res.user);
+      router.replace(mobileHomeHref(res.user.role));
     } catch (e) {
       if (e instanceof ApiError) {
         const { fieldErrors: apiFieldErrors, formError: apiFormError } = mapLoginApiErrors(e.errors, e.message);
         setFieldErrors(apiFieldErrors);
         setFormError(apiFormError);
       } else {
-        setFormError('Unable to connect. Check your network and API URL.');
+        setFormError(`Unable to connect to ${API_URL}. Check Wi‑Fi and that the backend is running.`);
       }
     } finally {
       setSubmitting(false);
@@ -136,8 +167,9 @@ export function AuthScreen() {
   };
 
   const fillDemo = () => {
-    setEmail(roleConfig.demoEmail);
-    setPassword('password');
+    const demo = demoCredentialsForRole(role);
+    setEmail(demo.email);
+    setPassword(demo.password);
     setMode('signin');
     clearAuthErrors();
   };
@@ -145,7 +177,11 @@ export function AuthScreen() {
   const title = mode === 'signin' ? roleConfig.signInTitle : roleConfig.signUpTitle;
   const subtitle = mode === 'signin' ? roleConfig.signInSubtitle : roleConfig.signUpSubtitle;
   const logoSize = tight ? 32 : compact ? 36 : 40;
-  const showPerks = mode === 'signin' && !tight;
+  const showPerks = mode === 'signin' && !tight && !keyboardVisible;
+
+  if (!authLoading && token && storedUser && storedRole && navigationState?.key) {
+    return <Redirect href={mobileHomeHref(storedRole)} />;
+  }
 
   const card = (
     <View style={[styles.card, wide && styles.cardWide, { borderTopColor: roleConfig.accent }]}>
@@ -204,7 +240,7 @@ export function AuthScreen() {
                     authInputStyle(Boolean(fieldErrors.email)),
                   ]}
                 >
-                  <Ionicons name="mail-outline" size={16} color={fieldErrors.email ? Colors.danger : Colors.placeholder} />
+                  <Ionicons name="mail-outline" size={18} color={fieldErrors.email ? Colors.danger : Colors.placeholder} />
                   <TextInput
                     value={email}
                     onChangeText={(text) => {
@@ -237,6 +273,7 @@ export function AuthScreen() {
                       setPassword(text);
                       clearFieldError('password');
                     }}
+                    onFocus={scrollFocusedFieldIntoView}
                     secureTextEntry={!showPassword}
                     textContentType="password"
                     placeholder="Enter password"
@@ -252,6 +289,7 @@ export function AuthScreen() {
               <CaptchaField
                 resetKey={captchaResetKey}
                 onValidChange={handleCaptchaValid}
+                onFocus={scrollFocusedFieldIntoView}
                 compact={compact}
                 error={fieldErrors.captcha}
               />
@@ -316,34 +354,34 @@ export function AuthScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <AuthMeshBackground />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-      >
-        {mode === 'signup' && !wide ? (
-          <ScrollView
-            contentContainerStyle={styles.signupScroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {card}
-          </ScrollView>
-        ) : (
-          <View style={[styles.page, wide && styles.pageWide]}>
-            {wide ? (
+      <View style={styles.flex}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[
+            wide ? styles.pageWideScroll : styles.pageScroll,
+            keyboardVisible && styles.pageScrollKeyboard,
+            { paddingBottom: 16 + keyboardInset },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {wide ? (
+            <View style={styles.pageWide}>
               <View style={styles.heroCol}>
                 <FleetPilotLogoMark size={48} />
                 <Text style={styles.heroTitle}>FleetPilot</Text>
                 <Text style={styles.heroSub}>School bus app for drivers and parents</Text>
               </View>
-            ) : null}
+              <View style={styles.cardWrap}>{card}</View>
+            </View>
+          ) : (
             <View style={styles.cardWrap}>{card}</View>
-          </View>
-        )}
-      </KeyboardAvoidingView>
+          )}
+        </ScrollView>
+      </View>
       <LegalPolicyModal visible={legalDoc !== null} documentId={legalDoc} onClose={() => setLegalDoc(null)} />
     </SafeAreaView>
   );
@@ -355,11 +393,21 @@ export const LoginScreen = AuthScreen;
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.backgroundAuth },
   flex: { flex: 1 },
-  page: {
-    flex: 1,
+  pageScroll: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  pageScrollKeyboard: {
+    justifyContent: 'flex-start',
+    paddingTop: 4,
+  },
+  pageWideScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   pageWide: {
     flexDirection: 'row',

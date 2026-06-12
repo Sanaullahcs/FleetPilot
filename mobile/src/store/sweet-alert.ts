@@ -8,8 +8,8 @@ export interface SweetAlertOptions {
   message?: string;
   confirmText?: string;
   cancelText?: string;
-  onConfirm?: () => void;
-  onCancel?: () => void;
+  onConfirm?: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
 }
 
 interface SweetAlertState extends SweetAlertOptions {
@@ -30,9 +30,28 @@ const initial: SweetAlertState = {
   cancelText: 'Cancel',
 };
 
+/** Pull-to-refresh should never pop a modal — block legacy/stale refresh toasts. */
+function isRefreshNoiseAlert(options: SweetAlertOptions): boolean {
+  const type = options.type ?? 'info';
+  if (type === 'confirm' || type === 'error' || type === 'warning') {
+    return false;
+  }
+  const text = `${options.title} ${options.message ?? ''}`.toLowerCase();
+  return (
+    text.includes('refreshed') ||
+    text.includes('latest student data') ||
+    text.includes('live positions refreshed') ||
+    text.includes('map updated') ||
+    text.includes('positions refresh every')
+  );
+}
+
 export const useSweetAlertStore = create<SweetAlertStore>((set) => ({
   ...initial,
-  show: (options) =>
+  show: (options) => {
+    if (isRefreshNoiseAlert(options)) {
+      return;
+    }
     set({
       visible: true,
       type: options.type ?? 'info',
@@ -42,7 +61,8 @@ export const useSweetAlertStore = create<SweetAlertStore>((set) => ({
       cancelText: options.cancelText ?? 'Cancel',
       onConfirm: options.onConfirm,
       onCancel: options.onCancel,
-    }),
+    });
+  },
   hide: () => set({ ...initial }),
 }));
 
@@ -53,7 +73,7 @@ export function showSweetAlert(options: SweetAlertOptions) {
 export function showConfirmAlert(
   title: string,
   message: string,
-  onConfirm: () => void,
+  onConfirm: () => void | Promise<void>,
   options?: Partial<SweetAlertOptions>,
 ) {
   showSweetAlert({

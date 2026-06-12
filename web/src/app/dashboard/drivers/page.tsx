@@ -15,7 +15,7 @@ import { AssignmentChip, PageTabs, formatVehicleType } from "@/components/dashbo
 import { ContactCell } from "@/components/ui/contact-cell";
 import { StatusChip } from "@/components/dashboard/status-chip";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
-import { promptAssignDriver, promptAssignStudentDriver, promptAssignVehicle } from "@/lib/assignment-alerts";
+import { promptAssignStudentDriver, promptAssignVehicle } from "@/lib/assignment-alerts";
 import { promptChangeStatus } from "@/lib/status-alerts";
 import { DRIVER_STATUS_OPTIONS, STUDENT_STATUS_OPTIONS } from "@/lib/status-options";
 import { getApiErrorMessage } from "@/lib/api";

@@ -16,6 +16,7 @@ import type {
   DispatchRunRow,
   DriverScheduleResponse,
   DriverTodayResponse,
+  MobileNotification,
   ParentChildView,
   ParentRecord,
   ParentStudentLink,
@@ -32,6 +33,7 @@ import type {
   School,
   SchoolPortalPayload,
   Student,
+  SupportPayload,
   UserRole,
   Vehicle,
   VehicleDetail,
@@ -731,6 +733,31 @@ export async function markDashboardChatRead(conversationId: string) {
   const { data } = await api.post<{ data: { conversation_id: string; read: boolean } }>(
     `/chat/conversations/${conversationId}/read`,
   );
+  return data.data;
+}
+
+export async function listMobileNotifications(includeRead = true) {
+  const { data } = await api.get<{ data: { items: MobileNotification[]; total: number; unread: number } }>(
+    "/mobile/notifications",
+    { params: { include_read: includeRead ? 1 : 0 } },
+  );
+  return data.data;
+}
+
+export async function markMobileNotificationRead(notificationId: string) {
+  const { data } = await api.post<{ data: { id: string; read: boolean } }>(
+    `/mobile/notifications/${notificationId}/read`,
+  );
+  return data.data;
+}
+
+export async function markAllMobileNotificationsRead() {
+  const { data } = await api.post<{ data: { marked: number } }>("/mobile/notifications/read-all");
+  return data.data;
+}
+
+export async function getMobileSupport(): Promise<SupportPayload> {
+  const { data } = await api.get<{ data: SupportPayload }>("/mobile/support");
   return data.data;
 }
 

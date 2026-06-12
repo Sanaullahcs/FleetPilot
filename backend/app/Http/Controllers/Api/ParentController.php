@@ -26,11 +26,18 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
 
         $query = ParentAccount::query()
             ->where('parent_accounts.organization_id', $orgId)
             ->with('user:id,email,first_name,last_name,phone,is_active,last_login_at')
             ->withCount('students')
+            ->when($schoolId, function ($q) use ($schoolId) {
+                $q->where(function ($inner) use ($schoolId) {
+                    $inner->whereHas('students', fn ($student) => $student->where('school_id', $schoolId))
+                        ->orDoesntHave('students');
+                });
+            })
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->whereHas('user', function ($q) use ($search) {
                     $q->where('email', 'like', "%{$search}%")
@@ -68,13 +75,21 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
 
-        $parents = ParentAccount::where('organization_id', $orgId);
+        $parents = ParentAccount::where('organization_id', $orgId)
+            ->when($schoolId, function ($q) use ($schoolId) {
+                $q->where(function ($inner) use ($schoolId) {
+                    $inner->whereHas('students', fn ($student) => $student->where('school_id', $schoolId))
+                        ->orDoesntHave('students');
+                });
+            });
         $total = (clone $parents)->count();
         $active = (clone $parents)->whereHas('user', fn ($q) => $q->where('is_active', true))->count();
         $withStudents = (clone $parents)->has('students')->count();
         $studentLinks = ParentStudent::query()
             ->whereHas('parentAccount', fn ($q) => $q->where('organization_id', $orgId))
+            ->when($schoolId, fn ($q) => $q->whereHas('student', fn ($s) => $s->where('school_id', $schoolId)))
             ->count();
 
         return response()->json([
@@ -95,6 +110,7 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $this->authorizeOrg($request, $parentAccount);
+        $this->authorizeParentInSchoolScope($request->user(), $parentAccount);
 
         $parentAccount->load([
             'user:id,email,first_name,last_name,phone,is_active,last_login_at',
@@ -146,6 +162,7 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $this->authorizeOrg($request, $parentAccount);
+        $this->authorizeParentInSchoolScope($request->user(), $parentAccount);
 
         $data = $this->validateParentData($request, false, $parentAccount);
         $user = $parentAccount->user;
@@ -182,6 +199,7 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $this->authorizeOrg($request, $parentAccount);
+        $this->authorizeParentInSchoolScope($request->user(), $parentAccount);
 
         DB::transaction(function () use ($parentAccount) {
             $user = $parentAccount->user;
@@ -198,9 +216,12 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $this->authorizeOrg($request, $parentAccount);
+        $this->authorizeParentInSchoolScope($request->user(), $parentAccount);
+        $schoolId = $this->schoolScopeId($request->user());
 
         $links = ParentStudent::query()
             ->where('parent_account_id', $parentAccount->id)
+            ->when($schoolId, fn ($q) => $q->whereHas('student', fn ($s) => $s->where('school_id', $schoolId)))
             ->with([
                 'student:id,student_number,first_name,last_name,grade,status,school_id',
                 'student.school:id,name,code',
@@ -217,6 +238,7 @@ class ParentController extends Controller
     {
         $this->assertCanManageStudents($request);
         $this->authorizeOrg($request, $parentAccount);
+        $this->authorizeParentInSchoolScope($request->user(), $parentAccount);
 
         $orgId = $parentAccount->organization_id;
         $data = $request->validate([
@@ -232,6 +254,8 @@ class ParentController extends Controller
                 'student_id' => ['Student not found in your organization.'],
             ]);
         }
+
+        $this->authorizeStudentInSchoolScope($request->user(), $student);
 
         if (ParentStudent::where('parent_account_id', $parentAccount->id)->where('student_id', $student->id)->exists()) {
             throw ValidationException::withMessages([
@@ -269,6 +293,11 @@ class ParentController extends Controller
 
         if ($parentStudent->parent_account_id !== $parentAccount->id) {
             abort(404);
+        }
+
+        $parentStudent->load('student');
+        if ($parentStudent->student) {
+            $this->authorizeStudentInSchoolScope($request->user(), $parentStudent->student);
         }
 
         $parentStudent->delete();

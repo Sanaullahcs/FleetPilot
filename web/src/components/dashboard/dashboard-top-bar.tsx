@@ -40,7 +40,7 @@ export function DashboardTopBar({
             {showNotifications ? (
               <>
                 <div className="shrink-0 pr-0.5">
-                  <NotificationBell userId={user.id} />
+                  <NotificationBell userId={user.id} role={user.role} />
                 </div>
                 <span className="hidden h-7 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
               </>

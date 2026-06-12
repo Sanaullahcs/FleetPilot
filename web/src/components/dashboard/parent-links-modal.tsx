@@ -7,7 +7,7 @@ import { Button, Badge } from "@/components/ui/primitives";
 import { SearchableSelect } from "@/components/ui/dropdown-menu";
 import { toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
-import { linkStudentParent, listStudentParents, listUsers, unlinkStudentParent } from "@/lib/resources";
+import { linkStudentParent, listParents, listStudentParents, unlinkStudentParent } from "@/lib/resources";
 import { titleCase } from "@/lib/utils";
 import type { Student } from "@/lib/types";
 
@@ -40,17 +40,17 @@ export function ParentLinksModal({
   });
 
   const { data: parentsPage } = useQuery({
-    queryKey: ["users", "parents"],
-    queryFn: () => listUsers({ role: "parent", is_active: true, per_page: 100, sort_by: "last_name", sort_dir: "asc" }),
+    queryKey: ["parents", "student-link-picker"],
+    queryFn: () => listParents({ is_active: true, per_page: 200, sort_by: "last_name", sort_dir: "asc" }),
     enabled: open,
   });
 
   const linkedUserIds = new Set(links.map((l) => l.user?.id).filter(Boolean));
   const parentOptions = (parentsPage?.data ?? [])
-    .filter((u) => !linkedUserIds.has(u.id))
-    .map((u) => ({
-      label: `${u.first_name} ${u.last_name} · ${u.email}`,
-      value: u.id,
+    .filter((p) => p.user?.id && !linkedUserIds.has(p.user.id))
+    .map((p) => ({
+      label: `${p.user!.first_name} ${p.user!.last_name} · ${p.user!.email}`,
+      value: p.user!.id,
     }));
 
   const linkMutation = useMutation({

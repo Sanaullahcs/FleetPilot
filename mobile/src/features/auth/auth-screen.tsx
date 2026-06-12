@@ -325,7 +325,7 @@ export function AuthScreen() {
               <Pressable style={[styles.demoLink, compact && styles.demoLinkCompact]} onPress={fillDemo}>
                 <Ionicons name="flash-outline" size={13} color={Colors.textMuted} />
                 <Text style={styles.demoLinkText} numberOfLines={1}>
-                  Demo {roleConfig.label.toLowerCase()} · password: password
+                  Demo {roleConfig.label.toLowerCase()} · tap to fill
                 </Text>
               </Pressable>
             </>

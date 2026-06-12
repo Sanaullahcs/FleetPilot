@@ -16,7 +16,7 @@ import {
   listComplaintAssignees,
   updateComplaint,
 } from "@/lib/resources";
-import type { ComplaintRecord, ComplaintUpdate } from "@/lib/types";
+import type { ComplaintUpdate } from "@/lib/types";
 import { cn, titleCase } from "@/lib/utils";
 
 const STATUS_OPTIONS = [

@@ -15,6 +15,7 @@ import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
 import { deleteParent, listParents, updateParent } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
+import { useAuthStore } from "@/store/auth";
 import { titleCase } from "@/lib/utils";
 import { idColumn, useTableSort } from "@/lib/table-utils";
 import type { ParentRecord } from "@/lib/types";
@@ -31,6 +32,8 @@ const STUDENTS_OPTIONS = [
 
 export default function ParentsPage() {
   const can = usePermission();
+  const user = useAuthStore((s) => s.user);
+  const isSchoolContact = user?.role === "school_contact";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [isActive, setIsActive] = useState("");
@@ -163,7 +166,11 @@ export default function ParentsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Parents"
-        description="Manage parent accounts, portal access, and assign students they can view in My children and live tracking."
+        description={
+          isSchoolContact
+            ? "Add and manage parent accounts, link students, and control portal access for families at your school."
+            : "Manage parent accounts, portal access, and assign students they can view in My children and live tracking."
+        }
         action={
           can("students.create") && (
             <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add parent</Button>

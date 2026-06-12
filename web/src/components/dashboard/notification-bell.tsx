@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardNotifications } from "@/lib/resources";
-import type { DashboardNotification, NotificationSeverity } from "@/lib/types";
+import { getDashboardNotifications, listMobileNotifications } from "@/lib/resources";
+import type { DashboardNotification, MobileNotification, NotificationSeverity, UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const SEVERITY_STYLES: Record<
@@ -125,7 +125,8 @@ function NotificationItem({
   );
 }
 
-export function NotificationBell({ userId }: { userId: string }) {
+export function NotificationBell({ userId, role }: { userId: string; role: UserRole }) {
+  const isPortalUser = role === "parent" || role === "driver";
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -136,13 +137,19 @@ export function NotificationBell({ userId }: { userId: string }) {
   const storageKey = `fp-notifications-seen-${userId}`;
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["dashboard-notifications"],
-    queryFn: getDashboardNotifications,
-    refetchInterval: 60_000,
+    queryKey: isPortalUser ? ["mobile-notifications", "bell"] : ["dashboard-notifications"],
+    queryFn: isPortalUser ? () => listMobileNotifications(false) : getDashboardNotifications,
+    refetchInterval: isPortalUser ? 30_000 : 60_000,
   });
 
-  const items = data?.items ?? [];
-  const fingerprint = useMemo(() => notificationFingerprint(items), [items]);
+  const staffItems = !isPortalUser ? (data as { items: DashboardNotification[] } | undefined)?.items ?? [] : [];
+  const portalItems = isPortalUser ? (data as { items: MobileNotification[]; unread: number } | undefined)?.items ?? [] : [];
+  const portalUnread = isPortalUser ? (data as { unread: number } | undefined)?.unread ?? 0 : 0;
+  const items = staffItems;
+  const fingerprint = useMemo(
+    () => (isPortalUser ? portalItems.map((i) => `${i.id}:${i.read}`).join("|") : notificationFingerprint(staffItems)),
+    [isPortalUser, portalItems, staffItems],
+  );
 
   const [seenFingerprint, setSeenFingerprint] = useState<string | null>(null);
 
@@ -154,7 +161,8 @@ export function NotificationBell({ userId }: { userId: string }) {
     }
   }, [storageKey]);
 
-  const hasUnread = items.length > 0 && fingerprint !== seenFingerprint;
+  const hasUnread = isPortalUser ? portalUnread > 0 : items.length > 0 && fingerprint !== seenFingerprint;
+  const alertCount = isPortalUser ? portalUnread : items.length;
 
   const markSeen = useCallback(() => {
     if (!items.length) return;
@@ -213,9 +221,13 @@ export function NotificationBell({ userId }: { userId: string }) {
               <div>
                 <p className="text-sm font-bold text-slate-900">Notifications</p>
                 <p className="text-xs text-slate-500">
-                  {items.length
-                    ? `${items.length} alert${items.length === 1 ? "" : "s"} need attention`
-                    : "You're all caught up"}
+                  {isPortalUser
+                    ? portalUnread > 0
+                      ? `${portalUnread} unread alert${portalUnread === 1 ? "" : "s"}`
+                      : "You're all caught up"
+                    : items.length
+                      ? `${items.length} alert${items.length === 1 ? "" : "s"} need attention`
+                      : "You're all caught up"}
                 </p>
               </div>
               <button
@@ -231,7 +243,7 @@ export function NotificationBell({ userId }: { userId: string }) {
               {isLoading && (
                 <div className="px-4 py-10 text-center text-sm text-slate-400">Loading alerts…</div>
               )}
-              {!isLoading && items.length === 0 && (
+              {!isLoading && !isPortalUser && items.length === 0 && (
                 <div className="flex flex-col items-center px-6 py-12 text-center">
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -242,16 +254,46 @@ export function NotificationBell({ userId }: { userId: string }) {
                   <p className="mt-1 text-xs text-slate-500">Fleet compliance and operations look good.</p>
                 </div>
               )}
-              {items.map((item) => (
-                <NotificationItem key={item.id} item={item} onNavigate={() => setOpen(false)} />
-              ))}
+              {!isLoading && isPortalUser && portalItems.length === 0 && (
+                <div className="flex flex-col items-center px-6 py-12 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800">No alerts right now</p>
+                  <p className="mt-1 text-xs text-slate-500">Route and message updates will appear here.</p>
+                </div>
+              )}
+              {isPortalUser &&
+                portalItems.slice(0, 6).map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.conversation_id ? "/dashboard/messages" : item.complaint_id ? "/dashboard/complaints" : "/dashboard/alerts"}
+                    onClick={() => setOpen(false)}
+                    className="block border-b border-slate-100 px-4 py-3.5 transition last:border-b-0 hover:bg-slate-50"
+                  >
+                    <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{item.message}</p>
+                  </Link>
+                ))}
+              {!isPortalUser &&
+                items.map((item) => (
+                  <NotificationItem key={item.id} item={item} onNavigate={() => setOpen(false)} />
+                ))}
             </div>
 
-            {items.length > 0 && (
+            {(isPortalUser ? portalItems.length > 0 : items.length > 0) && (
               <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-2.5">
-                <p className="text-[10px] text-slate-400">
-                  Alerts refresh automatically · based on live fleet data
-                </p>
+                {isPortalUser ? (
+                  <Link href="/dashboard/alerts" onClick={() => setOpen(false)} className="text-xs font-semibold text-brand-primary">
+                    View all alerts →
+                  </Link>
+                ) : (
+                  <p className="text-[10px] text-slate-400">
+                    Alerts refresh automatically · based on live fleet data
+                  </p>
+                )}
               </div>
             )}
           </div>,
@@ -264,7 +306,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       <button
         ref={triggerRef}
         type="button"
-        aria-label={hasUnread ? `Notifications, ${items.length} alerts` : "Notifications"}
+        aria-label={hasUnread ? `Notifications, ${alertCount} alerts` : "Notifications"}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}
@@ -280,7 +322,7 @@ export function NotificationBell({ userId }: { userId: string }) {
         <BellIcon />
         {hasUnread && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-[#f8f9fc]">
-            {items.length > 9 ? "9+" : items.length}
+            {alertCount > 9 ? "9+" : alertCount}
           </span>
         )}
         {hasUnread && (

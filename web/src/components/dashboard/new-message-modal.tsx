@@ -14,18 +14,20 @@ const ROLE_LABELS: Record<string, string> = {
   driver: "Drivers",
   parent: "Parents",
   school_contact: "School contacts",
-  admin: "Administrators",
-  dispatcher: "Dispatchers",
+  admin: "Transportation",
+  dispatcher: "Transportation",
 };
 
 export function NewMessageModal({
   open,
   onClose,
   onStarted,
+  description = "Start a conversation with anyone in your organization.",
 }: {
   open: boolean;
   onClose: () => void;
   onStarted: (conversationId: string) => void;
+  description?: string;
 }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -74,7 +76,7 @@ export function NewMessageModal({
       open={open}
       onClose={onClose}
       title="New message"
-      description="Start a conversation with anyone in your organization."
+      description={description}
       size="md"
     >
       <div className="space-y-4">

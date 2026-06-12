@@ -13,6 +13,9 @@ import {
   listComplaints,
   listDashboardChatConversations,
   listDrivers,
+  listMobileNotifications,
+  getMobileSupport,
+  getDriverToday,
   listParents,
   listRoutes,
   listSchools,
@@ -109,6 +112,21 @@ export function prefetchDashboardRoute(queryClient: QueryClient, href: string) {
       return queryClient.prefetchQuery({
         queryKey: ["dashboard-chat-conversations"],
         queryFn: listDashboardChatConversations,
+      });
+    case "/dashboard/alerts":
+      return queryClient.prefetchQuery({
+        queryKey: ["mobile-notifications"],
+        queryFn: () => listMobileNotifications(true),
+      });
+    case "/dashboard/support":
+      return queryClient.prefetchQuery({
+        queryKey: ["mobile-support"],
+        queryFn: getMobileSupport,
+      });
+    case "/dashboard/today":
+      return queryClient.prefetchQuery({
+        queryKey: ["driver-today"],
+        queryFn: getDriverToday,
       });
     default:
       return Promise.resolve();

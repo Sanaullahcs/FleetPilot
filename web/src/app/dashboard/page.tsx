@@ -11,6 +11,7 @@ import {
   type DashboardFilters,
 } from "@/lib/resources";
 import { PageHeader, Button } from "@/components/ui/primitives";
+import { ParentPortalHome } from "@/components/dashboard/parent-portal-home";
 import { DashboardStatTile } from "@/components/dashboard/dashboard-stat-tile";
 import {
   StudentsIcon,
@@ -47,6 +48,7 @@ const DEFAULT_FILTERS: DashboardFilters = { period: "all" };
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const isParent = user?.role === "parent";
   const isSuperAdmin = user?.role === "super_admin";
   const isAdmin = user?.role === "admin";
   const isDispatcher = user?.role === "dispatcher";
@@ -206,6 +208,10 @@ export default function DashboardPage() {
   const analyticsInitialLoading = analyticsQuery.isLoading && !analyticsQuery.data;
   const analyticsRefreshing = statsQuery.isFetching || analyticsQuery.isFetching;
   const isError = statsQuery.isError || analyticsQuery.isError;
+
+  if (isParent) {
+    return <ParentPortalHome />;
+  }
 
   return (
     <div className="space-y-6">

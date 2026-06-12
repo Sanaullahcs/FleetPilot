@@ -23,6 +23,8 @@ class DashboardChatController extends Controller
             $items = $this->chat->listForStaff($user);
         } elseif ($user->role === 'school_contact') {
             $items = $this->chat->listForSchoolContact($user);
+        } elseif (in_array($user->role, ['parent', 'driver'], true)) {
+            $items = $this->chat->listForUser($user);
         } else {
             abort(403);
         }
@@ -80,28 +82,36 @@ class DashboardChatController extends Controller
     {
         $user = $request->user();
 
-        if (! in_array($user->role, ['admin', 'dispatcher'], true)) {
-            abort(403);
+        if (in_array($user->role, ['admin', 'dispatcher'], true)) {
+            return response()->json([
+                'data' => $this->chat->listMessageableContacts($user),
+            ]);
         }
 
-        return response()->json([
-            'data' => $this->chat->listMessageableContacts($user),
-        ]);
+        if ($user->role === 'school_contact') {
+            return response()->json([
+                'data' => $this->chat->listMessageableContactsForSchoolContact($user),
+            ]);
+        }
+
+        abort(403);
     }
 
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        if (! in_array($user->role, ['admin', 'dispatcher'], true)) {
-            abort(403);
-        }
-
         $data = $request->validate([
             'user_id' => ['required', 'uuid', 'exists:users,id'],
         ]);
 
-        $conversation = $this->chat->findOrCreateStaffConversation($user, $data['user_id']);
+        if (in_array($user->role, ['admin', 'dispatcher'], true)) {
+            $conversation = $this->chat->findOrCreateStaffConversation($user, $data['user_id']);
+        } elseif ($user->role === 'school_contact') {
+            $conversation = $this->chat->findOrCreateSchoolContactConversation($user, $data['user_id']);
+        } else {
+            abort(403);
+        }
 
         return response()->json([
             'data' => $this->chat->staffConversationPayload($conversation, $user),

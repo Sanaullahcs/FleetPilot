@@ -11,6 +11,10 @@ export function usePermission() {
   return (permission: string): boolean => {
     if (!user) return false;
     if (user.role === "admin" || user.role === "super_admin") return true;
+    if (user.role === "school_contact") {
+      if (permission.startsWith("students.")) return true;
+      if (permission.startsWith("complaints.")) return true;
+    }
     return user.permissions.includes(permission);
   };
 }

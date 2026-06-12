@@ -653,12 +653,12 @@ export interface DashboardChatConversation {
   id: string;
   type: "driver_support" | "driver_school" | "parent_driver" | "parent_school" | "parent_support" | "staff_direct";
   title: string;
-  subtitle: string | null;
-  participants: { name: string; role: string }[];
+  subtitle?: string | null;
+  participants?: { name: string; role: string }[];
   last_message: {
     body: string;
     time: string;
-    sender_name: string;
+    sender_name?: string;
   } | null;
   unread_count: number;
   updated_at: string;
@@ -683,6 +683,34 @@ export interface DashboardChatMessage {
     name: string;
     role: string;
   };
+}
+
+export type MobileNotificationSeverity = "info" | "success" | "warning" | "danger";
+
+export interface MobileNotification {
+  id: string;
+  category: string;
+  severity: MobileNotificationSeverity;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+  conversation_id?: string;
+  complaint_id?: string;
+}
+
+export interface SupportChannel {
+  id: string;
+  title: string;
+  description: string;
+  email: string | null;
+  phone: string | null;
+  hours: string;
+}
+
+export interface SupportPayload {
+  channels: SupportChannel[];
+  faqs: { question: string; answer: string }[];
 }
 
 export interface SchoolPortalAlert {

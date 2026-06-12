@@ -108,6 +108,7 @@ class StudentController extends Controller
         $this->assertCanManageStudents($request);
         $orgId = $request->user()->organization_id;
         $data = $this->validateData($request, $orgId);
+        $data = $this->applySchoolContactStudentScope($request->user(), $data);
         $data['organization_id'] = $orgId;
 
         $student = Student::create($data);
@@ -126,6 +127,7 @@ class StudentController extends Controller
         $this->authorizeStudentAccess($request, $student);
 
         $data = $this->validateData($request, $student->organization_id);
+        $data = $this->applySchoolContactStudentScope($request->user(), $data);
         $student->update($data);
 
         return response()->json([

@@ -14,7 +14,6 @@ import { PageState } from "@/components/ui/page-state";
 import { RowActions } from "@/components/ui/row-actions";
 import { Modal, ModalFooter } from "@/components/ui/modal";
 import { Field, FormSection } from "@/components/ui/form-section";
-import { SearchableSelect } from "@/components/ui/dropdown-menu";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
 import { createOrganization, deleteOrganization, listOrganizations } from "@/lib/resources";

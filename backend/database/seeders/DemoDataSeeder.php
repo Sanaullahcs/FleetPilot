@@ -15,6 +15,7 @@ use App\Models\Student;
 use App\Models\User;
 use App\Models\Stop;
 use App\Models\Vehicle;
+use App\Support\DemoCredentials;
 use App\Services\MobileChatService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -138,7 +139,7 @@ class DemoDataSeeder extends Seeder
             ['email' => 'school@fleetpilot.test'],
             [
                 'organization_id' => $orgId,
-                'password_hash' => 'password',
+                'password_hash' => DemoCredentials::PASSWORD,
                 'first_name' => 'Sydney',
                 'last_name' => 'Lincoln',
                 'role' => 'school_contact',

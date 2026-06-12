@@ -273,7 +273,6 @@ function formatScheduleDate(iso: string) {
 
 function buildRunActions({
   run,
-  serviceDate,
   canUpdate,
   onView,
   onAssign,
@@ -282,7 +281,6 @@ function buildRunActions({
   onOpenRadar,
 }: {
   run: DispatchRunRow;
-  serviceDate: string;
   canUpdate: boolean;
   onView: () => void;
   onAssign: () => void;
@@ -615,7 +613,6 @@ export default function DispatchPage() {
                 <RowActions
                   items={buildRunActions({
                     run,
-                    serviceDate,
                     canUpdate: can("routes.update"),
                     ...handlers,
                   })}

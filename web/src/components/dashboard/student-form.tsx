@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { getApiErrorMessage } from "@/lib/api";
 import { toastError, toastSuccess } from "@/lib/alerts";
 import type { Student } from "@/lib/types";
 import { useState } from "react";
+import { useAuthStore } from "@/store/auth";
 
 const FORM_ID = "student-form-modal";
 
@@ -60,6 +61,9 @@ export function StudentFormModal({
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
   const isEdit = Boolean(student);
+  const user = useAuthStore((s) => s.user);
+  const isSchoolContact = user?.role === "school_contact";
+  const lockedSchoolId = isSchoolContact ? user?.school_id ?? "" : "";
 
   const schoolsQuery = useQuery({
     queryKey: ["schools", "picker"],
@@ -75,14 +79,14 @@ export function StudentFormModal({
     staleTime: 30_000,
   });
 
-  const schoolOptions = useMemo(
-    () =>
-      (schoolsQuery.data?.data ?? []).map((s) => ({
-        label: schoolOptionLabel(s.name, s.code, s.city),
-        value: s.id,
-      })),
-    [schoolsQuery.data],
-  );
+  const schoolOptions = useMemo(() => {
+    const schools = schoolsQuery.data?.data ?? [];
+    const scoped = lockedSchoolId ? schools.filter((s) => s.id === lockedSchoolId) : schools;
+    return scoped.map((s) => ({
+      label: schoolOptionLabel(s.name, s.code, s.city),
+      value: s.id,
+    }));
+  }, [schoolsQuery.data, lockedSchoolId]);
 
   const driverOptions = useMemo(
     () =>
@@ -110,7 +114,7 @@ export function StudentFormModal({
       last_name: student?.last_name ?? "",
       student_number: student?.student_number ?? "",
       grade: student?.grade ?? "",
-      school_id: student?.school?.id ?? "",
+      school_id: student?.school?.id ?? lockedSchoolId ?? "",
       assigned_driver_id: student?.assigned_driver?.id ?? "",
       status: (student?.status as FormValues["status"]) ?? "active",
       has_iep: student?.has_iep ?? false,
@@ -122,6 +126,12 @@ export function StudentFormModal({
 
   const selectedSchoolId = watch("school_id");
   const selectedSchool = (schoolsQuery.data?.data ?? []).find((s) => s.id === selectedSchoolId);
+
+  useEffect(() => {
+    if (open && lockedSchoolId) {
+      setValue("school_id", lockedSchoolId, { shouldValidate: true });
+    }
+  }, [open, lockedSchoolId, setValue]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -215,8 +225,11 @@ export function StudentFormModal({
               }
               searchPlaceholder="Search by name, code, or city…"
               emptyMessage="No schools found — add schools under Schools in the sidebar"
-              disabled={schoolsLoading || schoolsEmpty}
+              disabled={schoolsLoading || schoolsEmpty || (!!lockedSchoolId && isSchoolContact)}
             />
+            {isSchoolContact && lockedSchoolId ? (
+              <p className="mt-2 text-xs text-slate-500">Students are enrolled at your assigned school.</p>
+            ) : null}
             {selectedSchool && (
               <div className="mt-2 rounded-lg border border-brand-primary/15 bg-brand-primary/5 px-3 py-2 text-xs text-slate-600">
                 <span className="font-semibold text-brand-primary">{selectedSchool.name}</span>

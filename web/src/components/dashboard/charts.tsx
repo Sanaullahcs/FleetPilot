@@ -459,8 +459,6 @@ export function DonutChart({
   subtitle,
   colorOffset = 0,
   compact = false,
-  size: _size,
-  layout: _layout,
 }: {
   data: ChartPoint[];
   title: string;

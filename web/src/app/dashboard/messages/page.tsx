@@ -8,8 +8,8 @@ import { NewMessageModal } from "@/components/dashboard/new-message-modal";
 import {
   countConversationsByTab,
   filterConversationsByTab,
-  MESSAGE_CATEGORY_TABS,
   MessageCategoryTabs,
+  tabDisplayForRole,
   type MessageCategoryTab,
 } from "@/components/dashboard/message-category-tabs";
 import { getApiErrorMessage } from "@/lib/api";
@@ -62,6 +62,12 @@ function typeBadgeClass(type: DashboardChatConversation["type"]) {
   return "bg-slate-100 text-slate-600";
 }
 
+function participantLine(conversation: DashboardChatConversation): string {
+  const names = (conversation.participants ?? []).map((p) => p.name).filter(Boolean);
+  if (names.length) return names.join(" · ");
+  return conversation.subtitle ?? "";
+}
+
 function initials(title: string) {
   const parts = title.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -70,7 +76,13 @@ function initials(title: string) {
 
 function visibleTabsForRole(role: string | undefined): MessageCategoryTab[] {
   if (role === "school_contact") {
-    return ["parent_school", "driver_school"];
+    return ["parent_school", "driver_school", "staff_direct"];
+  }
+  if (role === "parent") {
+    return ["parent_support", "parent_driver", "parent_school"];
+  }
+  if (role === "driver") {
+    return ["driver_support", "parent_driver", "driver_school"];
   }
   return ["all", "parent_driver", "parent_school", "driver_school", "parent_support", "driver_support"];
 }
@@ -78,7 +90,7 @@ function visibleTabsForRole(role: string | undefined): MessageCategoryTab[] {
 export default function MessagesPage() {
   const queryClient = useQueryClient();
   const userRole = useAuthStore((s) => s.user?.role);
-  const canStartChat = userRole === "admin" || userRole === "dispatcher";
+  const canStartChat = userRole === "admin" || userRole === "dispatcher" || userRole === "school_contact";
   const visibleTabs = useMemo(() => visibleTabsForRole(userRole), [userRole]);
   const defaultTab = visibleTabs[0] ?? "all";
 
@@ -111,11 +123,11 @@ export default function MessagesPage() {
   const tabCounts = useMemo(() => countConversationsByTab(conversations), [conversations]);
 
   const filteredConversations = useMemo(() => {
-    let items = filterConversationsByTab(conversations, activeTab);
+    const items = filterConversationsByTab(conversations, activeTab);
     const q = search.trim().toLowerCase();
     if (!q) return items;
     return items.filter((c) => {
-      const participantText = c.participants.map((p) => p.name).join(" ").toLowerCase();
+      const participantText = (c.participants ?? []).map((p) => p.name).join(" ").toLowerCase();
       const lastBody = (c.last_message?.body ?? "").toLowerCase();
       return (
         participantText.includes(q) ||
@@ -126,7 +138,7 @@ export default function MessagesPage() {
     });
   }, [conversations, activeTab, search]);
 
-  const activeTabConfig = MESSAGE_CATEGORY_TABS.find((t) => t.id === activeTab)!;
+  const activeTabConfig = tabDisplayForRole(activeTab, userRole);
 
   useEffect(() => {
     if (selectedId && !filteredConversations.some((c) => c.id === selectedId)) {
@@ -268,6 +280,7 @@ export default function MessagesPage() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search threads…"
+        role={userRole}
       />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[minmax(240px,280px)_1fr]">
@@ -326,7 +339,8 @@ export default function MessagesPage() {
                       </span>
                       {item.last_message ? (
                         <p className="mt-1 truncate text-[11px] text-slate-500">
-                          {item.last_message.sender_name}: {item.last_message.body}
+                          {item.last_message.sender_name ? `${item.last_message.sender_name}: ` : ""}
+                          {item.last_message.body}
                         </p>
                       ) : null}
                     </span>
@@ -351,7 +365,7 @@ export default function MessagesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-900">{activeConversation.title}</p>
                   <p className="truncate text-[11px] text-slate-500">
-                    {activeConversation.participants.map((p) => p.name).join(" · ")}
+                    {participantLine(activeConversation)}
                   </p>
                 </div>
                 <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold", typeBadgeClass(activeConversation.type))}>
@@ -440,9 +454,19 @@ export default function MessagesPage() {
       <NewMessageModal
         open={newMessageOpen}
         onClose={() => setNewMessageOpen(false)}
+        description={
+          userRole === "school_contact"
+            ? "Message parents, drivers, or transportation staff connected to your school."
+            : "Start a conversation with anyone in your organization."
+        }
         onStarted={(conversationId) => {
           setSelectedId(conversationId);
-          setActiveTab("all");
+          const started = conversations.find((c) => c.id === conversationId);
+          if (started?.type === "parent_school") setActiveTab("parent_school");
+          else if (started?.type === "driver_school") setActiveTab("driver_school");
+          else if (started?.type === "staff_direct") setActiveTab("staff_direct");
+          else if (userRole === "school_contact") setActiveTab(defaultTab);
+          else setActiveTab("all");
         }}
       />
     </div>

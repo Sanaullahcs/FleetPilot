@@ -1,8 +1,10 @@
 "use client";
 
+import { forwardRef, useId } from "react";
 import Link from "next/link";
 import { FleetPilotLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
+import { DEMO_PASSWORD } from "@/lib/demo-accounts";
 
 /* ─── Page chrome ─── */
 
@@ -88,19 +90,100 @@ export function AuthCenterLayout({ children }: { children: React.ReactNode }) {
 
 /* ─── Left brand panel ─── */
 
+function HeroArrow() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="opacity-90">
+      <path
+        d="M2 7h8M7.5 4.5L10 7l-2.5 2.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="2" cy="7" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function HeroBulletLine({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className="mt-[0.2em] shrink-0 text-sky-300 [&_svg]:block">
+        <HeroArrow />
+      </span>
+      <span className="min-w-0 leading-snug">{children}</span>
+    </li>
+  );
+}
+
+type HeroFeature = {
+  title: string;
+  desc: string;
+  Icon: () => React.ReactNode;
+  mobileStores?: { iosHref?: string; androidHref?: string };
+};
+
+function HeroStoreBadges({
+  iosHref,
+  androidHref,
+}: {
+  iosHref?: string;
+  androidHref?: string;
+}) {
+  const wrapClass =
+    "inline-flex shrink-0 overflow-hidden rounded-[6px] shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40";
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {iosHref ? (
+        <a href={iosHref} className={wrapClass} title="Download on the App Store" aria-label="Download on the App Store">
+          <AppStoreBadgeIcon size={22} />
+        </a>
+      ) : (
+        <span className={wrapClass} title="Download on the App Store" aria-label="Download on the App Store">
+          <AppStoreBadgeIcon size={22} />
+        </span>
+      )}
+      {androidHref ? (
+        <a href={androidHref} className={wrapClass} title="Get it on Google Play" aria-label="Get it on Google Play">
+          <GooglePlayBadgeIcon size={22} />
+        </a>
+      ) : (
+        <span className={wrapClass} title="Get it on Google Play" aria-label="Get it on Google Play">
+          <GooglePlayBadgeIcon size={22} />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function AuthHeroPanel({ variant = "login" }: { variant?: "login" | "signup" }) {
   const isSignup = variant === "signup";
 
-  const features = isSignup
+  const features: HeroFeature[] = isSignup
     ? [
-        { title: "Guided setup", desc: "Step-by-step onboarding", Icon: IconSteps },
-        { title: "Every role", desc: "Provider, school, driver, parent", Icon: IconUsers },
-        { title: "Verified access", desc: "Admin approval workflow", Icon: IconShield },
+        { title: "Guided setup", desc: "Step-by-step onboarding for your organization", Icon: IconSteps },
+        { title: "Every role", desc: "Provider, school, driver, and parent accounts", Icon: IconUsers },
+        { title: "Verified access", desc: "Admin approval workflow before going live", Icon: IconShield },
       ]
     : [
-        { title: "Live dispatch", desc: "Real-time fleet visibility", Icon: IconSignal },
-        { title: "School-ready", desc: "Stops & bell-time routing", Icon: IconSchool },
-        { title: "Secure access", desc: "Role-based for every team", Icon: IconShield },
+        {
+          title: "Web Portal",
+          desc: "Dispatch, live radar, routes, fleet, messaging, alerts, and complaints",
+          Icon: IconSignal,
+        },
+        {
+          title: "Driver app",
+          desc: "Runs, schedule, manifests, alerts, messaging, and complaints",
+          Icon: IconDriverApp,
+          mobileStores: {},
+        },
+        {
+          title: "Parent app",
+          desc: "Child tracking, schedules, alerts, messaging, and complaints",
+          Icon: IconParentApp,
+          mobileStores: {},
+        },
       ];
 
   return (
@@ -111,7 +194,7 @@ export function AuthHeroPanel({ variant = "login" }: { variant?: "login" | "sign
 
       <div className="relative pt-4 xl:pt-8">
         <p className="text-sm text-white/70">
-          K-12 transportation platform
+          Web dashboard · Driver app · Parent app
         </p>
 
         <h2 className="fp-auth-display-hero mt-4">
@@ -122,17 +205,43 @@ export function AuthHeroPanel({ variant = "login" }: { variant?: "login" | "sign
             </>
           ) : (
             <>
-              <span className="block">Student transportation,</span>
-              <span className="block text-sky-300">managed with confidence.</span>
+              <span className="block">District transportation</span>
+              <span className="block text-sky-300">Web and Mobile Apps.</span>
             </>
           )}
         </h2>
 
-        <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/65">
-          {isSignup
-            ? "Register as a provider, school, driver, or parent — one secure workspace that connects every stakeholder."
-            : "Routes, drivers, schools, and parent communication — one modern command center for K-12 operators."}
-        </p>
+        <ul className="mt-4 flex max-w-xl flex-col gap-1.5 list-none p-0 pr-2 text-[14px] text-white/65">
+          {isSignup ? (
+            <>
+              <HeroBulletLine>Register as a provider, school, driver, or parent.</HeroBulletLine>
+              <HeroBulletLine>
+                Schools can manage students, parents, and routes, send messages, and handle complaints on the web.
+              </HeroBulletLine>
+              <HeroBulletLine>
+                Drivers can view runs and manifests, receive alerts, message on the road, and report complaints on mobile.
+              </HeroBulletLine>
+              <HeroBulletLine>
+                Parents can track their children, follow schedules, receive alerts, and message schools or drivers in realtime.
+              </HeroBulletLine>
+            </>
+          ) : (
+            <>
+              <HeroBulletLine>
+                Schools can manage students, parents, and routes, send messages, and handle complaints on the web.
+              </HeroBulletLine>
+              <HeroBulletLine>
+                Dispatch can plan runs, monitor live radar, coordinate drivers, and manage alerts from the web dashboard.
+              </HeroBulletLine>
+              <HeroBulletLine>
+                Drivers can view assignments and manifests, receive alerts, message schools or parents, and report complaints on mobile.
+              </HeroBulletLine>
+              <HeroBulletLine>
+                Parents can track their children, follow schedules, receive alerts, message drivers or schools, and register complaints.
+              </HeroBulletLine>
+            </>
+          )}
+        </ul>
       </div>
 
       <div className="relative grid grid-cols-3 gap-3">
@@ -141,11 +250,21 @@ export function AuthHeroPanel({ variant = "login" }: { variant?: "login" | "sign
             key={f.title}
             className="rounded-xl border border-white/15 bg-white/[0.08] p-3.5 backdrop-blur-sm"
           >
-            <span className="text-white/90">
-              <f.Icon />
-            </span>
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-white/90">
+                <f.Icon />
+              </span>
+              {f.mobileStores ? (
+                <HeroStoreBadges
+                  iosHref={f.mobileStores.iosHref}
+                  androidHref={f.mobileStores.androidHref}
+                />
+              ) : null}
+            </div>
             <p className="mt-2.5 text-[13px] font-semibold text-white">{f.title}</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-white/55">{f.desc}</p>
+            <p className="mt-0.5 line-clamp-2 min-h-[2.75rem] text-[11px] leading-[1.375rem] text-white/55">
+              {f.desc}
+            </p>
           </div>
         ))}
       </div>
@@ -301,13 +420,12 @@ export function AuthField({
   );
 }
 
-export function AuthInput({
-  className,
-  icon,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & {
-  icon?: "mail" | "email" | "lock" | "user" | "phone";
-}) {
+export const AuthInput = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & {
+    icon?: "mail" | "email" | "lock" | "user" | "phone";
+  }
+>(function AuthInput({ className, icon, ...props }, ref) {
   return (
     <div className="relative">
       {icon ? (
@@ -315,10 +433,10 @@ export function AuthInput({
           <AuthInputIcon type={icon} />
         </span>
       ) : null}
-      <input className={cn("fp-auth-input", icon && "pl-10", className)} {...props} />
+      <input ref={ref} className={cn("fp-auth-input", icon && "pl-10", className)} {...props} />
     </div>
   );
-}
+});
 
 function AuthInputIcon({ type }: { type: "mail" | "email" | "lock" | "user" | "phone" }) {
   if (type === "mail" || type === "email") {
@@ -421,31 +539,35 @@ export function AuthSuccessBanner({ message }: { message: string }) {
 export function AuthDemoPills({
   accounts,
   onSelect,
+  selectedEmail,
 }: {
-  accounts: { label: string; email: string; accent: string }[];
-  onSelect: (email: string) => void;
+  accounts: { label: string; email: string; password?: string; accent: string }[];
+  onSelect: (account: { email: string; password: string }) => void;
+  selectedEmail?: string;
 }) {
   return (
     <div>
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-slate-200" />
-        <p className="text-sm text-slate-500">
-          Demo accounts · password
-        </p>
+        <p className="shrink-0 text-sm text-slate-500">Demo accounts</p>
         <span className="h-px flex-1 bg-slate-200" />
       </div>
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
-        {accounts.map((acc) => (
-          <button
-            key={acc.email}
-            type="button"
-            onClick={() => onSelect(acc.email)}
-            className="auth-demo-pill"
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: acc.accent }} />
-            <span>{acc.label}</span>
-          </button>
-        ))}
+      <div className="mt-3 flex flex-nowrap items-center justify-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {accounts.map((acc) => {
+          const active = selectedEmail === acc.email;
+          return (
+            <button
+              key={acc.email}
+              type="button"
+              onClick={() => onSelect({ email: acc.email, password: acc.password ?? DEMO_PASSWORD })}
+              className={cn("auth-demo-pill shrink-0", active && "auth-demo-pill-active")}
+              aria-pressed={active}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: acc.accent }} />
+              <span>{acc.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -572,6 +694,80 @@ function IconUsers() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
       <path d="M3.5 19c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5M16 5.5a3 3 0 010 5.5M17.5 14.5c1.8.7 3 2.3 3 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconChat() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 5h16v10H8l-4 4V5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M8 10h8M8 13h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconDriverApp() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="7" y="2.5" width="10" height="19" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="17.5" r="1" fill="currentColor" />
+      <path d="M9.5 6.5h5M10 9.5h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconParentApp() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="7" y="2.5" width="10" height="19" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="17.5" r="1" fill="currentColor" />
+      <circle cx="10" cy="8.5" r="1.3" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8.5 12.5c0-1.2 1.6-2 3.5-2s3.5.8 3.5 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AppStoreBadgeIcon({ size = 22 }: { size?: number }) {
+  const gradId = useId();
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <defs>
+        <linearGradient id={gradId} x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#2ACAFF" />
+          <stop offset="1" stopColor="#007AFF" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="5.5" fill={`url(#${gradId})`} />
+      <path
+        fill="#fff"
+        d="M16.02 12.73c.02-2.08 1.7-3.08 1.77-3.13-0.96-1.4-2.46-1.59-2.99-1.61-1.27-.13-2.49.75-3.14.75-.65 0-1.66-.73-2.73-.71-1.4.02-2.7.82-3.42 2.08-1.46 2.54-.37 6.3 1.05 8.37.7 1.01 1.53 2.14 2.62 2.1 1.05-.04 1.45-.68 2.72-.68 1.27 0 1.63.68 2.72.66 1.12-.02 1.83-1.03 2.52-2.05.8-1.16 1.13-2.29 1.15-2.35-.03-.01-2.21-.85-2.23-3.37zm-2.08-6.17c.58-.7.97-1.68.86-2.65-.83.03-1.84.55-2.44 1.25-.54.63-1.01 1.64-.88 2.61.93.07 1.88-.47 2.46-1.21z"
+      />
+    </svg>
+  );
+}
+
+function GooglePlayBadgeIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <rect width="24" height="24" rx="5.5" fill="#fff" />
+      <path
+        fill="#4285F4"
+        d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.61 3,21.09 3,20.5Z"
+      />
+      <path
+        fill="#34A853"
+        d="M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12Z"
+      />
+      <path
+        fill="#FBBC04"
+        d="M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"
+      />
     </svg>
   );
 }

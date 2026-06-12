@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { DashboardChatConversation } from "@/lib/types";
+import type { DashboardChatConversation, UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BusRouteIcon, DriverIcon, MessageIcon, SchoolIcon } from "@/components/dashboard/stat-icons";
 
@@ -11,7 +11,8 @@ export type MessageCategoryTab =
   | "parent_school"
   | "driver_school"
   | "parent_support"
-  | "driver_support";
+  | "driver_support"
+  | "staff_direct";
 
 export const MESSAGE_CATEGORY_TABS: {
   id: MessageCategoryTab;
@@ -76,7 +77,50 @@ export const MESSAGE_CATEGORY_TABS: {
     icon: <DriverIcon />,
     match: (c) => c.type === "driver_support",
   },
+  {
+    id: "staff_direct",
+    label: "Transportation",
+    shortLabel: "Transportation",
+    description: "Direct threads with dispatch and transportation administrators.",
+    emptyMessage: "No transportation conversations yet.",
+    icon: <MessageIcon />,
+    match: (c) => c.type === "staff_direct",
+  },
 ];
+
+const PORTAL_TAB_LABELS: Partial<
+  Record<UserRole, Partial<Record<MessageCategoryTab, { label: string; shortLabel: string }>>>
+> = {
+  parent: {
+    parent_support: { label: "Transportation office", shortLabel: "Office" },
+    parent_driver: { label: "Drivers", shortLabel: "Drivers" },
+    parent_school: { label: "Schools", shortLabel: "Schools" },
+  },
+  driver: {
+    driver_support: { label: "Dispatch & support", shortLabel: "Dispatch" },
+    parent_driver: { label: "Parents", shortLabel: "Parents" },
+    driver_school: { label: "Schools", shortLabel: "Schools" },
+  },
+  school_contact: {
+    parent_school: { label: "Parents", shortLabel: "Parents" },
+    driver_school: { label: "Drivers", shortLabel: "Drivers" },
+    staff_direct: { label: "Transportation", shortLabel: "Transportation" },
+  },
+};
+
+export function tabDisplayForRole(
+  tab: MessageCategoryTab,
+  role?: UserRole,
+): { label: string; shortLabel: string; description: string; emptyMessage: string } {
+  const config = MESSAGE_CATEGORY_TABS.find((t) => t.id === tab)!;
+  const override = role ? PORTAL_TAB_LABELS[role]?.[tab] : undefined;
+  return {
+    label: override?.label ?? config.label,
+    shortLabel: override?.shortLabel ?? config.shortLabel,
+    description: config.description,
+    emptyMessage: config.emptyMessage,
+  };
+}
 
 export function filterConversationsByTab(
   conversations: DashboardChatConversation[],
@@ -94,6 +138,7 @@ export function countConversationsByTab(conversations: DashboardChatConversation
     driver_school: { total: 0, unread: 0 },
     parent_support: { total: 0, unread: 0 },
     driver_support: { total: 0, unread: 0 },
+    staff_direct: { total: 0, unread: 0 },
   };
 
   for (const c of conversations) {
@@ -114,6 +159,9 @@ export function countConversationsByTab(conversations: DashboardChatConversation
     } else if (c.type === "driver_support") {
       out.driver_support.total += 1;
       out.driver_support.unread += c.unread_count;
+    } else if (c.type === "staff_direct") {
+      out.staff_direct.total += 1;
+      out.staff_direct.unread += c.unread_count;
     }
   }
 
@@ -128,6 +176,7 @@ export function MessageCategoryTabs({
   search,
   onSearchChange,
   searchPlaceholder = "Search threads…",
+  role,
 }: {
   active: MessageCategoryTab;
   onChange: (tab: MessageCategoryTab) => void;
@@ -136,6 +185,7 @@ export function MessageCategoryTabs({
   search?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
+  role?: UserRole;
 }) {
   const tabs = MESSAGE_CATEGORY_TABS.filter(
     (t) => !visibleTabs || visibleTabs.includes(t.id),
@@ -147,6 +197,7 @@ export function MessageCategoryTabs({
         {tabs.map((tab) => {
           const selected = tab.id === active;
           const { total, unread } = counts[tab.id];
+          const display = tabDisplayForRole(tab.id, role);
           return (
             <button
               key={tab.id}
@@ -159,7 +210,7 @@ export function MessageCategoryTabs({
                   : "border-slate-200 bg-white text-slate-700 hover:border-brand-primary/30 hover:bg-brand-light/30",
               )}
             >
-              <span className="text-xs font-semibold leading-none">{tab.shortLabel}</span>
+              <span className="text-xs font-semibold leading-none">{display.shortLabel}</span>
               <span className={cn("text-[10px] tabular-nums", selected ? "text-white/70" : "text-slate-400")}>
                 {total}
               </span>

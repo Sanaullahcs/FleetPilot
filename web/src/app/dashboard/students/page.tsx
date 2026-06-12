@@ -19,6 +19,7 @@ import { STUDENT_STATUS_OPTIONS } from "@/lib/status-options";
 import { getApiErrorMessage } from "@/lib/api";
 import { deleteStudent, listSchools, listStudents, updateStudentStatus } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
+import { useAuthStore } from "@/store/auth";
 import { titleCase } from "@/lib/utils";
 import { idColumn, useTableSort } from "@/lib/table-utils";
 import type { Student } from "@/lib/types";
@@ -42,10 +43,12 @@ const DRIVER_ASSIGNMENT_OPTIONS = [
 
 export default function StudentsPage() {
   const can = usePermission();
+  const user = useAuthStore((s) => s.user);
+  const isSchoolContact = user?.role === "school_contact";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const [schoolId, setSchoolId] = useState("");
+  const [schoolId, setSchoolId] = useState(isSchoolContact ? user?.school_id ?? "" : "");
   const [grade, setGrade] = useState("");
   const [assignment, setAssignment] = useState("");
   const [page, setPage] = useState(1);
@@ -101,7 +104,7 @@ export default function StudentsPage() {
   const clearFilters = () => {
     setSearch("");
     setStatus("");
-    setSchoolId("");
+    setSchoolId(isSchoolContact ? user?.school_id ?? "" : "");
     setGrade("");
     setAssignment("");
     setPage(1);
@@ -194,7 +197,11 @@ export default function StudentsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Students"
-        description="Manage student records, school enrollment, driver assignments, and parent portal access."
+        description={
+          isSchoolContact
+            ? "Enroll and manage students at your school, assign parents, and coordinate transportation access."
+            : "Manage student records, school enrollment, driver assignments, and parent portal access."
+        }
         action={
           can("students.create") && (
             <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add student</Button>
@@ -220,13 +227,17 @@ export default function StudentsPage() {
             onChange: (v) => { setStatus(v); setPage(1); },
             options: STATUS_OPTIONS,
           },
-          {
-            key: "school_id",
-            label: "School",
-            value: schoolId,
-            onChange: (v) => { setSchoolId(v); setPage(1); },
-            options: schoolOptions,
-          },
+          ...(isSchoolContact
+            ? []
+            : [
+                {
+                  key: "school_id",
+                  label: "School",
+                  value: schoolId,
+                  onChange: (v: string) => { setSchoolId(v); setPage(1); },
+                  options: schoolOptions,
+                },
+              ]),
           {
             key: "grade",
             label: "Grade",
@@ -247,7 +258,7 @@ export default function StudentsPage() {
       <ActiveFilterPills items={activePills} onRemove={(key) => {
         if (key === "search") setSearch("");
         if (key === "status") setStatus("");
-        if (key === "school_id") setSchoolId("");
+        if (key === "school_id") setSchoolId(isSchoolContact ? user?.school_id ?? "" : "");
         if (key === "grade") setGrade("");
         if (key === "assignment") setAssignment("");
         setPage(1);

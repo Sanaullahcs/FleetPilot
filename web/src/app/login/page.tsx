@@ -19,16 +19,10 @@ import {
   AuthSubmitButton,
   LoginShell,
 } from "@/components/auth/auth-shell";
-import { brand } from "@/lib/brand";
+import { WEB_DEMO_ACCOUNTS } from "@/lib/demo-accounts";
 import { getDashboardHomePath } from "@/lib/portal";
 
-const demoAccounts = [
-  { label: "Admin", email: "admin@fleetpilot.test", accent: brand.primary },
-  { label: "Dispatcher", email: "dispatch@fleetpilot.test", accent: brand.cyan },
-  { label: "School", email: "school@fleetpilot.test", accent: brand.orange },
-  { label: "Driver", email: "driver@fleetpilot.test", accent: brand.accent },
-  { label: "Parent", email: "parent@fleetpilot.test", accent: "#8B5CF6" },
-];
+const demoAccounts = [...WEB_DEMO_ACCOUNTS];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,6 +35,7 @@ export default function LoginPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
@@ -77,16 +72,18 @@ export default function LoginPage() {
     void handleSubmit(onSubmit)(event);
   };
 
-  const fillDemo = (email: string) => {
+  const fillDemo = ({ email, password }: { email: string; password: string }) => {
     setServerError(null);
     clearErrors();
-    setValue("email", email, { shouldValidate: true });
-    setValue("password", "password", { shouldValidate: true });
+    setValue("email", email, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
+    setValue("password", password, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
   };
+
+  const selectedEmail = watch("email");
 
   return (
     <LoginShell>
-      <AuthFormHeading title="Welcome back" description="Sign in to your account to continue" />
+      <AuthFormHeading title="Sign in" description="Enter your email and password to access your account." />
 
       <div className="mt-7">
         <form onSubmit={handleFormSubmit} className="space-y-4" noValidate>
@@ -143,7 +140,7 @@ export default function LoginPage() {
         </p>
 
         <div className="mt-7">
-          <AuthDemoPills accounts={demoAccounts} onSelect={fillDemo} />
+          <AuthDemoPills accounts={demoAccounts} onSelect={fillDemo} selectedEmail={selectedEmail} />
         </div>
       </div>
     </LoginShell>

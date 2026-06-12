@@ -6,7 +6,7 @@ import { useRequireAuth } from "@/hooks/use-require-auth";
 import { useAuthStore } from "@/store/auth";
 import { logout as logoutApi } from "@/lib/auth-api";
 import { confirmLogout, toastSuccess } from "@/lib/alerts";
-import { getPageHeaderTitle, isSchoolPortalPath } from "@/lib/portal";
+import { getPageHeaderTitle, isDriverPortalPath, isParentPortalPath, isSchoolPortalPath } from "@/lib/portal";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardTopBar } from "@/components/dashboard/dashboard-top-bar";
 import { AssignmentPickerHost } from "@/components/dashboard/assignment-picker-host";
@@ -25,7 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const headerTitle = user ? getPageHeaderTitle(pathname) : "FleetPilot";
-  const canUseChat = !!user && ["admin", "dispatcher", "school_contact"].includes(user.role);
+  const canUseChat = !!user && ["admin", "dispatcher", "school_contact", "parent", "driver"].includes(user.role);
   useDashboardChatAlerts(canUseChat && !loading && !!user);
   useMessageAudioPrime();
 
@@ -35,42 +35,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!user || user.role !== "parent") return;
-    const blocked =
-      pathname === "/dashboard" ||
-      pathname === "/dashboard/students" ||
-      pathname.startsWith("/dashboard/parents") ||
-      pathname.startsWith("/dashboard/dispatch") ||
-      pathname.startsWith("/dashboard/radar") ||
-      pathname.startsWith("/dashboard/drivers") ||
-      pathname.startsWith("/dashboard/vehicles") ||
-      pathname.startsWith("/dashboard/schools") ||
-      pathname.startsWith("/dashboard/routes") ||
-      pathname.startsWith("/dashboard/users") ||
-      pathname.startsWith("/dashboard/roles") ||
-      pathname.startsWith("/dashboard/my-schedule");
-    if (blocked) {
-      router.replace("/dashboard/my-children");
+    if (!isParentPortalPath(pathname)) {
+      router.replace("/dashboard");
     }
   }, [user, pathname, router]);
 
   useEffect(() => {
     if (!user || user.role !== "driver") return;
-    const blocked =
-      pathname === "/dashboard" ||
-      pathname.startsWith("/dashboard/parents") ||
-      pathname.startsWith("/dashboard/dispatch") ||
-      pathname.startsWith("/dashboard/radar") ||
-      pathname.startsWith("/dashboard/drivers") ||
-      pathname.startsWith("/dashboard/vehicles") ||
-      pathname.startsWith("/dashboard/schools") ||
-      pathname.startsWith("/dashboard/routes") ||
-      pathname.startsWith("/dashboard/users") ||
-      pathname.startsWith("/dashboard/roles") ||
-      pathname.startsWith("/dashboard/my-children") ||
-      pathname.startsWith("/dashboard/my-school") ||
-      pathname.startsWith("/dashboard/organizations");
-    if (blocked) {
-      router.replace("/dashboard/my-schedule");
+    if (!isDriverPortalPath(pathname)) {
+      router.replace("/dashboard/today");
     }
   }, [user, pathname, router]);
 
@@ -135,7 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
             {showNotifications && (
               <div className="pointer-events-auto shrink-0 pr-0.5">
-                <NotificationBell userId={user.id} />
+                <NotificationBell userId={user.id} role={user.role} />
               </div>
             )}
             <div className="pointer-events-auto shrink-0">

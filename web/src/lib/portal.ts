@@ -16,9 +16,9 @@ export function getDashboardHomePath(role: UserRole | undefined): string {
     case "super_admin":
       return "/dashboard";
     case "parent":
-      return "/dashboard/my-children";
+      return "/dashboard";
     case "driver":
-      return "/dashboard/my-schedule";
+      return "/dashboard/today";
     case "school_contact":
       return "/dashboard/my-school";
     default:
@@ -57,8 +57,11 @@ const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/dispatch": "Dispatch",
   "/dashboard/my-schedule": "My schedule",
+  "/dashboard/today": "Today's runs",
   "/dashboard/my-children": "My children",
   "/dashboard/my-school": "My school",
+  "/dashboard/alerts": "Alerts",
+  "/dashboard/support": "Help & support",
   "/dashboard/students": "Students",
   "/dashboard/parents": "Parents",
   "/dashboard/drivers": "Drivers",
@@ -113,7 +116,7 @@ export function getDashboardWelcome(role: UserRole | undefined, firstName: strin
     case "school_contact":
       return {
         title: `Welcome, ${firstName}`,
-        description: "Monitor routes, students, and daily service for your school.",
+        description: "Manage students and parents, message families and drivers, and coordinate with transportation in real time.",
       };
     default:
       return {
@@ -123,13 +126,43 @@ export function getDashboardWelcome(role: UserRole | undefined, firstName: strin
   }
 }
 
+/** Paths a parent is allowed to access on the web dashboard. */
+export function isParentPortalPath(pathname: string): boolean {
+  return (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/my-children") ||
+    pathname.startsWith("/dashboard/messages") ||
+    pathname.startsWith("/dashboard/alerts") ||
+    pathname.startsWith("/dashboard/support") ||
+    pathname.startsWith("/dashboard/complaints") ||
+    pathname.startsWith("/dashboard/profile")
+  );
+}
+
+/** Paths a driver is allowed to access on the web dashboard. */
+export function isDriverPortalPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/dashboard/today") ||
+    pathname.startsWith("/dashboard/my-schedule") ||
+    pathname.startsWith("/dashboard/messages") ||
+    pathname.startsWith("/dashboard/alerts") ||
+    pathname.startsWith("/dashboard/support") ||
+    pathname.startsWith("/dashboard/students") ||
+    pathname.startsWith("/dashboard/complaints") ||
+    pathname.startsWith("/dashboard/profile")
+  );
+}
+
 /** Paths a school contact is allowed to access on the web dashboard. */
 export function isSchoolPortalPath(pathname: string): boolean {
   return (
     pathname === "/dashboard/my-school" ||
     pathname.startsWith("/dashboard/students") ||
+    pathname.startsWith("/dashboard/parents") ||
     pathname.startsWith("/dashboard/routes") ||
     pathname.startsWith("/dashboard/messages") ||
+    pathname.startsWith("/dashboard/alerts") ||
+    pathname.startsWith("/dashboard/support") ||
     pathname.startsWith("/dashboard/complaints") ||
     pathname.startsWith("/dashboard/profile")
   );

@@ -8,8 +8,8 @@ import type { AuthUser, UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FleetPilotLogoMark } from "@/components/brand/logo";
 import { brand } from "@/lib/brand";
-import { getPortalTitle } from "@/lib/portal";
-import { listDashboardChatConversations, getComplaintStats } from "@/lib/resources";
+import { getPortalTitle, getDashboardHomePath } from "@/lib/portal";
+import { listDashboardChatConversations, getComplaintStats, listMobileNotifications } from "@/lib/resources";
 import { prefetchDashboardRoute } from "@/lib/nav-prefetch";
 import { useNavLoading } from "@/hooks/use-nav-loading";
 
@@ -23,20 +23,36 @@ interface NavItem {
 }
 
 const parentNav: NavItem[] = [
+  { label: "Overview", href: "/dashboard", icon: NavIconGrid },
   { label: "My children", href: "/dashboard/my-children", icon: NavIconStudents },
+  { label: "Messages", href: "/dashboard/messages", icon: NavIconMessages },
+  { label: "Alerts", href: "/dashboard/alerts", icon: NavIconAlerts },
+  { label: "Complaints", href: "/dashboard/complaints", icon: NavIconComplaints },
+  { label: "Profile", href: "/dashboard/profile", icon: NavIconProfile },
 ];
 
 const driverNav: NavItem[] = [
+  { label: "Today's runs", href: "/dashboard/today", icon: NavIconToday },
   { label: "My schedule", href: "/dashboard/my-schedule", icon: NavIconSchedule },
+  { label: "Messages", href: "/dashboard/messages", icon: NavIconMessages },
+  { label: "Alerts", href: "/dashboard/alerts", icon: NavIconAlerts },
+  { label: "Complaints", href: "/dashboard/complaints", icon: NavIconComplaints },
   { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
+  { label: "Profile", href: "/dashboard/profile", icon: NavIconProfile },
 ];
 
 const schoolNav: NavItem[] = [
   { label: "My school", href: "/dashboard/my-school", icon: NavIconSchool },
-  { label: "Complaints", href: "/dashboard/complaints", roles: ["school_contact"], icon: NavIconComplaints },
   { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
+  { label: "Complaints", href: "/dashboard/complaints", roles: ["school_contact"], icon: NavIconComplaints },
   { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
+  { label: "Parents", href: "/dashboard/parents", permission: "students.view", icon: NavIconParent },
   { label: "Routes", href: "/dashboard/routes", permission: "routes.view", icon: NavIconRoute },
+  { label: "Profile", href: "/dashboard/profile", roles: ["school_contact"], icon: NavIconProfile },
+];
+
+const portalSupportNav: NavItem[] = [
+  { label: "Support", href: "/dashboard/support", icon: NavIconSupport },
 ];
 
 const platformNav: NavItem[] = [
@@ -190,9 +206,10 @@ function NavSection({
 
 function Brand({ role }: { role: UserRole }) {
   const roleLabel = getPortalTitle(role);
+  const homeHref = getDashboardHomePath(role);
 
   return (
-    <Link href="/dashboard" className="fp-sidebar-brand group">
+    <Link href={homeHref} className="fp-sidebar-brand group">
       <span className="fp-sidebar-brand-mark">
         <FleetPilotLogoMark size={22} />
       </span>
@@ -224,23 +241,34 @@ function SidebarInner({
     void prefetchDashboardRoute(queryClient, href);
   };
 
-  useEffect(() => {
-    navItemsForUser(user)
-      .filter((item) => canSee(user, item))
-      .forEach((item) => warmRoute(item.href));
-  }, [user]);
-
   const isSuperAdmin = user.role === "super_admin";
   const isParent = user.role === "parent";
   const isDriver = user.role === "driver";
   const isSchool = user.role === "school_contact";
-  const canUseChat = ["admin", "dispatcher", "school_contact"].includes(user.role);
+  const isPortalSubRole = isParent || isDriver || isSchool;
+
+  useEffect(() => {
+    const items = [
+      ...navItemsForUser(user).filter((item) => canSee(user, item)),
+      ...(isPortalSubRole ? portalSupportNav : []),
+    ];
+    items.forEach((item) => warmRoute(item.href));
+  }, [user, isPortalSubRole]);
+
+  const isPortalUser = isParent || isDriver;
+  const canUseChat = ["admin", "dispatcher", "school_contact", "parent", "driver"].includes(user.role);
   const canSeeComplaints = user.role === "admin" || user.role === "dispatcher";
   const chatQuery = useQuery({
     queryKey: ["dashboard-chat-conversations"],
     queryFn: listDashboardChatConversations,
     enabled: canUseChat,
     refetchInterval: canUseChat ? 30_000 : false,
+  });
+  const portalAlertsQuery = useQuery({
+    queryKey: ["mobile-notifications", "sidebar"],
+    queryFn: () => listMobileNotifications(false),
+    enabled: isPortalUser,
+    refetchInterval: isPortalUser ? 30_000 : false,
   });
   const complaintsStatsQuery = useQuery({
     queryKey: ["complaint-stats"],
@@ -251,18 +279,21 @@ function SidebarInner({
   const navBadges = useMemo(
     () => ({
       "/dashboard/messages": chatQuery.data?.unread_total ?? 0,
+      "/dashboard/alerts": portalAlertsQuery.data?.unread ?? 0,
       "/dashboard/complaints": complaintsStatsQuery.data?.open ?? 0,
     }),
-    [chatQuery.data?.unread_total, complaintsStatsQuery.data?.open],
+    [chatQuery.data?.unread_total, portalAlertsQuery.data?.unread, complaintsStatsQuery.data?.open],
   );
+  const portalBadges = isPortalUser || isSchool ? navBadges : undefined;
+  const staffBadges = !isParent && !isDriver && !isSchool ? navBadges : undefined;
   const nav = isSuperAdmin ? (
     <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isParent ? (
-    <NavSection items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection title="Parent portal" items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isDriver ? (
-    <NavSection items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection title="Driver portal" items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isSchool ? (
-    <NavSection items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={navBadges} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : (
     <>
       <NavSection title="Operations" items={operationsNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
@@ -273,7 +304,7 @@ function SidebarInner({
         user={user}
         pathname={pathname}
         onNavigate={onNavigate}
-        badges={navBadges}
+        badges={staffBadges}
         onPrefetch={warmRoute}
         onNavStart={startNav}
       />
@@ -282,14 +313,26 @@ function SidebarInner({
   );
 
   return (
-    <>
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col">
       {!hideBrand && (
         <div className="mb-2.5 shrink-0 border-b border-slate-100 pb-2.5">
           <Brand role={user.role} />
         </div>
       )}
-      <nav className="fp-sidebar-scroll -mr-2 flex-1 space-y-1 overflow-y-auto pr-2">{nav}</nav>
-    </>
+      <nav className="fp-sidebar-scroll -mr-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-2">{nav}</nav>
+      {isPortalSubRole ? (
+        <div className="mt-auto shrink-0 border-t border-slate-100 bg-white pt-2">
+          <NavSection
+            items={portalSupportNav}
+            user={user}
+            pathname={pathname}
+            onNavigate={onNavigate}
+            onPrefetch={warmRoute}
+            onNavStart={startNav}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -306,10 +349,8 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col overflow-hidden border-r border-slate-200/70 bg-white px-3 py-3 md:flex">
-        <div className="relative flex h-full flex-col">
-          <SidebarInner user={user} pathname={pathname} />
-        </div>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden h-dvh w-60 flex flex-col overflow-hidden border-r border-slate-200/70 bg-white px-3 py-3 md:flex">
+        <SidebarInner user={user} pathname={pathname} />
       </aside>
 
       {open && (
@@ -328,9 +369,7 @@ export function Sidebar({
                 </svg>
               </button>
             </div>
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <SidebarInner user={user} pathname={pathname} onNavigate={onClose} hideBrand />
-            </div>
+            <SidebarInner user={user} pathname={pathname} onNavigate={onClose} hideBrand />
           </aside>
         </div>
       )}
@@ -462,6 +501,38 @@ function NavIconComplaints() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M8 2.5l5 2v4.5c0 2.8-1.9 4.7-5 5.5-3.1-.8-5-2.7-5-5.5V4.5l5-2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
       <path d="M8 6v3M8 10.5h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconAlerts() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2.5a3 3 0 00-3 3v1.5c0 .4-.2.8-.4 1.1L3.5 10.2A1 1 0 004.4 11.5h7.2a1 1 0 00.9-1.3l-1.1-2.1a1.5 1.5 0 01-.4-1.1V5.5a3 3 0 00-3-3z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M6.5 12a1.5 1.5 0 003 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconSupport() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 5.5v.5M8 8v2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconProfile() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="5.5" r="2.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M3.5 13c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconToday() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -96,13 +96,50 @@ export default function MySchoolPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <Link href="/dashboard/students">
+                <Button variant="secondary">Manage students</Button>
+              </Link>
+              <Link href="/dashboard/parents">
+                <Button variant="secondary">Manage parents</Button>
+              </Link>
+              <Link href="/dashboard/messages">
+                <Button>Messages</Button>
+              </Link>
               <Link href="/dashboard/complaints">
                 <Button variant="secondary">Register a complaint</Button>
               </Link>
-              <Link href="/dashboard/messages">
-                <Button variant="secondary">Open messages</Button>
+              <Link href="/dashboard/support">
+                <Button variant="secondary">Help & support</Button>
               </Link>
             </div>
+
+            <article className="fp-card overflow-hidden">
+              <div className="border-b border-slate-100 px-5 py-4">
+                <h2 className="text-lg font-bold text-brand-secondary">Real-time communication</h2>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  Parents and drivers can message your school office directly. Start new threads with families, drivers, or transportation dispatch.
+                </p>
+              </div>
+              <div className="grid gap-3 px-5 py-4 sm:grid-cols-3">
+                <div className="rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-violet-700">Parents</p>
+                  <p className="mt-1 text-sm text-slate-600">Enrollment, attendance, and pickup questions — live chat with your office.</p>
+                </div>
+                <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-cyan-700">Drivers</p>
+                  <p className="mt-1 text-sm text-slate-600">Route changes, dismissals, and daily coordination with assigned drivers.</p>
+                </div>
+                <div className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Transportation</p>
+                  <p className="mt-1 text-sm text-slate-600">Escalate issues to dispatch or admin — complaints and urgent route support.</p>
+                </div>
+              </div>
+              <div className="border-t border-slate-100 px-5 py-4">
+                <Link href="/dashboard/messages">
+                  <Button size="sm">Open messages · start a new chat</Button>
+                </Link>
+              </div>
+            </article>
 
             <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
               <article className="fp-card overflow-hidden">

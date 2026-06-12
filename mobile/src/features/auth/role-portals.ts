@@ -54,6 +54,8 @@ export const ROLE_PORTALS: Record<
   },
 };
 
+export const DEMO_PASSWORD = 'FleetPilot1!';
+
 export const ROLE_DEMO_CREDENTIALS: Record<
   MobileRole,
   {
@@ -66,14 +68,14 @@ export const ROLE_DEMO_CREDENTIALS: Record<
 > = {
   driver: {
     email: 'driver@fleetpilot.test',
-    password: 'password',
+    password: DEMO_PASSWORD,
     firstName: 'Demo',
     lastName: 'Driver',
     phone: '555-010-2001',
   },
   parent: {
     email: 'parent@fleetpilot.test',
-    password: 'password',
+    password: DEMO_PASSWORD,
     firstName: 'Demo',
     lastName: 'Parent',
     phone: '555-010-3001',

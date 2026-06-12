@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\DemoCredentials;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -27,11 +28,11 @@ class DatabaseSeeder extends Seeder
         $roles = $this->seedRoles($org->id, $permissions);
         $this->seedUsers($org->id, $roles);
 
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'super@fleetpilot.test'],
             [
                 'organization_id' => null,
-                'password_hash' => 'password',
+                'password_hash' => DemoCredentials::PASSWORD,
                 'first_name' => 'Sam',
                 'last_name' => 'SuperAdmin',
                 'role' => 'super_admin',
@@ -97,9 +98,14 @@ class DatabaseSeeder extends Seeder
                 'name' => 'School Contact',
                 'permissions' => [
                     'students.view',
+                    'students.create',
+                    'students.update',
+                    'students.delete',
                     'routes.view',
                     'runs.view',
                     'schools.view',
+                    'complaints.view',
+                    'complaints.create',
                 ],
             ],
         ];
@@ -135,11 +141,11 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($users as $data) {
-            $user = User::firstOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $data['email']],
                 [
                     'organization_id' => $orgId,
-                    'password_hash' => 'password',
+                    'password_hash' => DemoCredentials::PASSWORD,
                     'first_name' => $data['first_name'],
                     'last_name' => $data['last_name'],
                     'role' => $data['role'],

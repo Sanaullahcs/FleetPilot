@@ -14,6 +14,9 @@ export function usePermission() {
     if (user.role === "school_contact") {
       if (permission.startsWith("students.")) return true;
       if (permission.startsWith("complaints.")) return true;
+      if (permission === "routes.view" || permission === "runs.view") return true;
+      if (permission === "drivers.view") return true;
+      if (permission === "vehicles.view") return true;
     }
     return user.permissions.includes(permission);
   };

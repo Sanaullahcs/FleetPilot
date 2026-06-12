@@ -136,9 +136,9 @@ export function NotificationBell({ userId, role }: { userId: string; role: UserR
 
   const storageKey = `fp-notifications-seen-${userId}`;
 
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery<unknown>({
     queryKey: isPortalUser ? ["mobile-notifications", "bell"] : ["dashboard-notifications"],
-    queryFn: isPortalUser ? () => listMobileNotifications(false) : getDashboardNotifications,
+    queryFn: isPortalUser ? () => listMobileNotifications(false) : () => getDashboardNotifications(),
     refetchInterval: isPortalUser ? 30_000 : 60_000,
   });
 

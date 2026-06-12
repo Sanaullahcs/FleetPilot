@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SchoolController;
 use App\Http\Controllers\Api\SchoolPortalController;
 use App\Http\Controllers\Api\StudentController;
+use App\Http\Controllers\Api\MarketingContactController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -65,6 +66,8 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::get('/mobile/app-info', [MobileController::class, 'appInfo']);
+
+Route::post('/marketing/contact', [MarketingContactController::class, 'store']);
 
 Route::middleware('auth:api')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
@@ -205,5 +208,13 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/{organization}', [OrganizationController::class, 'show']);
         Route::put('/{organization}', [OrganizationController::class, 'update']);
         Route::delete('/{organization}', [OrganizationController::class, 'destroy']);
+    });
+
+    Route::middleware('super_admin')->prefix('marketing-contacts')->group(function () {
+        Route::get('/', [MarketingContactController::class, 'index']);
+        Route::get('/stats', [MarketingContactController::class, 'stats']);
+        Route::get('/{marketingContact}', [MarketingContactController::class, 'show']);
+        Route::post('/{marketingContact}/read', [MarketingContactController::class, 'markRead']);
+        Route::post('/{marketingContact}/archive', [MarketingContactController::class, 'archive']);
     });
 });

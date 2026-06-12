@@ -43,11 +43,14 @@ const driverNav: NavItem[] = [
 
 const schoolNav: NavItem[] = [
   { label: "My school", href: "/dashboard/my-school", icon: NavIconSchool },
-  { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
-  { label: "Complaints", href: "/dashboard/complaints", roles: ["school_contact"], icon: NavIconComplaints },
+  { label: "Today's runs", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
+  { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
   { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
   { label: "Parents", href: "/dashboard/parents", permission: "students.view", icon: NavIconParent },
+  { label: "Drivers", href: "/dashboard/drivers", permission: "drivers.view", icon: NavIconDriver },
   { label: "Routes", href: "/dashboard/routes", permission: "routes.view", icon: NavIconRoute },
+  { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
+  { label: "Complaints", href: "/dashboard/complaints", roles: ["school_contact"], icon: NavIconComplaints },
   { label: "Profile", href: "/dashboard/profile", roles: ["school_contact"], icon: NavIconProfile },
 ];
 
@@ -58,6 +61,7 @@ const portalSupportNav: NavItem[] = [
 const platformNav: NavItem[] = [
   { label: "Platform overview", href: "/dashboard", icon: NavIconGrid },
   { label: "Organizations", href: "/dashboard/organizations", icon: NavIconBuilding },
+  { label: "Contact leads", href: "/dashboard/contact-leads", icon: NavIconMail },
   { label: "All users", href: "/dashboard/users", icon: NavIconUsers },
 ];
 
@@ -293,7 +297,7 @@ function SidebarInner({
   ) : isDriver ? (
     <NavSection title="Driver portal" items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isSchool ? (
-    <NavSection items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection title="School portal" items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : (
     <>
       <NavSection title="Operations" items={operationsNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
@@ -458,6 +462,14 @@ function NavIconBuilding() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M3 13V5l5-3 5 3v8H3z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
       <path d="M6 8h1M9 8h1M6 10.5h1M9 10.5h1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconMail() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M2.5 4.5L8 9l5.5-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   );
 }

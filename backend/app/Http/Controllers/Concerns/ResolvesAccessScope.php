@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\ParentAccount;
 use App\Models\ParentStudent;
+use App\Models\RunAssignment;
 use App\Models\Student;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 trait ResolvesAccessScope
@@ -97,5 +99,55 @@ trait ResolvesAccessScope
         if (! $hasSchoolStudent && ! $hasNoStudents) {
             abort(403, 'You can only manage parents linked to your school.');
         }
+    }
+
+    /**
+     * Limit driver queries to those serving a school contact's campus.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return Builder<\Illuminate\Database\Eloquent\Model>
+     */
+    protected function applySchoolDriverScope(User $user, Builder $query): Builder
+    {
+        $schoolId = $this->schoolScopeId($user);
+        if (! $schoolId) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($schoolId) {
+            $q->whereHas('students', fn (Builder $s) => $s->where('school_id', $schoolId))
+                ->orWhereIn('id', RunAssignment::query()
+                    ->select('driver_id')
+                    ->whereDate('service_date', today())
+                    ->whereNotNull('driver_id')
+                    ->whereHas('run.route', fn (Builder $r) => $r->where('school_id', $schoolId)));
+        });
+    }
+
+    protected function authorizeDriverInSchoolScope(User $user, \App\Models\Driver $driver): void
+    {
+        abort_unless($driver->organization_id === $user->organization_id, 404);
+
+        $schoolId = $this->schoolScopeId($user);
+        if (! $schoolId) {
+            return;
+        }
+
+        $servesSchool = Student::query()
+            ->where('assigned_driver_id', $driver->id)
+            ->where('school_id', $schoolId)
+            ->exists();
+
+        if ($servesSchool) {
+            return;
+        }
+
+        $onSchoolRun = RunAssignment::query()
+            ->where('driver_id', $driver->id)
+            ->whereDate('service_date', today())
+            ->whereHas('run.route', fn (Builder $r) => $r->where('school_id', $schoolId))
+            ->exists();
+
+        abort_unless($onSchoolRun, 403, 'You can only view drivers serving your school.');
     }
 }

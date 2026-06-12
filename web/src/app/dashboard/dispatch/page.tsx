@@ -30,6 +30,7 @@ import {
   updateDispatchAssignment,
 } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
+import { useAuthStore } from "@/store/auth";
 import { buildVehicleSelectOptions } from "@/lib/picker-options";
 import { cn, titleCase } from "@/lib/utils";
 import { idColumn } from "@/lib/table-utils";
@@ -320,6 +321,8 @@ function buildRunActions({
 export default function DispatchPage() {
   const router = useRouter();
   const can = usePermission();
+  const user = useAuthStore((s) => s.user);
+  const isSchoolContact = user?.role === "school_contact";
   const queryClient = useQueryClient();
   const [serviceDate, setServiceDate] = useState(todayIso);
   const [search, setSearch] = useState("");
@@ -509,8 +512,12 @@ export default function DispatchPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Today's dispatch"
-        description="Create runs, assign drivers and vehicles, and monitor today's service board."
+        title={isSchoolContact ? "Today's runs" : "Today's dispatch"}
+        description={
+          isSchoolContact
+            ? "View assigned runs, drivers, and vehicles serving your school today. Read-only — contact transportation to make changes."
+            : "Create runs, assign drivers and vehicles, and monitor today's service board."
+        }
         action={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {can("routes.update") && (
@@ -563,13 +570,17 @@ export default function DispatchPage() {
             onChange: setRouteType,
             options: ROUTE_TYPE_OPTIONS,
           },
-          {
-            key: "school_id",
-            label: "School",
-            value: schoolId,
-            onChange: setSchoolId,
-            options: schoolOptions,
-          },
+          ...(!isSchoolContact
+            ? [
+                {
+                  key: "school_id",
+                  label: "School",
+                  value: schoolId,
+                  onChange: setSchoolId,
+                  options: schoolOptions,
+                },
+              ]
+            : []),
         ]}
       />
 

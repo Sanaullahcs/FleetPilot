@@ -32,6 +32,7 @@ import {
   updateStudentStatus,
 } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
+import { useAuthStore } from "@/store/auth";
 import { titleCase } from "@/lib/utils";
 import { idColumn, useTableSort } from "@/lib/table-utils";
 import { buildDriverPickerOptions, buildVehiclePickerOptions } from "@/lib/picker-options";
@@ -81,6 +82,8 @@ interface FlatStudentRow {
 
 export default function DriversPage() {
   const can = usePermission();
+  const user = useAuthStore((s) => s.user);
+  const isSchoolContact = user?.role === "school_contact";
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>("roster");
   const [search, setSearch] = useState("");
@@ -451,7 +454,9 @@ export default function DriversPage() {
 
   const studentTabFilters = [
     { key: "driver_id", label: "Driver", value: driverFilter, onChange: setDriverFilter, options: driverFilterOptions },
-    { key: "school_id", label: "School", value: schoolFilter, onChange: setSchoolFilter, options: schoolOptions },
+    ...(isSchoolContact
+      ? []
+      : [{ key: "school_id", label: "School", value: schoolFilter, onChange: setSchoolFilter, options: schoolOptions }]),
     { key: "student_status", label: "Student status", value: studentStatus, onChange: setStudentStatus, options: STUDENT_STATUS_OPTIONS },
     { key: "grade", label: "Grade", value: gradeFilter, onChange: setGradeFilter, options: GRADE_OPTIONS },
     { key: "status", label: "Driver status", value: status, onChange: setStatus, options: STATUS_OPTIONS },
@@ -464,7 +469,11 @@ export default function DriversPage() {
     <div className="space-y-5">
       <PageHeader
         title="Drivers"
-        description="Manage drivers, vehicle assignments, student routes, licensing, and compliance."
+        description={
+          isSchoolContact
+            ? "Drivers assigned to your students and today's school runs — contact and license details."
+            : "Manage drivers, vehicle assignments, student routes, licensing, and compliance."
+        }
         action={can("drivers.create") && <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add driver</Button>}
       />
 
@@ -537,8 +546,8 @@ export default function DriversPage() {
                     { label: "Change status", onClick: () => handleDriverStatusChange(d), hidden: !can("drivers.update") },
                     { label: "View students", onClick: () => { setTab("students"); setDriverFilter(d.id); } },
                     { label: "Edit", onClick: () => { setEditing(d); setModalOpen(true); }, hidden: !can("drivers.update") },
-                    { label: "Delete", variant: "danger", onClick: () => handleDelete(d), hidden: !can("drivers.delete") },
-                  ]}
+                    { label: "Delete", variant: "danger" as const, onClick: () => handleDelete(d), hidden: !can("drivers.delete") },
+                  ].filter((item) => !isSchoolContact || item.label === "View students")}
                 />
               )}
             />

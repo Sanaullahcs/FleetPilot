@@ -17,6 +17,8 @@ import type {
   DriverScheduleResponse,
   DriverTodayResponse,
   MobileNotification,
+  MarketingContactLead,
+  MarketingContactStats,
   ParentChildView,
   ParentRecord,
   ParentStudentLink,
@@ -649,6 +651,33 @@ export async function updateOrganization(id: string, payload: Record<string, unk
 
 export async function deleteOrganization(id: string) {
   await api.delete(`/organizations/${id}`);
+}
+
+// --- Platform: Marketing contact leads (super admin) ---
+
+export async function listMarketingContacts(params: ListParams = {}): Promise<Paginated<MarketingContactLead>> {
+  const { data } = await api.get<Paginated<MarketingContactLead>>("/marketing-contacts", { params: buildParams(params) });
+  return data;
+}
+
+export async function getMarketingContactStats(): Promise<MarketingContactStats> {
+  const { data } = await api.get<{ data: MarketingContactStats }>("/marketing-contacts/stats");
+  return data.data;
+}
+
+export async function getMarketingContact(id: string): Promise<MarketingContactLead> {
+  const { data } = await api.get<{ data: MarketingContactLead }>(`/marketing-contacts/${id}`);
+  return data.data;
+}
+
+export async function markMarketingContactRead(id: string): Promise<MarketingContactLead> {
+  const { data } = await api.post<{ data: MarketingContactLead }>(`/marketing-contacts/${id}/read`);
+  return data.data;
+}
+
+export async function archiveMarketingContact(id: string): Promise<MarketingContactLead> {
+  const { data } = await api.post<{ data: MarketingContactLead }>(`/marketing-contacts/${id}/archive`);
+  return data.data;
 }
 
 // --- Admin: Users & RBAC ---

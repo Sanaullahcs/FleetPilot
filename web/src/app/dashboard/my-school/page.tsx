@@ -96,11 +96,20 @@ export default function MySchoolPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <Link href="/dashboard/dispatch">
+                <Button variant="secondary">Today&apos;s runs</Button>
+              </Link>
+              <Link href="/dashboard/radar">
+                <Button variant="secondary">Live radar</Button>
+              </Link>
               <Link href="/dashboard/students">
                 <Button variant="secondary">Manage students</Button>
               </Link>
               <Link href="/dashboard/parents">
                 <Button variant="secondary">Manage parents</Button>
+              </Link>
+              <Link href="/dashboard/drivers">
+                <Button variant="secondary">View drivers</Button>
               </Link>
               <Link href="/dashboard/messages">
                 <Button>Messages</Button>
@@ -210,8 +219,17 @@ export default function MySchoolPage() {
                     </div>
                   ) : null}
                   <div className="flex flex-wrap gap-2 pt-2">
+                    <Link href="/dashboard/dispatch">
+                      <Button variant="secondary">Today&apos;s runs</Button>
+                    </Link>
+                    <Link href="/dashboard/radar">
+                      <Button variant="secondary">Live radar</Button>
+                    </Link>
                     <Link href="/dashboard/students">
                       <Button variant="secondary">View students</Button>
+                    </Link>
+                    <Link href="/dashboard/drivers">
+                      <Button variant="secondary">View drivers</Button>
                     </Link>
                     <Link href="/dashboard/routes">
                       <Button variant="secondary">View routes</Button>

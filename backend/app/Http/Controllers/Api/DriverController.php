@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Http\Controllers\Concerns\SortsQueries;
 use App\Models\Driver;
 use App\Models\Vehicle;
@@ -13,15 +14,23 @@ use Illuminate\Validation\ValidationException;
 
 class DriverController extends Controller
 {
+    use ResolvesAccessScope;
     use SortsQueries;
 
     public function index(Request $request): JsonResponse
     {
         $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
 
-        $drivers = Driver::forOrganization($orgId)
+        $drivers = Driver::forOrganization($orgId);
+        $drivers = $this->applySchoolDriverScope($request->user(), $drivers);
+        $drivers = $drivers
             ->with('defaultVehicle:id,vehicle_number,type,status')
-            ->withCount('students')
+            ->when(
+                $schoolId,
+                fn ($q) => $q->withCount(['students as students_count' => fn ($s) => $s->where('school_id', $schoolId)]),
+                fn ($q) => $q->withCount('students'),
+            )
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('first_name', 'like', "%{$search}%")
@@ -54,6 +63,7 @@ class DriverController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $drivers = Driver::forOrganization($orgId);
+        $drivers = $this->applySchoolDriverScope($request->user(), $drivers);
 
         $total = (clone $drivers)->count();
         $active = (clone $drivers)->where('status', 'active')->count();
@@ -80,6 +90,7 @@ class DriverController extends Controller
     public function show(Request $request, Driver $driver): JsonResponse
     {
         $this->authorizeOrg($request, $driver);
+        $this->authorizeDriverInSchoolScope($request->user(), $driver);
 
         return response()->json([
             'data' => $driver->load('defaultVehicle:id,vehicle_number,type,status,make,model'),
@@ -213,13 +224,17 @@ class DriverController extends Controller
     public function studentAssignments(Request $request): JsonResponse
     {
         $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
 
-        $drivers = Driver::forOrganization($orgId)
+        $drivers = Driver::forOrganization($orgId);
+        $drivers = $this->applySchoolDriverScope($request->user(), $drivers);
+        $drivers = $drivers
             ->with([
                 'defaultVehicle:id,vehicle_number,type,status',
-                'students' => function ($q) use ($request) {
+                'students' => function ($q) use ($request, $schoolId) {
                     $q->select('id', 'first_name', 'last_name', 'grade', 'status', 'school_id', 'assigned_driver_id', 'student_number')
                         ->with('school:id,name,code')
+                        ->when($schoolId, fn ($query) => $query->where('school_id', $schoolId))
                         ->when($request->string('search')->toString(), function ($query, $search) {
                             $query->where(function ($inner) use ($search) {
                                 $inner->where('first_name', 'like', "%{$search}%")

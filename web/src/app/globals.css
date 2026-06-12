@@ -17,6 +17,7 @@
 
 html {
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 html,
@@ -77,6 +78,65 @@ body {
   /* Auth only — condensed display + Inter body (see auth-shell) */
   .fp-auth-display {
     @apply font-display text-4xl font-semibold uppercase leading-[1.05] tracking-wide;
+  }
+
+  /* Marketing landing page */
+  .fp-mkt-display {
+    font-family: var(--font-mkt), var(--font-sans), ui-sans-serif, sans-serif;
+    @apply text-[2.35rem] font-bold leading-[1.08] tracking-[-0.025em] text-slate-900 sm:text-[2.85rem] xl:text-[3.05rem];
+  }
+
+  .fp-mkt-h2 {
+    font-family: var(--font-mkt), var(--font-sans), ui-sans-serif, sans-serif;
+    @apply text-[1.9rem] font-bold leading-[1.12] tracking-[-0.02em] text-slate-900 sm:text-[2.4rem];
+  }
+
+  .fp-mkt-heading {
+    font-family: var(--font-mkt), var(--font-sans), ui-sans-serif, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  .fp-mkt-num {
+    font-family: var(--font-mkt), var(--font-sans), ui-sans-serif, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fp-mkt-eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-brand-primary/15 bg-brand-light/60 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-primary;
+  }
+
+  .fp-mkt-input {
+    @apply w-full rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition;
+    @apply placeholder:text-slate-400 focus:border-brand-primary focus:ring-[3px] focus:ring-brand-primary/10;
+  }
+
+  .fp-mkt-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-primary/25 transition-all duration-300 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-lg hover:shadow-brand-primary/35 active:translate-y-0;
+  }
+
+  .fp-mkt-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white/70 px-6 py-3.5 text-[15px] font-semibold text-slate-700 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-primary hover:text-brand-primary hover:shadow-md active:translate-y-0;
+  }
+
+  .fp-mkt-grid {
+    background-image:
+      linear-gradient(to right, rgba(79, 91, 169, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(79, 91, 169, 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 40%, transparent 100%);
+  }
+
+  .fp-mkt-radar {
+    background:
+      radial-gradient(ellipse 120% 90% at 80% -10%, rgba(56, 189, 248, 0.22), transparent 55%),
+      linear-gradient(150deg, #2c3470 0%, #3d4587 45%, #1c2150 100%);
+  }
+
+  .fp-mkt-radar-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 38px 38px;
   }
 
   .fp-auth-display-hero {
@@ -545,5 +605,110 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* ─── Marketing landing animations ─── */
+
+@keyframes fp-mkt-dash-move {
+  to {
+    stroke-dashoffset: -96;
+  }
+}
+
+.fp-mkt-dash {
+  animation: fp-mkt-dash-move 3.2s linear infinite;
+}
+
+.fp-mkt-dash-slow {
+  animation: fp-mkt-dash-move 5s linear infinite;
+}
+
+@keyframes fp-mkt-ping-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.12);
+  }
+}
+
+.fp-mkt-ping {
+  transform-origin: 200px 160px;
+  animation: fp-mkt-ping-pulse 2.4s ease-in-out infinite;
+}
+
+.fp-mkt-ping-delayed {
+  transform-origin: 280px 170px;
+  animation: fp-mkt-ping-pulse 2.4s ease-in-out 1.2s infinite;
+}
+
+@keyframes fp-mkt-float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.fp-mkt-float {
+  animation: fp-mkt-float-y 5s ease-in-out infinite;
+}
+
+.fp-mkt-float-delayed {
+  animation: fp-mkt-float-y 5s ease-in-out 2.5s infinite;
+}
+
+/* Hero entrance — fade up with stagger via [animation-delay:…] */
+@keyframes fp-mkt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fp-hero-rise {
+  animation: fp-mkt-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Scroll reveal wrapper (content always visible) */
+.fp-reveal {
+  opacity: 1;
+  transform: none;
+}
+
+.fp-reveal.fp-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .fp-mkt-dash,
+  .fp-mkt-dash-slow,
+  .fp-mkt-ping,
+  .fp-mkt-ping-delayed,
+  .fp-mkt-float,
+  .fp-mkt-float-delayed,
+  .fp-hero-rise {
+    animation: none;
+  }
+
+  .fp-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }

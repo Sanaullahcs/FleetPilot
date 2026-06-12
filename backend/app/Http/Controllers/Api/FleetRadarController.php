@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Models\Driver;
 use App\Models\GpsSnapshot;
 use App\Models\Route;
@@ -17,11 +18,37 @@ use Illuminate\Support\Collection;
 
 class FleetRadarController extends Controller
 {
+    use ResolvesAccessScope;
+
     public function live(Request $request): JsonResponse
     {
         $orgId = $request->user()->organization_id;
+        $schoolScopeId = $this->schoolScopeId($request->user());
 
         $vehicles = Vehicle::forOrganization($orgId)
+            ->when($schoolScopeId, function ($q) use ($orgId, $schoolScopeId) {
+                $schoolDriverIds = Driver::forOrganization($orgId)
+                    ->whereHas('students', fn ($s) => $s->where('school_id', $schoolScopeId))
+                    ->pluck('id');
+
+                $schoolVehicleIds = RunAssignment::query()
+                    ->whereDate('service_date', Carbon::today())
+                    ->whereNotNull('vehicle_id')
+                    ->whereHas('run.route', fn ($r) => $r->where('school_id', $schoolScopeId))
+                    ->pluck('vehicle_id');
+
+                $q->where(function ($inner) use ($schoolDriverIds, $schoolVehicleIds) {
+                    if ($schoolDriverIds->isNotEmpty()) {
+                        $inner->whereIn('assigned_driver_id', $schoolDriverIds);
+                    }
+                    if ($schoolVehicleIds->isNotEmpty()) {
+                        $inner->orWhereIn('id', $schoolVehicleIds);
+                    }
+                    if ($schoolDriverIds->isEmpty() && $schoolVehicleIds->isEmpty()) {
+                        $inner->whereRaw('0 = 1');
+                    }
+                });
+            })
             ->with([
                 'assignedDriver:id,first_name,last_name,employee_id,phone,email,status,default_vehicle_id,license_number,license_class',
             ])
@@ -56,12 +83,14 @@ class FleetRadarController extends Controller
         $routesBySchool = Route::forOrganization($orgId)
             ->with('school:id,name,code')
             ->where('status', 'active')
+            ->when($schoolScopeId, fn ($q) => $q->where('school_id', $schoolScopeId))
             ->get()
             ->groupBy('school_id');
 
         $allRoutes = Route::forOrganization($orgId)
             ->with('school:id,name,code')
             ->where('status', 'active')
+            ->when($schoolScopeId, fn ($q) => $q->where('school_id', $schoolScopeId))
             ->orderBy('name')
             ->get();
 
@@ -72,12 +101,17 @@ class FleetRadarController extends Controller
 
         $todayAssignments = RunAssignment::where('service_date', Carbon::today())
             ->whereIn('status', ['scheduled', 'in_progress'])
-            ->whereHas('run.route', fn ($q) => $q->where('organization_id', $orgId))
+            ->whereHas('run.route', function ($q) use ($orgId, $schoolScopeId) {
+                $q->where('organization_id', $orgId);
+                if ($schoolScopeId) {
+                    $q->where('school_id', $schoolScopeId);
+                }
+            })
             ->with(['run.route.school'])
             ->get();
 
         $routeTypeFilter = $request->string('route_type')->toString() ?: null;
-        $schoolFilter = $request->string('school_id')->toString() ?: null;
+        $schoolFilter = $schoolScopeId ?: ($request->string('school_id')->toString() ?: null);
 
         $now = Carbon::now();
         $fleet = [];
@@ -116,6 +150,10 @@ class FleetRadarController extends Controller
                 continue;
             }
             if ($schoolFilter && ($routeContext['school_id'] ?? null) !== $schoolFilter) {
+                continue;
+            }
+
+            if ($schoolScopeId && ($routeContext['school_id'] ?? null) !== $schoolScopeId) {
                 continue;
             }
 

@@ -20,6 +20,7 @@ import {
 import type { FleetLiveFilters, FleetLiveVehicle } from "@/lib/types";
 import { DRIVER_STATUS_OPTIONS, VEHICLE_STATUS_OPTIONS } from "@/lib/status-options";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth";
 
 const TYPE_OPTIONS = [
   { label: "Bus", value: "bus" },
@@ -285,6 +286,8 @@ function FleetRow({ vehicle, onClick }: { vehicle: FleetLiveVehicle; onClick: ()
 }
 
 export function FleetRadarView() {
+  const user = useAuthStore((s) => s.user);
+  const isSchoolContact = user?.role === "school_contact";
   const [mounted, setMounted] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -424,6 +427,11 @@ export function FleetRadarView() {
       {/* Top HUD — search + inline filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 p-3 pr-28 sm:p-4 sm:pr-40">
         <div className="pointer-events-auto flex max-w-xl flex-col gap-2">
+          {isSchoolContact ? (
+            <p className="rounded-xl bg-white/95 px-4 py-2.5 text-xs leading-relaxed text-slate-600 ring-1 ring-black/5 backdrop-blur">
+              Showing live vehicles on runs for your school and drivers assigned to your students only.
+            </p>
+          ) : null}
           <div className="flex items-center gap-2 rounded-2xl bg-white/95 px-4 py-2.5 ring-1 ring-black/5 backdrop-blur">
             <span className="relative flex h-2 w-2 shrink-0">
               <span

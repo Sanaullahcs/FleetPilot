@@ -14,6 +14,35 @@ export interface Organization extends OrganizationSummary {
   created_at?: string;
 }
 
+export type MarketingContactStatus = "new" | "read" | "archived";
+
+export interface MarketingContactLead {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  organization_name: string | null;
+  inquiry_type: "demo" | "pricing" | "support" | "partnership" | "other";
+  role_type: "district" | "contractor" | "school" | "other";
+  fleet_size: string | null;
+  subject: string | null;
+  message: string;
+  source: string;
+  status: MarketingContactStatus;
+  read_at: string | null;
+  read_by_user_id: string | null;
+  read_by?: { id: string; first_name: string; last_name: string; email: string } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketingContactStats {
+  total: number;
+  new: number;
+  read: number;
+  archived: number;
+}
+
 export type UserRole =
   | "super_admin"
   | "admin"

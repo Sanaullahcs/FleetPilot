@@ -103,6 +103,8 @@ class DatabaseSeeder extends Seeder
                     'students.delete',
                     'routes.view',
                     'runs.view',
+                    'drivers.view',
+                    'vehicles.view',
                     'schools.view',
                     'complaints.view',
                     'complaints.create',

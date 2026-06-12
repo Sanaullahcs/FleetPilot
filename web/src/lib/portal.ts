@@ -74,6 +74,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/dashboard/users": "Users & access",
   "/dashboard/roles": "Roles & permissions",
   "/dashboard/organizations": "Organizations",
+  "/dashboard/contact-leads": "Contact leads",
   "/dashboard/profile": "My profile",
 };
 
@@ -91,7 +92,7 @@ export function getDashboardWelcome(role: UserRole | undefined, firstName: strin
     case "super_admin":
       return {
         title: `Welcome, ${firstName}`,
-        description: "Manage organizations, tenant admins, and platform-wide settings.",
+        description: "Manage organizations, website contact leads, tenant admins, and platform-wide settings.",
       };
     case "admin":
       return {
@@ -116,7 +117,7 @@ export function getDashboardWelcome(role: UserRole | undefined, firstName: strin
     case "school_contact":
       return {
         title: `Welcome, ${firstName}`,
-        description: "Manage students and parents, message families and drivers, and coordinate with transportation in real time.",
+        description: "View today's runs and live radar for your students, manage families, and coordinate with drivers and transportation.",
       };
     default:
       return {
@@ -157,8 +158,11 @@ export function isDriverPortalPath(pathname: string): boolean {
 export function isSchoolPortalPath(pathname: string): boolean {
   return (
     pathname === "/dashboard/my-school" ||
+    pathname.startsWith("/dashboard/dispatch") ||
+    pathname.startsWith("/dashboard/radar") ||
     pathname.startsWith("/dashboard/students") ||
     pathname.startsWith("/dashboard/parents") ||
+    pathname.startsWith("/dashboard/drivers") ||
     pathname.startsWith("/dashboard/routes") ||
     pathname.startsWith("/dashboard/messages") ||
     pathname.startsWith("/dashboard/alerts") ||

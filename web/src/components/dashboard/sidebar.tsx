@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { FleetPilotLogoMark } from "@/components/brand/logo";
 import { brand } from "@/lib/brand";
 import { getPortalTitle } from "@/lib/portal";
-import { listDashboardChatConversations } from "@/lib/resources";
+import { listDashboardChatConversations, getComplaintStats } from "@/lib/resources";
 
 interface NavItem {
   label: string;
@@ -31,9 +31,10 @@ const driverNav: NavItem[] = [
 
 const schoolNav: NavItem[] = [
   { label: "My school", href: "/dashboard/my-school", icon: NavIconSchool },
+  { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
+  { label: "Complaints", href: "/dashboard/complaints", roles: ["school_contact"], icon: NavIconComplaints },
   { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
   { label: "Routes", href: "/dashboard/routes", permission: "routes.view", icon: NavIconRoute },
-  { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
 ];
 
 const platformNav: NavItem[] = [
@@ -45,6 +46,7 @@ const platformNav: NavItem[] = [
 const operationsNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: NavIconGrid, excludeRoles: ["parent"] },
   { label: "Dispatch", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
+  { label: "Complaint center", href: "/dashboard/complaints", permission: "complaints.view", icon: NavIconComplaints },
   { label: "Messages", href: "/dashboard/messages", roles: ["admin", "dispatcher", "school_contact"], icon: NavIconMessages },
   { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
   {
@@ -169,13 +171,15 @@ function Brand({ role }: { role: UserRole }) {
   const portalTitle = getPortalTitle(role);
 
   return (
-    <Link href="/dashboard" className="group flex items-center gap-2.5 rounded-lg px-0 py-0.5">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-light ring-1 ring-brand-primary/10 transition group-hover:ring-brand-primary/25">
-        <FleetPilotLogoMark size={24} />
+    <Link href="/dashboard" className="group flex items-center gap-2 rounded-lg px-0 py-0.5">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-light ring-1 ring-brand-primary/10 transition group-hover:ring-brand-primary/25">
+        <FleetPilotLogoMark size={20} />
       </span>
-      <span className="min-w-0">
-        <span className="block text-base font-semibold text-slate-900">FleetPilot</span>
-        <span className="block text-sm text-slate-500">{portalTitle}</span>
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-sm font-bold tracking-tight text-slate-900">FleetPilot</span>
+        <span className="block truncate text-[10px] font-medium uppercase tracking-wider text-slate-400">
+          {portalTitle}
+        </span>
       </span>
     </Link>
   );
@@ -199,17 +203,25 @@ function SidebarInner({
   const isDriver = user.role === "driver";
   const isSchool = user.role === "school_contact";
   const canUseChat = ["admin", "dispatcher", "school_contact"].includes(user.role);
+  const canSeeComplaints = user.role === "admin" || user.role === "dispatcher";
   const chatQuery = useQuery({
     queryKey: ["dashboard-chat-conversations"],
     queryFn: listDashboardChatConversations,
     enabled: canUseChat,
     refetchInterval: canUseChat ? 30_000 : false,
   });
+  const complaintsStatsQuery = useQuery({
+    queryKey: ["complaint-stats"],
+    queryFn: getComplaintStats,
+    enabled: canSeeComplaints,
+    refetchInterval: 30_000,
+  });
   const navBadges = useMemo(
     () => ({
       "/dashboard/messages": chatQuery.data?.unread_total ?? 0,
+      "/dashboard/complaints": complaintsStatsQuery.data?.open ?? 0,
     }),
-    [chatQuery.data?.unread_total],
+    [chatQuery.data?.unread_total, complaintsStatsQuery.data?.open],
   );
   const nav = isSuperAdmin ? (
     <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={prefetch} />
@@ -406,6 +418,14 @@ function NavIconMessages() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1H5l-2.5 2v-2.5a1 1 0 01-1-1v-4.5a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function NavIconComplaints() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2.5l5 2v4.5c0 2.8-1.9 4.7-5 5.5-3.1-.8-5-2.7-5-5.5V4.5l5-2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M8 6v3M8 10.5h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }

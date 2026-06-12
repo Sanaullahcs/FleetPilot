@@ -32,17 +32,17 @@ export function getPortalTitle(role: UserRole | undefined): string {
     case "super_admin":
       return "Platform Portal";
     case "admin":
-      return "Admin Portal";
+      return "Admin";
     case "dispatcher":
-      return "Dispatch Portal";
+      return "Dispatch";
     case "driver":
-      return "Driver Portal";
+      return "Driver";
     case "parent":
-      return "Parent Portal";
+      return "Parent";
     case "school_contact":
-      return "School Portal";
+      return "School";
     case "contractor":
-      return "Contractor Portal";
+      return "Contractor";
     default:
       return "FleetPilot";
   }
@@ -66,6 +66,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/dashboard/schools": "Schools",
   "/dashboard/routes": "Routes",
   "/dashboard/messages": "Messages",
+  "/dashboard/complaints": "Complaint center",
   "/dashboard/radar": "Live radar",
   "/dashboard/users": "Users & access",
   "/dashboard/roles": "Roles & permissions",
@@ -129,6 +130,7 @@ export function isSchoolPortalPath(pathname: string): boolean {
     pathname.startsWith("/dashboard/students") ||
     pathname.startsWith("/dashboard/routes") ||
     pathname.startsWith("/dashboard/messages") ||
+    pathname.startsWith("/dashboard/complaints") ||
     pathname.startsWith("/dashboard/profile")
   );
 }

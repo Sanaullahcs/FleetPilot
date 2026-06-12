@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { AppHeader } from '@/components/shell/app-header';
@@ -53,6 +53,16 @@ export function SupportScreen() {
                 </View>
               </Card>
             ))}
+
+            <Text style={styles.sectionLabel}>Complaint center</Text>
+            <Card>
+              <ListRow
+                title="Register or track a complaint"
+                subtitle="Formal route, safety, and service issues reviewed by admin"
+                icon="document-text-outline"
+                onPress={() => router.push('/complaints')}
+              />
+            </Card>
 
             <Text style={styles.sectionLabel}>Common questions</Text>
             <Card style={styles.faqCard}>

@@ -769,3 +769,95 @@ export interface SchoolPortalPayload {
   today_assignments: SchoolPortalAssignment[];
   alerts: SchoolPortalAlert[];
 }
+
+export type ComplaintStatus =
+  | "submitted"
+  | "acknowledged"
+  | "in_progress"
+  | "waiting_on_submitter"
+  | "resolved"
+  | "closed"
+  | "rejected";
+
+export type ComplaintCategory =
+  | "safety"
+  | "route_service"
+  | "driver_conduct"
+  | "vehicle_condition"
+  | "student_issue"
+  | "billing"
+  | "communication"
+  | "app_technical"
+  | "facility_access"
+  | "other";
+
+export type ComplaintPriority = "low" | "normal" | "high" | "urgent";
+
+export interface ComplaintPerson {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string | null;
+  role?: string;
+}
+
+export interface ComplaintUpdate {
+  id: string;
+  type: string;
+  body: string;
+  is_internal: boolean;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+  author: { id: string | null; name: string; role: string };
+}
+
+export interface ComplaintRecord {
+  id: string;
+  reference_number: string;
+  subject: string;
+  description?: string;
+  category: ComplaintCategory;
+  category_label: string;
+  status: ComplaintStatus;
+  status_label: string;
+  priority: ComplaintPriority;
+  priority_label: string;
+  submitter_role: string;
+  preferred_contact: string;
+  contact_phone?: string | null;
+  incident_date?: string | null;
+  location_note?: string | null;
+  updates_count: number;
+  created_at: string;
+  last_activity_at: string;
+  submitter?: ComplaintPerson | null;
+  assignee?: { id: string; name: string } | null;
+  student?: { id: string; name: string } | null;
+  school?: { id: string; name: string } | null;
+  route?: { id: string; name: string; code?: string | null } | null;
+  resolution_summary?: string | null;
+  acknowledged_at?: string | null;
+  resolved_at?: string | null;
+  closed_at?: string | null;
+  updates?: ComplaintUpdate[];
+}
+
+export interface ComplaintStats {
+  total: number;
+  open: number;
+  urgent: number;
+  unassigned: number;
+  waiting_on_submitter: number;
+  resolved_this_week: number;
+  by_role: { parent: number; driver: number; school_contact: number };
+}
+
+export interface ComplaintFormOptions {
+  categories: { value: string; label: string }[];
+  priorities: { value: string; label: string }[];
+  contact_methods: { value: string; label: string }[];
+  students: { id: string; name: string; grade?: string | null }[];
+  routes: { id: string; name: string; code?: string | null }[];
+  school: { id: string; name: string; district?: string | null } | null;
+  organization: { name?: string | null; phone?: string | null; email?: string | null };
+}

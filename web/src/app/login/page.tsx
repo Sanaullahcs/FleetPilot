@@ -94,7 +94,7 @@ export default function LoginPage() {
             <AuthInput
               id="email"
               type="email"
-              icon="mail"
+              icon="email"
               autoComplete="username"
               placeholder="you@district.org"
               {...register("email")}

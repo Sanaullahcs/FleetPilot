@@ -9,6 +9,7 @@ export interface MobileNotification {
   time: string;
   read: boolean;
   conversation_id?: string;
+  complaint_id?: string;
 }
 
 export interface DriverRunItem {

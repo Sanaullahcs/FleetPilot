@@ -50,6 +50,19 @@ export function toastInfo(title: string, text?: string) {
   });
 }
 
+export function toastMessageReceived(title: string, preview?: string) {
+  return base.fire({
+    icon: "info",
+    title: "New message",
+    text: preview ? `${title}: ${preview}` : title,
+    timer: 4200,
+    timerProgressBar: true,
+    showConfirmButton: false,
+    toast: true,
+    position: "top-end",
+  });
+}
+
 export async function confirmDelete(entityLabel: string): Promise<boolean> {
   const result = await base.fire({
     title: "Delete this record?",

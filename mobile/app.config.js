@@ -6,7 +6,7 @@ const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || undefined
 const baseExtra = base.extra && typeof base.extra === 'object' ? base.extra : {};
 const baseEas = baseExtra.eas && typeof baseExtra.eas === 'object' ? baseExtra.eas : {};
 
-const plugins = [...(base.plugins ?? [])];
+const plugins = [...(base.plugins ?? []), 'expo-audio'];
 if (googleMapsApiKey) {
   plugins.push([
     'react-native-maps',

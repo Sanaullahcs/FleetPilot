@@ -11,6 +11,7 @@ use App\Models\School;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\ComplaintService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -222,6 +223,10 @@ class DashboardController extends Controller
                 'href' => '/dashboard/routes?status=draft',
                 'action_label' => 'Review routes',
             ];
+        }
+
+        if (in_array($user->role, ['admin', 'dispatcher'], true)) {
+            $items = array_merge($items, app(ComplaintService::class)->dashboardAlerts($orgId));
         }
 
         return response()->json([

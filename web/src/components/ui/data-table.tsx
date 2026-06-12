@@ -133,56 +133,54 @@ export function DataTable<T>({
   return (
     <>
       {/* Desktop / tablet table */}
-      <div className="hidden overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm md:block">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
+      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
+        <table className="w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className="fp-label px-4 py-3 text-left font-medium"
+                  aria-sort={
+                    col.sortable && sortKey === col.key
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : undefined
+                  }
+                >
+                  {col.sortable ? (
+                    <SortHeader
+                      label={col.header}
+                      active={sortKey === col.key}
+                      direction={sortDir}
+                      onClick={() => handleSort(col.key)}
+                    />
+                  ) : (
+                    col.header
+                  )}
+                </th>
+              ))}
+              {actions && (
+                <th className="fp-label w-24 px-3 py-3 text-right font-medium">Actions</th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {displayRows.map((row) => (
+              <tr key={rowKey(row)} className="hover:bg-slate-50">
                 {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className="fp-label px-4 py-3 text-left font-medium"
-                    aria-sort={
-                      col.sortable && sortKey === col.key
-                        ? sortDir === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
-                  >
-                    {col.sortable ? (
-                      <SortHeader
-                        label={col.header}
-                        active={sortKey === col.key}
-                        direction={sortDir}
-                        onClick={() => handleSort(col.key)}
-                      />
-                    ) : (
-                      col.header
-                    )}
-                  </th>
+                  <td key={col.key} className="min-w-0 px-4 py-3 align-top text-sm text-slate-700 break-words">
+                    {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as React.ReactNode}
+                  </td>
                 ))}
                 {actions && (
-                  <th className="w-12 px-2 py-3" aria-label="Actions" />
+                  <td className="w-24 px-3 py-3 align-top text-right text-sm">{actions(row)}</td>
                 )}
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {displayRows.map((row) => (
-                <tr key={rowKey(row)} className="hover:bg-slate-50">
-                  {columns.map((col) => (
-                    <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-slate-700">
-                      {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as React.ReactNode}
-                    </td>
-                  ))}
-                  {actions && (
-                    <td className="w-12 whitespace-nowrap px-2 py-3 text-right text-sm">{actions(row)}</td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Mobile cards */}
@@ -201,7 +199,12 @@ export function DataTable<T>({
                     ? primary.render(row)
                     : ((row as Record<string, unknown>)[primary.key] as React.ReactNode)}
                 </div>
-                {actions && <div>{actions(row)}</div>}
+                {actions && (
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Actions</span>
+                    {actions(row)}
+                  </div>
+                )}
               </div>
               {idCol && (
                 <p className="mb-2 font-mono text-xs font-semibold text-slate-500">

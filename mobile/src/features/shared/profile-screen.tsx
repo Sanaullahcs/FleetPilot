@@ -143,6 +143,12 @@ export function ProfileScreen() {
         <Card>
           <Text style={styles.blockTitle}>Support & legal</Text>
           <ListRow
+            title="Complaint center"
+            subtitle="Register and track formal service complaints"
+            icon="document-text-outline"
+            onPress={() => router.push('/complaints')}
+          />
+          <ListRow
             title="Help & support"
             subtitle="Contact dispatch, FAQs, and app help"
             icon="headset-outline"

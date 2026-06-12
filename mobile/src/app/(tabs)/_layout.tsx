@@ -1,5 +1,6 @@
 import { Tabs, Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
@@ -8,6 +9,7 @@ import { ChatMessageBannerHost } from '@/components/chat/chat-message-banner';
 import { fetchMobileNotifications } from '@/lib/mobile-api';
 import { fetchChatConversations } from '@/lib/chat-api';
 import { useChatMessageNotifications } from '@/hooks/use-chat-message-notifications';
+import { primeMessageAudio } from '@/lib/message-alert-sound';
 import { useAuthStore } from '@/store/auth';
 import { getMobileRole } from '@/constants/app';
 import { tabBarStyle } from '@/components/shell/tab-bar-styles';
@@ -35,6 +37,13 @@ export default function TabLayout() {
     refetchInterval: isAuthed ? 4_000 : false,
   });
   useChatMessageNotifications(isAuthed);
+
+  useEffect(() => {
+    if (isAuthed) {
+      primeMessageAudio();
+    }
+  }, [isAuthed]);
+
   const unreadAlerts = notifications.data?.unread ?? 0;
   const unreadMessages = chat.data?.unread_total ?? 0;
 

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\ComplaintController;
+use App\Http\Controllers\Api\ComplaintPortalController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DispatchController;
 use App\Http\Controllers\Api\DashboardChatController;
@@ -100,6 +102,17 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'messages']);
     Route::post('/mobile/chat/conversations/{conversation}/read', [MobileChatController::class, 'markRead']);
     Route::post('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'send']);
+
+    Route::get('/complaints/form-options', [ComplaintPortalController::class, 'formOptions']);
+    Route::get('/complaints/mine', [ComplaintPortalController::class, 'index']);
+    Route::post('/complaints', [ComplaintPortalController::class, 'store']);
+    Route::post('/complaints/{complaint}/comments', [ComplaintPortalController::class, 'addComment']);
+
+    Route::get('/complaints/stats', [ComplaintController::class, 'stats'])->middleware('permission:complaints.view');
+    Route::get('/complaints/assignees', [ComplaintController::class, 'assignees'])->middleware('permission:complaints.view');
+    Route::get('/complaints', [ComplaintController::class, 'index'])->middleware('permission:complaints.view');
+    Route::get('/complaints/{complaint}', [ComplaintController::class, 'show']);
+    Route::patch('/complaints/{complaint}', [ComplaintController::class, 'update'])->middleware('permission:complaints.update');
 
     Route::get('/chat/conversations', [DashboardChatController::class, 'conversations']);
     Route::post('/chat/conversations', [DashboardChatController::class, 'store']);

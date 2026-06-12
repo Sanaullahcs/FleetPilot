@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuthUser, UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FleetPilotLogoMark } from "@/components/brand/logo";
 import { brand } from "@/lib/brand";
 import { getPortalTitle } from "@/lib/portal";
-import { listDashboardChatConversations } from "@/lib/resources";
+import { listDashboardChatConversations, getComplaintStats } from "@/lib/resources";
+import { prefetchDashboardRoute } from "@/lib/nav-prefetch";
+import { useNavLoading } from "@/hooks/use-nav-loading";
 
 interface NavItem {
   label: string;
@@ -31,9 +33,10 @@ const driverNav: NavItem[] = [
 
 const schoolNav: NavItem[] = [
   { label: "My school", href: "/dashboard/my-school", icon: NavIconSchool },
+  { label: "Complaints", href: "/dashboard/complaints", roles: ["school_contact"], icon: NavIconComplaints },
+  { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
   { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
   { label: "Routes", href: "/dashboard/routes", permission: "routes.view", icon: NavIconRoute },
-  { label: "Messages", href: "/dashboard/messages", roles: ["school_contact"], icon: NavIconMessages },
 ];
 
 const platformNav: NavItem[] = [
@@ -45,8 +48,15 @@ const platformNav: NavItem[] = [
 const operationsNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: NavIconGrid, excludeRoles: ["parent"] },
   { label: "Dispatch", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
-  { label: "Messages", href: "/dashboard/messages", roles: ["admin", "dispatcher", "school_contact"], icon: NavIconMessages },
   { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
+];
+
+const supportNav: NavItem[] = [
+  { label: "Complaint center", href: "/dashboard/complaints", permission: "complaints.view", icon: NavIconComplaints },
+  { label: "Messages", href: "/dashboard/messages", roles: ["admin", "dispatcher", "school_contact"], icon: NavIconMessages },
+];
+
+const fleetNav: NavItem[] = [
   {
     label: "Students",
     href: "/dashboard/students",
@@ -81,6 +91,14 @@ function canSee(user: AuthUser, item: NavItem): boolean {
   return user.permissions.includes(item.permission);
 }
 
+function navItemsForUser(user: AuthUser): NavItem[] {
+  if (user.role === "super_admin") return platformNav;
+  if (user.role === "parent") return parentNav;
+  if (user.role === "driver") return driverNav;
+  if (user.role === "school_contact") return schoolNav;
+  return [...operationsNav, ...fleetNav, ...supportNav, ...adminNav];
+}
+
 function NavSection({
   title,
   items,
@@ -89,6 +107,7 @@ function NavSection({
   onNavigate,
   badges,
   onPrefetch,
+  onNavStart,
 }: {
   title?: string;
   items: NavItem[];
@@ -97,6 +116,7 @@ function NavSection({
   onNavigate?: () => void;
   badges?: Record<string, number>;
   onPrefetch?: (href: string) => void;
+  onNavStart?: () => void;
 }) {
   const visible = items.filter((item) => canSee(user, item));
   if (!visible.length) return null;
@@ -104,7 +124,7 @@ function NavSection({
   return (
     <div className="space-y-1">
       {title && (
-        <p className="flex items-center gap-2 px-2 pb-2 pt-4 text-xs font-medium text-slate-400">
+        <p className="flex items-center gap-2 px-2 pb-1.5 pt-2 text-xs font-medium text-slate-400">
           {title}
           <span className="h-px flex-1 bg-slate-200/80" aria-hidden />
         </p>
@@ -122,9 +142,12 @@ function NavSection({
             prefetch
             onMouseEnter={() => onPrefetch?.(item.href)}
             onFocus={() => onPrefetch?.(item.href)}
-            onClick={onNavigate}
+            onClick={() => {
+              if (!active) onNavStart?.();
+              onNavigate?.();
+            }}
             className={cn(
-              "group relative flex items-center gap-2 overflow-hidden rounded-lg px-2 py-2 text-[13px] font-medium transition-all duration-200",
+              "group relative flex items-center gap-2 overflow-hidden rounded-lg px-2 py-2 text-[13px] font-medium transition-colors duration-150",
               active
                 ? "text-white shadow-md shadow-brand-primary/30"
                 : "text-slate-600 hover:bg-brand-light/60 hover:text-brand-primary",
@@ -166,16 +189,16 @@ function NavSection({
 }
 
 function Brand({ role }: { role: UserRole }) {
-  const portalTitle = getPortalTitle(role);
+  const roleLabel = getPortalTitle(role);
 
   return (
-    <Link href="/dashboard" className="group flex items-center gap-2.5 rounded-lg px-0 py-0.5">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-light ring-1 ring-brand-primary/10 transition group-hover:ring-brand-primary/25">
-        <FleetPilotLogoMark size={24} />
+    <Link href="/dashboard" className="fp-sidebar-brand group">
+      <span className="fp-sidebar-brand-mark">
+        <FleetPilotLogoMark size={22} />
       </span>
-      <span className="min-w-0">
-        <span className="block text-base font-semibold text-slate-900">FleetPilot</span>
-        <span className="block text-sm text-slate-500">{portalTitle}</span>
+      <span className="fp-sidebar-brand-copy">
+        <span className="fp-sidebar-brand-name">FleetPilot</span>
+        <span className="fp-sidebar-brand-role">{roleLabel}</span>
       </span>
     </Link>
   );
@@ -193,50 +216,75 @@ function SidebarInner({
   hideBrand?: boolean;
 }) {
   const router = useRouter();
-  const prefetch = (href: string) => router.prefetch(href);
+  const queryClient = useQueryClient();
+  const { startNav } = useNavLoading();
+
+  const warmRoute = (href: string) => {
+    router.prefetch(href);
+    void prefetchDashboardRoute(queryClient, href);
+  };
+
+  useEffect(() => {
+    navItemsForUser(user)
+      .filter((item) => canSee(user, item))
+      .forEach((item) => warmRoute(item.href));
+  }, [user]);
+
   const isSuperAdmin = user.role === "super_admin";
   const isParent = user.role === "parent";
   const isDriver = user.role === "driver";
   const isSchool = user.role === "school_contact";
   const canUseChat = ["admin", "dispatcher", "school_contact"].includes(user.role);
+  const canSeeComplaints = user.role === "admin" || user.role === "dispatcher";
   const chatQuery = useQuery({
     queryKey: ["dashboard-chat-conversations"],
     queryFn: listDashboardChatConversations,
     enabled: canUseChat,
     refetchInterval: canUseChat ? 30_000 : false,
   });
+  const complaintsStatsQuery = useQuery({
+    queryKey: ["complaint-stats"],
+    queryFn: getComplaintStats,
+    enabled: canSeeComplaints,
+    refetchInterval: 30_000,
+  });
   const navBadges = useMemo(
     () => ({
       "/dashboard/messages": chatQuery.data?.unread_total ?? 0,
+      "/dashboard/complaints": complaintsStatsQuery.data?.open ?? 0,
     }),
-    [chatQuery.data?.unread_total],
+    [chatQuery.data?.unread_total, complaintsStatsQuery.data?.open],
   );
   const nav = isSuperAdmin ? (
-    <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={prefetch} />
+    <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isParent ? (
-    <NavSection items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={prefetch} />
+    <NavSection items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isDriver ? (
-    <NavSection items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={prefetch} />
+    <NavSection items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isSchool ? (
-    <NavSection items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={navBadges} onPrefetch={prefetch} />
+    <NavSection items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={navBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : (
     <>
+      <NavSection title="Operations" items={operationsNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
+      <NavSection title="Fleet & schools" items={fleetNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
       <NavSection
-        items={operationsNav}
+        title="Support"
+        items={supportNav}
         user={user}
         pathname={pathname}
         onNavigate={onNavigate}
         badges={navBadges}
-        onPrefetch={prefetch}
+        onPrefetch={warmRoute}
+        onNavStart={startNav}
       />
-      <NavSection title="Administration" items={adminNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={prefetch} />
+      <NavSection title="Administration" items={adminNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
     </>
   );
 
   return (
     <>
       {!hideBrand && (
-        <div className="mb-4 shrink-0 border-b border-slate-100 pb-4">
+        <div className="mb-2.5 shrink-0 border-b border-slate-100 pb-2.5">
           <Brand role={user.role} />
         </div>
       )}
@@ -258,7 +306,7 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col overflow-hidden border-r border-slate-200/70 bg-white px-3 py-4 md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col overflow-hidden border-r border-slate-200/70 bg-white px-3 py-3 md:flex">
         <div className="relative flex h-full flex-col">
           <SidebarInner user={user} pathname={pathname} />
         </div>
@@ -268,7 +316,7 @@ export function Sidebar({
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={onClose} aria-hidden />
           <aside className="absolute left-0 top-0 flex h-full w-[17.5rem] flex-col border-r border-slate-200 bg-white px-3 py-4 shadow-2xl">
-            <div className="mb-4 flex shrink-0 items-center justify-between border-b border-slate-100 pb-4">
+            <div className="mb-2.5 flex shrink-0 items-center justify-between border-b border-slate-100 pb-2.5">
               <Brand role={user.role} />
               <button
                 onClick={onClose}
@@ -406,6 +454,14 @@ function NavIconMessages() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1H5l-2.5 2v-2.5a1 1 0 01-1-1v-4.5a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function NavIconComplaints() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 2.5l5 2v4.5c0 2.8-1.9 4.7-5 5.5-3.1-.8-5-2.7-5-5.5V4.5l5-2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M8 6v3M8 10.5h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }

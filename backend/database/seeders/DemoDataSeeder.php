@@ -40,6 +40,7 @@ class DemoDataSeeder extends Seeder
         $this->seedParentLinks($org->id);
         $this->linkMobileDemoUsers($org->id);
         $this->seedMobileChatThreads();
+        $this->seedComplaints($org->id);
         $this->seedDriverScheduleHistory($org->id);
         $this->seedStopsAndRunStops($org->id, $schools);
         $this->seedStudentStopAssignments($org->id);
@@ -684,5 +685,57 @@ class DemoDataSeeder extends Seeder
                 }
             }
         }
+    }
+
+    private function seedComplaints(string $orgId): void
+    {
+        $parent = User::where('email', 'parent@fleetpilot.test')->first();
+        $driver = User::where('email', 'driver@fleetpilot.test')->first();
+        $schoolContact = User::where('role', 'school_contact')->first();
+        $admin = User::where('email', 'admin@fleetpilot.test')->first();
+        $student = Student::forOrganization($orgId)->first();
+
+        if (! $parent || ! $admin) {
+            return;
+        }
+
+        $service = app(\App\Services\ComplaintService::class);
+
+        $parentComplaint = $service->create($parent, [
+            'category' => 'route_service',
+            'subject' => 'Bus arrived 25 minutes late this morning',
+            'description' => 'The AM route was scheduled for 7:15 AM but the bus did not arrive until 7:40 AM. My child missed the first period bell. This has happened twice this week.',
+            'priority' => 'high',
+            'preferred_contact' => 'app',
+            'student_id' => $student?->id,
+            'incident_date' => now()->toDateString(),
+        ]);
+
+        if ($driver) {
+            $service->create($driver, [
+                'category' => 'vehicle_condition',
+                'subject' => 'Bus heat not working on Route 12',
+                'description' => 'The heating system on vehicle 104 is not working. Students were cold during the morning run. Requesting maintenance before tomorrow.',
+                'priority' => 'urgent',
+                'preferred_contact' => 'phone',
+                'contact_phone' => $driver->phone,
+            ]);
+        }
+
+        if ($schoolContact) {
+            $service->create($schoolContact, [
+                'category' => 'communication',
+                'subject' => 'Delayed notification for early dismissal',
+                'description' => 'We had an early dismissal today but the transportation office was notified only 20 minutes before bell. Parents received alerts after students were already released.',
+                'priority' => 'normal',
+                'preferred_contact' => 'email',
+            ]);
+        }
+
+        $service->updateByStaff($admin, $parentComplaint, [
+            'status' => 'in_progress',
+            'assigned_to_user_id' => $admin->id,
+            'public_note' => 'Thank you for reporting this. We are reviewing GPS logs for Route 12 and will follow up within one business day.',
+        ]);
     }
 }

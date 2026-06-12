@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\ParentAccount;
 use App\Models\RunAssignment;
 use App\Models\Student;
+use App\Services\ComplaintService;
 use App\Services\MobileChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,8 +17,10 @@ use Illuminate\Support\Carbon;
 
 class MobileController extends Controller
 {
-    public function __construct(private readonly MobileChatService $chat)
-    {
+    public function __construct(
+        private readonly MobileChatService $chat,
+        private readonly ComplaintService $complaints,
+    ) {
     }
 
     public function appInfo(Request $request): JsonResponse
@@ -172,6 +175,8 @@ class MobileController extends Controller
             $items = array_merge($items, $this->chat->notificationItemsForUser($user, $includeRead));
         }
 
+        $items = array_merge($items, $this->complaints->mobileNotificationItems($user));
+
         $items = $this->applyReadState($user, $items);
         $unread = collect($items)->where('read', false)->count();
 
@@ -193,6 +198,10 @@ class MobileController extends Controller
         $user = $request->user();
 
         if ($this->chat->markChatNotificationRead($user, $notificationId)) {
+            return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+        }
+
+        if ($this->complaints->markMobileNotificationRead($user, $notificationId)) {
             return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
         }
 

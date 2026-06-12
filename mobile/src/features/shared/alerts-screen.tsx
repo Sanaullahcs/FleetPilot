@@ -27,6 +27,7 @@ function categoryIcon(category: string): AppIconName {
   if (category === 'student') return 'school';
   if (category === 'account') return 'person';
   if (category === 'message') return 'chatbubbles';
+  if (category === 'complaint') return 'document-text';
   return 'notifications';
 }
 
@@ -169,6 +170,14 @@ export function AlertsScreen() {
                     return;
                   }
 
+                  if (item.category === 'complaint' && item.complaint_id) {
+                    if (!item.read) {
+                      markReadMutation.mutate(item.id);
+                    }
+                    router.push(`/complaint/${item.complaint_id}`);
+                    return;
+                  }
+
                   const opening = expandedId !== item.id;
                   setExpandedId(opening ? item.id : null);
                   if (opening && !item.read) {
@@ -229,7 +238,9 @@ function AlertCard({
           <Text style={styles.tapHint}>
             {item.category === 'message'
               ? 'Tap to open chat'
-              : isUnread
+              : item.category === 'complaint'
+                ? 'Tap to open complaint'
+                : isUnread
                 ? 'Tap to open and mark as read'
                 : 'Tap to expand · swipe down to refresh'}
           </Text>

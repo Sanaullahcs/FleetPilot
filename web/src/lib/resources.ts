@@ -2,6 +2,9 @@ import { api } from "@/lib/api";
 import type {
   AdminRole,
   AdminUser,
+  ComplaintFormOptions,
+  ComplaintRecord,
+  ComplaintStats,
   DashboardChatConversation,
   DashboardChatContact,
   DashboardChatMessage,
@@ -728,6 +731,53 @@ export async function markDashboardChatRead(conversationId: string) {
   const { data } = await api.post<{ data: { conversation_id: string; read: boolean } }>(
     `/chat/conversations/${conversationId}/read`,
   );
+  return data.data;
+}
+
+export async function getComplaintStats(): Promise<ComplaintStats> {
+  const { data } = await api.get<{ data: ComplaintStats }>("/complaints/stats");
+  return data.data;
+}
+
+export async function listComplaints(params: ListParams & { submitter_role?: string; assignment?: string; category?: string; priority?: string } = {}) {
+  const { data } = await api.get<Paginated<ComplaintRecord>>("/complaints", { params });
+  return data;
+}
+
+export async function listMyComplaints(status?: string) {
+  const { data } = await api.get<{ data: { items: ComplaintRecord[]; total: number } }>("/complaints/mine", {
+    params: status ? { status } : undefined,
+  });
+  return data.data;
+}
+
+export async function getComplaintFormOptions(): Promise<ComplaintFormOptions> {
+  const { data } = await api.get<{ data: ComplaintFormOptions }>("/complaints/form-options");
+  return data.data;
+}
+
+export async function getComplaint(id: string): Promise<ComplaintRecord> {
+  const { data } = await api.get<{ data: ComplaintRecord }>(`/complaints/${id}`);
+  return data.data;
+}
+
+export async function createComplaint(payload: Record<string, unknown>) {
+  const { data } = await api.post<{ data: ComplaintRecord }>("/complaints", payload);
+  return data.data;
+}
+
+export async function updateComplaint(id: string, payload: Record<string, unknown>) {
+  const { data } = await api.patch<{ data: ComplaintRecord }>(`/complaints/${id}`, payload);
+  return data.data;
+}
+
+export async function addComplaintComment(id: string, body: string) {
+  const { data } = await api.post<{ data: ComplaintRecord }>(`/complaints/${id}/comments`, { body });
+  return data.data;
+}
+
+export async function listComplaintAssignees() {
+  const { data } = await api.get<{ data: { id: string; name: string; role: string }[] }>("/complaints/assignees");
   return data.data;
 }
 

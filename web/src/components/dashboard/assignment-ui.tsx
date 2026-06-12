@@ -23,7 +23,7 @@ export function AssignmentChip({
       onClick={onClick}
       disabled={disabled || !onClick}
       className={cn(
-        "group rounded-lg border px-2.5 py-1.5 text-left transition",
+        "group w-full max-w-full min-w-0 rounded-lg border px-2.5 py-1.5 text-left transition",
         onClick && !disabled && "cursor-pointer hover:border-brand-primary/30 hover:bg-brand-primary/5",
         assigned ? "border-slate-200 bg-white" : "border-dashed border-slate-300 bg-slate-50/80",
         disabled && "cursor-not-allowed opacity-60",
@@ -32,7 +32,7 @@ export function AssignmentChip({
       {assigned ? (
         <>
           <p className="text-sm font-medium text-slate-900 group-hover:text-brand-primary">{label}</p>
-          {sublabel && <p className="truncate text-xs text-slate-400">{sublabel}</p>}
+          {sublabel && <p className="break-words text-xs text-slate-400">{sublabel}</p>}
         </>
       ) : (
         <p className="text-xs font-semibold text-brand-primary">{emptyLabel}</p>

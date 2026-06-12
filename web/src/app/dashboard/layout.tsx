@@ -12,8 +12,9 @@ import { DashboardTopBar } from "@/components/dashboard/dashboard-top-bar";
 import { AssignmentPickerHost } from "@/components/dashboard/assignment-picker-host";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { UserMenu } from "@/components/dashboard/user-menu";
-import { PageTransition } from "@/components/ui/nav-progress";
 import { Spinner } from "@/components/ui/primitives";
+import { useDashboardChatAlerts } from "@/hooks/use-dashboard-chat-alerts";
+import { useMessageAudioPrime } from "@/hooks/use-message-audio-prime";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const headerTitle = user ? getPageHeaderTitle(pathname) : "FleetPilot";
+  const canUseChat = !!user && ["admin", "dispatcher", "school_contact"].includes(user.role);
+  useDashboardChatAlerts(canUseChat && !loading && !!user);
+  useMessageAudioPrime();
 
   useEffect(() => {
     document.title = `FleetPilot — ${headerTitle}`;
@@ -148,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               : "mx-auto w-full max-w-[1680px] overflow-x-hidden px-4 py-4 sm:px-5 sm:py-5 lg:px-6",
           )}
         >
-          {isRadar ? children : <PageTransition>{children}</PageTransition>}
+          {children}
         </main>
       </div>
       <AssignmentPickerHost />

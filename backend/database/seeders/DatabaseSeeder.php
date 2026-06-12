@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
     {
         $resources = [
             'students', 'routes', 'runs', 'drivers', 'vehicles',
-            'schools', 'stops', 'billing', 'reports', 'users', 'roles', 'settings',
+            'schools', 'stops', 'billing', 'reports', 'users', 'roles', 'settings', 'complaints',
         ];
         $actions = ['view', 'create', 'update', 'delete'];
 
@@ -88,6 +88,7 @@ class DatabaseSeeder extends Seeder
                     'runs.view', 'runs.create', 'runs.update',
                     'drivers.view', 'vehicles.view', 'schools.view',
                     'stops.view', 'stops.create', 'stops.update', 'reports.view',
+                    'complaints.view', 'complaints.create', 'complaints.update',
                 ],
             ],
             'driver' => ['name' => 'Driver', 'permissions' => ['runs.view', 'students.view']],

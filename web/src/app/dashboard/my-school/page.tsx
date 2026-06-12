@@ -95,6 +95,15 @@ export default function MySchoolPage() {
               </Link>
             </div>
 
+            <div className="flex flex-wrap gap-3">
+              <Link href="/dashboard/complaints">
+                <Button variant="secondary">Register a complaint</Button>
+              </Link>
+              <Link href="/dashboard/messages">
+                <Button variant="secondary">Open messages</Button>
+              </Link>
+            </div>
+
             <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
               <article className="fp-card overflow-hidden">
                 <div className="border-b border-slate-100 px-5 py-4">

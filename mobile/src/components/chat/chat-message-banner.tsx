@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +12,12 @@ export function ChatMessageBannerHost() {
   const router = useRouter();
   const banner = useChatBannerStore((s) => s.banner);
   const hideBanner = useChatBannerStore((s) => s.hideBanner);
+
+  useEffect(() => {
+    if (!banner) return;
+    const timer = setTimeout(() => hideBanner(), 7000);
+    return () => clearTimeout(timer);
+  }, [banner, hideBanner]);
 
   if (!banner) {
     return null;
@@ -33,6 +40,7 @@ export function ChatMessageBannerHost() {
           <Ionicons name="chatbubble-ellipses" size={18} color={Colors.white} />
         </View>
         <View style={styles.body}>
+          <Text style={styles.badge}>New message</Text>
           <Text style={styles.title} numberOfLines={1}>
             {banner.title}
           </Text>
@@ -89,6 +97,15 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     minWidth: 0,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: Colors.primary,
   },
   title: {
     fontSize: 14,

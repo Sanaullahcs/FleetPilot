@@ -22,6 +22,10 @@ export function useRequireAuth() {
       return;
     }
 
+    if (user) {
+      setChecking(false);
+    }
+
     let active = true;
     fetchMe()
       .then((fresh) => {

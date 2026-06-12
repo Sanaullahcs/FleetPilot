@@ -306,7 +306,7 @@ export function AuthInput({
   icon,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & {
-  icon?: "mail" | "lock" | "user" | "phone";
+  icon?: "mail" | "email" | "lock" | "user" | "phone";
 }) {
   return (
     <div className="relative">
@@ -320,11 +320,18 @@ export function AuthInput({
   );
 }
 
-function AuthInputIcon({ type }: { type: "mail" | "lock" | "user" | "phone" }) {
-  if (type === "mail") {
+function AuthInputIcon({ type }: { type: "mail" | "email" | "lock" | "user" | "phone" }) {
+  if (type === "mail" || type === "email") {
     return (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M4 7l8 5 8-5M4 7v10h16V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" />
+        <path
+          d="M3 7l9 6 9-6"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }

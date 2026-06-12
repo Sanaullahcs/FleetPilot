@@ -46,7 +46,7 @@ export function FilterBar({
         )}
       >
         <div className={cn("min-w-0", filters.length > 0 && "sm:col-span-2 xl:col-span-2")}>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="fp-label mb-1.5 block">
             Search
           </label>
           <SearchInput value={search} onChange={onSearchChange} placeholder={searchPlaceholder} />
@@ -54,7 +54,7 @@ export function FilterBar({
 
         {filters.map((f) => (
           <div key={f.key} className="min-w-0">
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <label className="fp-label mb-1.5 block">
               {f.label}
             </label>
             <SearchableSelect

@@ -9,11 +9,13 @@ use App\Models\ParentStudent;
 use App\Models\Route;
 use App\Models\Run;
 use App\Models\RunAssignment;
+use App\Models\Role;
 use App\Models\School;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Stop;
 use App\Models\Vehicle;
+use App\Services\MobileChatService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,7 @@ class DemoDataSeeder extends Seeder
         }
 
         $schools = $this->seedSchools($org->id);
+        $this->seedSchoolContact($org->id, $schools);
         $this->seedVehicles($org->id);
         $this->seedDrivers($org->id);
         $this->seedStudents($org->id, $schools);
@@ -36,6 +39,7 @@ class DemoDataSeeder extends Seeder
         $this->seedRunAssignments($org->id);
         $this->seedParentLinks($org->id);
         $this->linkMobileDemoUsers($org->id);
+        $this->seedMobileChatThreads();
         $this->seedDriverScheduleHistory($org->id);
         $this->seedStopsAndRunStops($org->id, $schools);
         $this->seedStudentStopAssignments($org->id);
@@ -112,6 +116,42 @@ class DemoDataSeeder extends Seeder
         }
 
         return $schools;
+    }
+
+    /**
+     * @param  array<int, \App\Models\School>  $schools
+     */
+    private function seedSchoolContact(string $orgId, array $schools): void
+    {
+        $school = collect($schools)->firstWhere('code', 'LES') ?? $schools[0] ?? null;
+        if (! $school) {
+            return;
+        }
+
+        $role = Role::query()
+            ->where('organization_id', $orgId)
+            ->where('slug', 'school_contact')
+            ->first();
+
+        $user = User::updateOrCreate(
+            ['email' => 'school@fleetpilot.test'],
+            [
+                'organization_id' => $orgId,
+                'password_hash' => 'password',
+                'first_name' => 'Sydney',
+                'last_name' => 'Lincoln',
+                'role' => 'school_contact',
+                'school_id' => $school->id,
+                'job_title' => 'Transportation Coordinator',
+                'phone' => '(555) 200-4100',
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        );
+
+        if ($role) {
+            $user->roles()->syncWithoutDetaching([$role->id]);
+        }
     }
 
     private function seedVehicles(string $orgId): void
@@ -594,6 +634,53 @@ class DemoDataSeeder extends Seeder
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+                }
+            }
+        }
+    }
+
+    private function seedMobileChatThreads(): void
+    {
+        $chat = app(MobileChatService::class);
+
+        foreach (['driver@fleetpilot.test', 'parent@fleetpilot.test'] as $email) {
+            $user = User::where('email', $email)->first();
+            if ($user) {
+                $chat->ensureConversations($user);
+            }
+        }
+
+        $parent = User::where('email', 'parent@fleetpilot.test')->first();
+        $driver = User::where('email', 'driver@fleetpilot.test')->first();
+
+        foreach (array_filter([$parent, $driver]) as $user) {
+            $conversations = \App\Models\MobileChatConversation::query()
+                ->whereJsonContains('participant_user_ids', $user->id)
+                ->get();
+
+            foreach ($conversations as $conversation) {
+                if ($conversation->messages()->where('is_system', false)->exists()) {
+                    continue;
+                }
+
+                $reply = match ($conversation->type) {
+                    'parent_driver' => 'Hi! I will be at the stop a few minutes early today.',
+                    'parent_school' => 'Feel free to message us about absences or route changes.',
+                    'parent_support' => 'Transportation dispatch here — how can we help with your route?',
+                    'driver_school' => 'Let us know if pickup or dismissal times change today.',
+                    'driver_support' => 'Dispatch here — message us about route changes or delays.',
+                    default => null,
+                };
+
+                if ($reply) {
+                    \App\Models\MobileChatMessage::create([
+                        'conversation_id' => $conversation->id,
+                        'sender_user_id' => collect($conversation->participant_user_ids)
+                            ->first(fn ($id) => $id !== $user->id),
+                        'body' => $reply,
+                        'is_system' => false,
+                    ]);
+                    $conversation->update(['last_message_at' => now()]);
                 }
             }
         }

@@ -141,7 +141,7 @@ export function DataTable<T>({
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    className="fp-label px-4 py-3 text-left font-medium"
                     aria-sort={
                       col.sortable && sortKey === col.key
                         ? sortDir === "asc"

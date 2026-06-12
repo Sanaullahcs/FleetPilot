@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@/components/ui/icons';
@@ -5,7 +6,11 @@ import { MinnesotaMapStatic } from '@/components/maps/minnesota-map-static';
 import { NativeTrackingMap } from '@/components/maps/native-tracking-map';
 import { ZoomableMapShell } from '@/components/maps/zoomable-map-shell';
 import { Colors, RoleAccents } from '@/constants/theme';
-import { hasGoogleMapsKey } from '@/lib/map-config';
+import {
+  getMapSetupHint,
+  shouldUseNativeMapView,
+  verifyGoogleMapsKey,
+} from '@/lib/map-config';
 import type { ParentTrackItem } from '@/lib/mobile-types';
 
 function pickActive(tracks: ParentTrackItem[], focusTrack?: ParentTrackItem | null) {
@@ -50,9 +55,25 @@ export function ParentTrackingMap({
   const active = pickActive(tracks, focusTrack);
   const vehicle = active?.vehicle;
   const live = active?.tracking_status === 'in_progress';
-  const useNative = hasGoogleMapsKey();
+  const useNative = shouldUseNativeMapView();
+  const [mapIssue, setMapIssue] = useState<string | null>(getMapSetupHint());
   const zoomControlsBottom =
     zoomControlsBottomProp ?? (hideOverlay ? (fullScreen ? 260 : 24) : 96);
+
+  useEffect(() => {
+    let cancelled = false;
+    void verifyGoogleMapsKey().then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setMapIssue(result.message);
+        return;
+      }
+      setMapIssue(getMapSetupHint());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const summary = vehicle
     ? `Bus #${vehicle.vehicle_number} · ${Math.round(vehicle.speed_mph)} mph`
@@ -85,6 +106,13 @@ export function ParentTrackingMap({
   return (
     <View style={containerStyle}>
       {mapBody}
+
+      {mapIssue ? (
+        <View style={[styles.mapHint, fullScreen && { top: controlsTop + 52 }]}>
+          <Ionicons name="information-circle-outline" size={16} color={Colors.secondary} />
+          <Text style={styles.mapHintText}>{mapIssue}</Text>
+        </View>
+      ) : null}
 
       {!hideOverlay && active ? (
         <View style={[styles.statusBar, onExpand && !hideExpand && styles.statusBarExpand]}>
@@ -122,6 +150,22 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   wrapFull: { flex: 1, minHeight: 240 },
+  mapHint: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+  },
+  mapHintText: { flex: 1, fontSize: 11, lineHeight: 15, fontWeight: '600', color: Colors.secondary },
   statusBar: {
     position: 'absolute',
     left: 12,

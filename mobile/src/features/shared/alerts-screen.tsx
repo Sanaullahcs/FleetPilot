@@ -9,6 +9,9 @@ import { Colors } from '@/constants/theme';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { fetchMobileNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/mobile-api';
 import type { MobileNotification, NotificationSeverity } from '@/lib/mobile-types';
+import { useAuthStore } from '@/store/auth';
+import { getMobileRole } from '@/constants/app';
+import { getQueryErrorMessage } from '@/lib/query-utils';
 
 function severityTone(severity: NotificationSeverity) {
   if (severity === 'success') return 'success' as const;
@@ -39,10 +42,18 @@ export function AlertsScreen() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const tabBarInset = useTabBarInset();
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const mobileRole = getMobileRole(user);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const refreshLock = useRef(false);
-  const notifications = useQuery({ queryKey: ['mobile-notifications'], queryFn: fetchMobileNotifications });
+  const notifications = useQuery({
+    queryKey: ['mobile-notifications'],
+    queryFn: fetchMobileNotifications,
+    enabled: !!token && !!mobileRole,
+    refetchInterval: 8_000,
+  });
   const unread = notifications.data?.unread ?? 0;
 
   const markReadMutation = useMutation({
@@ -131,6 +142,15 @@ export function AlertsScreen() {
       >
         {notifications.isLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
+        ) : notifications.isError ? (
+          <EmptyState
+            title="Couldn't load alerts"
+            message={getQueryErrorMessage(notifications.error)}
+            icon="cloud-offline-outline"
+            accent={Colors.danger}
+            actionLabel="Try again"
+            onAction={() => void notifications.refetch()}
+          />
         ) : notifications.data?.items.length ? (
           [...notifications.data.items]
             .sort((a, b) => Number(a.read) - Number(b.read))

@@ -21,13 +21,14 @@ import {
   SignupShell,
   AuthField,
   AuthErrorBanner,
+  AuthFormHeading,
   AuthSuccessBanner,
   AuthGlassCard,
+  AuthRoleGrid,
 } from "@/components/auth/auth-shell";
 import { AddressFields } from "@/components/auth/address-fields";
 import { AuthStepper, AuthWizardNav, type AuthStep } from "@/components/auth/auth-stepper";
 import { SearchableSelect } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 import { US_STATES } from "@/lib/us-states";
 
@@ -110,11 +111,11 @@ const signupSchema = z
 
 type SignupFormValues = z.infer<typeof signupSchema>;
 
-const ROLES: { id: SignupRole; label: string; short: string; accent: string; Icon: () => React.ReactNode }[] = [
-  { id: "admin", label: "Transportation Provider", short: "Provider", accent: brand.primary, Icon: RoleIconBus },
-  { id: "driver", label: "Driver", short: "Driver", accent: brand.cyan, Icon: RoleIconPerson },
-  { id: "school_contact", label: "School", short: "School", accent: brand.orange, Icon: RoleIconSchool },
-  { id: "parent", label: "Parent", short: "Parent", accent: brand.accent, Icon: RoleIconFamily },
+const ROLES: { id: SignupRole; label: string; short: string; description: string; accent: string; Icon: () => React.ReactNode }[] = [
+  { id: "admin", label: "Transportation Provider", short: "Provider", description: "Register your fleet company and manage operations", accent: brand.primary, Icon: RoleIconBus },
+  { id: "driver", label: "Driver", short: "Driver", description: "Join your employer and access your route schedule", accent: brand.cyan, Icon: RoleIconPerson },
+  { id: "school_contact", label: "School", short: "School", description: "Connect your campus with district transportation", accent: brand.orange, Icon: RoleIconSchool },
+  { id: "parent", label: "Parent", short: "Parent", description: "Track buses and stay connected with your child's school", accent: brand.accent, Icon: RoleIconFamily },
 ];
 
 const STEPS: Record<SignupRole, AuthStep[]> = {
@@ -412,52 +413,18 @@ export default function SignupPage() {
   const isReviewStep = currentStep.id === "review";
 
   return (
-    <SignupShell
-      footer={
-        <>
-          Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-brand-primary hover:text-brand-dark">Sign in</Link>
-        </>
-      }
-    >
-      <div className="mb-6 text-center sm:mb-8">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Get started</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-brand-secondary sm:text-[2rem]">Create your account</h1>
-        <p className="mt-2 text-sm text-slate-500">Choose your role and complete each step at your pace</p>
-      </div>
-
-      <div className="mb-6 flex gap-2 rounded-2xl border border-slate-200/70 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm">
-        {ROLES.map((r) => {
-          const selected = role === r.id;
-          return (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => selectRole(r.id)}
-              className={cn(
-                "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-xs font-semibold transition-all sm:flex-row sm:justify-center sm:gap-2 sm:py-3 sm:text-sm",
-                selected
-                  ? "text-white shadow-md"
-                  : "text-slate-500 hover:bg-white hover:text-slate-700",
-              )}
-              style={selected ? { background: r.accent } : undefined}
-            >
-              <span className={selected ? "text-white" : "text-slate-400"}><r.Icon /></span>
-              <span>{r.short}</span>
-            </button>
-          );
-        })}
-      </div>
-
+    <SignupShell>
       {successMessage ? (
-        <div className="mx-auto max-w-lg space-y-4">
-          <AuthSuccessBanner message={successMessage} />
-          {role === "admin" ? (
-            <p className="text-center text-sm text-slate-500">Redirecting to sign in…</p>
-          ) : (
-            <Link href="/login" className="fp-auth-btn block text-center">Go to sign in</Link>
-          )}
-        </div>
+        <AuthGlassCard>
+          <div className="space-y-4 p-5 sm:p-6">
+            <AuthSuccessBanner message={successMessage} />
+            {role === "admin" ? (
+              <p className="text-center text-sm text-slate-500">Redirecting to sign in…</p>
+            ) : (
+              <Link href="/login" className="fp-auth-btn block text-center">Go to sign in</Link>
+            )}
+          </div>
+        </AuthGlassCard>
       ) : (
         <form
           onSubmit={(e) => e.preventDefault()}
@@ -466,15 +433,19 @@ export default function SignupPage() {
         >
           <input type="hidden" {...register("role")} value={role} />
 
-          <AuthGlassCard>
-            <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${activeRole.accent}, transparent)` }} />
+          <AuthFormHeading title="Create your account" description="Pick a role and complete the steps below" />
 
-            <div className="p-5 sm:p-7">
-              <AuthStepper steps={steps} current={step} accent={activeRole.accent} />
+          <div className="mt-6">
+            <AuthRoleGrid compact roles={ROLES} selected={role} onSelect={(id) => selectRole(id as SignupRole)} />
+          </div>
 
-              <div key={`${role}-${currentStep.id}`} className="min-h-[260px] animate-auth-step-in">
+          <AuthGlassCard className="mt-5">
+            <div className="p-4 sm:p-5">
+              <AuthStepper compact steps={steps} current={step} accent={activeRole.accent} />
+
+              <div key={`${role}-${currentStep.id}`} className="animate-auth-step-in">
                 {currentStep.id === "company" && (
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <AuthField label="Company name *" error={errors.company_name?.message}>
                       <input className="fp-input" placeholder="Metro K-12 Transportation" {...register("company_name")} />
                     </AuthField>
@@ -640,13 +611,13 @@ export default function SignupPage() {
               </div>
 
               {!isProvider && step > 0 && !isReviewStep && (
-                <p className="mt-5 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 text-xs leading-relaxed text-amber-900">
+                <p className="mt-4 rounded-xl border border-amber-200/60 bg-amber-50/80 px-3 py-2.5 text-[11px] leading-relaxed text-amber-900">
                   Your provider will review this registration before activating your account.
                 </p>
               )}
             </div>
 
-            <div className="border-t border-slate-100/80 bg-slate-50/50 px-5 py-4 sm:px-7 sm:py-5">
+            <div className="border-t border-slate-100 px-4 py-3.5 sm:px-5">
               {serverError && <div className="mb-3"><AuthErrorBanner message={serverError} /></div>}
               <AuthWizardNav
                 showBack={step > 0}
@@ -657,11 +628,15 @@ export default function SignupPage() {
                 continueLabel="Continue"
                 submitLabel={isProvider ? "Create provider account" : "Submit registration"}
                 loading={isSubmitting}
-                accent={activeRole.accent}
                 submitDisabled={isReviewStep && !confirmedReview}
               />
             </div>
           </AuthGlassCard>
+
+          <p className="mt-4 text-center text-[13px] text-slate-500">
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold text-brand-primary hover:text-brand-dark">Sign in</Link>
+          </p>
         </form>
       )}
     </SignupShell>

@@ -12,6 +12,8 @@ import { Colors, RoleAccents } from '@/constants/theme';
 import { fetchMobileNotifications, fetchParentChildren } from '@/lib/mobile-api';
 import { useTabBarInset } from '@/hooks/use-tab-bar-inset';
 import { useAuthStore } from '@/store/auth';
+import { getMobileRole } from '@/constants/app';
+import { getQueryErrorMessage } from '@/lib/query-utils';
 import { showConfirmAlert } from '@/store/sweet-alert';
 
 import type { ParentChildItem } from '@/lib/mobile-types';
@@ -27,11 +29,21 @@ function childStatus(item: ParentChildItem) {
 export function ParentHomeScreen() {
   const tabBarInset = useTabBarInset();
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+  const mobileRole = getMobileRole(user);
   const router = useRouter();
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const refreshLock = useRef(false);
-  const notifications = useQuery({ queryKey: ['mobile-notifications'], queryFn: fetchMobileNotifications });
-  const children = useQuery({ queryKey: ['parent-children'], queryFn: fetchParentChildren });
+  const notifications = useQuery({
+    queryKey: ['mobile-notifications'],
+    queryFn: fetchMobileNotifications,
+    enabled: !!token && mobileRole === 'parent',
+  });
+  const children = useQuery({
+    queryKey: ['parent-children'],
+    queryFn: fetchParentChildren,
+    enabled: !!token && mobileRole === 'parent',
+  });
 
   const openChild = (studentId: string) => {
     router.push({ pathname: '/child/[studentId]', params: { studentId } });
@@ -83,6 +95,15 @@ export function ParentHomeScreen() {
 
         {children.isLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
+        ) : children.isError ? (
+          <EmptyState
+            title="Couldn't load children"
+            message={getQueryErrorMessage(children.error)}
+            icon="cloud-offline-outline"
+            accent={Colors.danger}
+            actionLabel="Try again"
+            onAction={() => void children.refetch()}
+          />
         ) : children.data?.length ? (
           children.data.map((item) => {
             const name = `${item.student.first_name} ${item.student.last_name}`;

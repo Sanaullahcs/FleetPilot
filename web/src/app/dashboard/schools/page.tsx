@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PageHeader, Button, Badge, StatCard } from "@/components/ui/primitives";
+import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { SchoolStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -15,11 +16,9 @@ import { getApiErrorMessage } from "@/lib/api";
 import {
   deleteSchool,
   getSchoolFilterOptions,
-  getSchoolStats,
   listSchools,
 } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
-import { brand } from "@/lib/brand";
 import { idColumn, useTableSort } from "@/lib/table-utils";
 import type { School } from "@/lib/types";
 
@@ -27,42 +26,6 @@ const ENROLLMENT_OPTIONS = [
   { label: "With enrolled students", value: "with_students" },
   { label: "No students yet", value: "without_students" },
 ];
-
-function SchoolIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 3L3 8.5 12 14l9-5.5L12 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M6 11v5.5c0 1.1 2.686 2.5 6 2.5s6-1.4 6-2.5V11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function StudentsIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 20c0-3.314 2.686-6 6-6M16 8a3 3 0 100-6M21 20c0-2.761-2.239-5-5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function RouteIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 6h16M4 12h10M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="18" cy="12" r="2" fill="currentColor" />
-    </svg>
-  );
-}
-
-function DistrictIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 21s7-4.5 7-11a7 7 0 10-14 0c0 6.5 7 11 7 11z" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="10" r="2" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
 
 export default function SchoolsPage() {
   const can = usePermission();
@@ -78,11 +41,6 @@ export default function SchoolsPage() {
   const [viewingName, setViewingName] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<School | null>(null);
-
-  const statsQuery = useQuery({
-    queryKey: ["school-stats"],
-    queryFn: getSchoolStats,
-  });
 
   const filterOptionsQuery = useQuery({
     queryKey: ["school-filter-options"],
@@ -162,12 +120,6 @@ export default function SchoolsPage() {
     if (ok) removeMutation.mutate(s.id);
   };
 
-  const stats = statsQuery.data;
-  const coveragePct =
-    stats && stats.schools > 0
-      ? Math.round((stats.schools_with_students / stats.schools) * 100)
-      : 0;
-
   const columns: Column<School>[] = [
     idColumn("code", (s) => s.code),
     {
@@ -223,42 +175,7 @@ export default function SchoolsPage() {
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Schools served"
-          value={statsQuery.isLoading ? "—" : (stats?.schools ?? 0)}
-          hint={`${stats?.schools_with_students ?? 0} with enrolled students`}
-          accent={brand.primary}
-          icon={<SchoolIcon />}
-          trend={stats ? `${coveragePct}% enrollment coverage` : undefined}
-        />
-        <StatCard
-          label="Students enrolled"
-          value={statsQuery.isLoading ? "—" : (stats?.students_enrolled ?? 0)}
-          hint={
-            stats
-              ? `~${stats.avg_students_per_school} avg per school`
-              : "Active transportation roster"
-          }
-          accent={brand.cyan}
-          icon={<StudentsIcon />}
-        />
-        <StatCard
-          label="Active routes"
-          value={statsQuery.isLoading ? "—" : (stats?.active_routes ?? 0)}
-          hint="Morning, afternoon & special runs"
-          accent={brand.orange}
-          icon={<RouteIcon />}
-        />
-        <StatCard
-          label="Districts"
-          value={statsQuery.isLoading ? "—" : (stats?.districts ?? 0)}
-          hint="Unique districts in your network"
-          accent={brand.accent}
-          icon={<DistrictIcon />}
-        />
-      </div>
+      <SchoolStatRow />
 
       <FilterBar
         search={search}

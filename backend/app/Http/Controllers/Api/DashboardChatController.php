@@ -75,4 +75,36 @@ class DashboardChatController extends Controller
             'data' => $this->chat->messagePayload($message, $user->id),
         ], 201);
     }
+
+    public function contacts(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! in_array($user->role, ['admin', 'dispatcher'], true)) {
+            abort(403);
+        }
+
+        return response()->json([
+            'data' => $this->chat->listMessageableContacts($user),
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! in_array($user->role, ['admin', 'dispatcher'], true)) {
+            abort(403);
+        }
+
+        $data = $request->validate([
+            'user_id' => ['required', 'uuid', 'exists:users,id'],
+        ]);
+
+        $conversation = $this->chat->findOrCreateStaffConversation($user, $data['user_id']);
+
+        return response()->json([
+            'data' => $this->chat->staffConversationPayload($conversation, $user),
+        ], 201);
+    }
 }

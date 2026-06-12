@@ -37,6 +37,14 @@ class DashboardController extends Controller
 
         $orgId = $user->organization_id;
         [$from, $to] = $this->resolveDateRange($request);
+        $schoolId = $request->string('school_id')->toString() ?: null;
+        $routeType = $request->string('route_type')->toString() ?: null;
+
+        $students = $this->scoped(Student::forOrganization($orgId), $from, $to)
+            ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId));
+        $schools = $this->scoped(School::forOrganization($orgId), $from, $to)
+            ->when($schoolId, fn ($q) => $q->where('id', $schoolId));
+        $routes = $this->scopedRoute(Route::forOrganization($orgId), $request, $from, $to);
 
         $licenseExpiring = Driver::forOrganization($orgId)
             ->whereNotNull('license_expiry')
@@ -50,8 +58,8 @@ class DashboardController extends Controller
         return response()->json([
             'data' => [
                 'students' => [
-                    'total' => $this->scoped(Student::forOrganization($orgId), $from, $to)->count(),
-                    'active' => $this->scoped(Student::forOrganization($orgId), $from, $to)->where('status', 'active')->count(),
+                    'total' => (clone $students)->count(),
+                    'active' => (clone $students)->where('status', 'active')->count(),
                 ],
                 'drivers' => [
                     'total' => $this->scoped(Driver::forOrganization($orgId), $from, $to)->count(),
@@ -62,14 +70,22 @@ class DashboardController extends Controller
                     'active' => $this->scoped(Vehicle::forOrganization($orgId), $from, $to)->where('status', 'active')->count(),
                 ],
                 'schools' => [
-                    'total' => $this->scoped(School::forOrganization($orgId), $from, $to)->count(),
+                    'total' => (clone $schools)->count(),
                 ],
                 'routes' => [
-                    'total' => $this->scopedRoute(Route::forOrganization($orgId), $request, $from, $to)->count(),
-                    'active' => $this->scopedRoute(Route::forOrganization($orgId), $request, $from, $to)->where('status', 'active')->count(),
+                    'total' => (clone $routes)->count(),
+                    'active' => (clone $routes)->where('status', 'active')->count(),
                 ],
                 'runs' => [
-                    'total' => Run::whereHas('route', fn ($q) => $q->where('organization_id', $orgId))
+                    'total' => Run::whereHas('route', function ($q) use ($orgId, $schoolId, $routeType) {
+                        $q->where('organization_id', $orgId);
+                        if ($schoolId) {
+                            $q->where('school_id', $schoolId);
+                        }
+                        if ($routeType) {
+                            $q->where('type', $routeType);
+                        }
+                    })
                         ->when($from && $to, fn ($q) => $q->whereBetween('created_at', [$from, $to]))
                         ->count(),
                 ],

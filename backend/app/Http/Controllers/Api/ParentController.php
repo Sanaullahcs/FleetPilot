@@ -64,6 +64,33 @@ class ParentController extends Controller
         return response()->json($parents);
     }
 
+    public function stats(Request $request): JsonResponse
+    {
+        $this->assertCanManageStudents($request);
+        $orgId = $request->user()->organization_id;
+
+        $parents = ParentAccount::where('organization_id', $orgId);
+        $total = (clone $parents)->count();
+        $active = (clone $parents)->whereHas('user', fn ($q) => $q->where('is_active', true))->count();
+        $withStudents = (clone $parents)->has('students')->count();
+        $studentLinks = ParentStudent::query()
+            ->whereHas('parentAccount', fn ($q) => $q->where('organization_id', $orgId))
+            ->count();
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'active' => $active,
+                'with_students' => $withStudents,
+                'without_students' => max(0, $total - $withStudents),
+                'student_links' => $studentLinks,
+                'avg_students_per_parent' => $withStudents > 0
+                    ? round($studentLinks / $withStudents, 1)
+                    : 0,
+            ],
+        ]);
+    }
+
     public function show(Request $request, ParentAccount $parentAccount): JsonResponse
     {
         $this->assertCanManageStudents($request);

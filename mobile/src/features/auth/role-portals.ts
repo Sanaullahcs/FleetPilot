@@ -1,6 +1,6 @@
+import { getMobileRole, type MobileRole } from '@/constants/app';
 import type { SignupRole } from '@/lib/auth-signup';
 import { RoleAccents } from '@/constants/theme';
-import type { MobileRole } from '@/constants/app';
 
 export const ROLE_PORTALS: Record<
   MobileRole,
@@ -53,6 +53,36 @@ export const ROLE_PORTALS: Record<
     ],
   },
 };
+
+export const ROLE_DEMO_CREDENTIALS: Record<
+  MobileRole,
+  {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  }
+> = {
+  driver: {
+    email: 'driver@fleetpilot.test',
+    password: 'password',
+    firstName: 'Demo',
+    lastName: 'Driver',
+    phone: '555-010-2001',
+  },
+  parent: {
+    email: 'parent@fleetpilot.test',
+    password: 'password',
+    firstName: 'Demo',
+    lastName: 'Parent',
+    phone: '555-010-3001',
+  },
+};
+
+export function demoCredentialsForRole(role: MobileRole | SignupRole) {
+  return ROLE_DEMO_CREDENTIALS[role];
+}
 
 export const ROLE_MISMATCH_MESSAGES: Record<MobileRole, string> = {
   driver: 'This account is a parent account. Select Parent above to sign in.',

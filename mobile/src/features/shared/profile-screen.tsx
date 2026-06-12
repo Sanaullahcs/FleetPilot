@@ -10,15 +10,49 @@ import { Colors, RoleAccents } from '@/constants/theme';
 import { fetchMe, signOut } from '@/lib/auth-api';
 import { fetchDriverProfile } from '@/lib/mobile-api';
 import { useAuthStore } from '@/store/auth';
+import { getMobileRole } from '@/constants/app';
 import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
+import { usePushStatusStore } from '@/store/push-status';
+import { retryPushRegistration } from '@/hooks/use-push-notifications';
 
 export function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const isDriver = user?.role === 'driver';
+  const mobileRole = getMobileRole(user);
+  const isDriver = mobileRole === 'driver';
   const accent = isDriver ? RoleAccents.driver : RoleAccents.parent;
+  const pushStatus = usePushStatusStore((s) => s.status);
+  const pushDetail = usePushStatusStore((s) => s.detail);
+
+  const pushSubtitle =
+    pushStatus === 'registered'
+      ? 'Enabled for delays, pickups, and route updates'
+      : pushStatus === 'denied'
+        ? 'Notifications are off in device settings'
+        : pushStatus === 'expo_go'
+          ? 'Install the FleetPilot APK for push (Expo Go cannot receive remote push)'
+          : pushDetail ?? 'Tap to register this device for push alerts';
+
+  const onPushPress = () => {
+    if (pushStatus === 'registered') {
+      showSweetAlert({
+        type: 'success',
+        title: 'Push enabled',
+        message: 'This device is registered for route and message alerts.',
+      });
+      return;
+    }
+
+    void retryPushRegistration().then((result) => {
+      showSweetAlert({
+        type: result.ok ? 'success' : 'info',
+        title: result.ok ? 'Push enabled' : 'Push not available',
+        message: result.message,
+      });
+    });
+  };
 
   const driverProfile = useQuery({
     queryKey: ['driver-profile'],
@@ -93,9 +127,9 @@ export function ProfileScreen() {
           <Text style={styles.blockTitle}>Preferences</Text>
           <ListRow
             title="Push notifications"
-            subtitle="Delays, pickups, and route updates"
+            subtitle={pushSubtitle}
             icon="notifications-outline"
-            onPress={() => showSweetAlert({ type: 'info', title: 'Notifications', message: 'Push notifications are enabled for route updates and delays.' })}
+            onPress={onPushPress}
           />
           <ListRow
             title="SMS alerts"

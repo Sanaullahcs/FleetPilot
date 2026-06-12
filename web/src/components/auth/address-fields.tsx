@@ -32,7 +32,7 @@ export function AddressFields<T extends AddressFormSlice>({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}{req && !label.includes("*") ? "" : required ? "" : " (optional)"}</p>
+      <p className="fp-label text-slate-500">{label}{req && !label.includes("*") ? "" : required ? "" : " (optional)"}</p>
       <AuthField label={`Street address${req}`} error={errors.address?.message as string | undefined}>
         <input
           className={fieldClass}

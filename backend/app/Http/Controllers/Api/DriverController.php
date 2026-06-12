@@ -50,6 +50,33 @@ class DriverController extends Controller
         return response()->json($drivers);
     }
 
+    public function stats(Request $request): JsonResponse
+    {
+        $orgId = $request->user()->organization_id;
+        $drivers = Driver::forOrganization($orgId);
+
+        $total = (clone $drivers)->count();
+        $active = (clone $drivers)->where('status', 'active')->count();
+        $withVehicle = (clone $drivers)->whereNotNull('default_vehicle_id')->count();
+        $withStudents = (clone $drivers)->has('students')->count();
+        $licenseExpiringSoon = (clone $drivers)
+            ->where('status', 'active')
+            ->whereNotNull('license_expiry')
+            ->whereBetween('license_expiry', [now()->toDateString(), now()->addDays(30)->toDateString()])
+            ->count();
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'active' => $active,
+                'with_vehicle' => $withVehicle,
+                'with_students' => $withStudents,
+                'license_expiring_soon' => $licenseExpiringSoon,
+                'vehicle_assignment_pct' => $active > 0 ? (int) round($withVehicle / $active * 100) : 0,
+            ],
+        ]);
+    }
+
     public function show(Request $request, Driver $driver): JsonResponse
     {
         $this->authorizeOrg($request, $driver);

@@ -3,6 +3,7 @@ import type {
   AdminRole,
   AdminUser,
   DashboardChatConversation,
+  DashboardChatContact,
   DashboardChatMessage,
   DashboardAnalytics,
   DashboardNotifications,
@@ -10,7 +11,6 @@ import type {
   DispatchBoard,
   DispatchAssignment,
   DispatchRunRow,
-  DriverPortalRun,
   DriverScheduleResponse,
   DriverTodayResponse,
   ParentChildView,
@@ -26,8 +26,8 @@ import type {
   PermissionGroup,
   RouteDetail,
   RouteItem,
-  RouteRun,
   School,
+  SchoolPortalPayload,
   Student,
   UserRole,
   Vehicle,
@@ -68,6 +68,59 @@ export interface SchoolStats {
   active_routes: number;
   schools_with_students: number;
   avg_students_per_school: number;
+}
+
+export interface DriverStats {
+  total: number;
+  active: number;
+  with_vehicle: number;
+  with_students: number;
+  license_expiring_soon: number;
+  vehicle_assignment_pct: number;
+}
+
+export interface ParentStats {
+  total: number;
+  active: number;
+  with_students: number;
+  without_students: number;
+  student_links: number;
+  avg_students_per_parent: number;
+}
+
+export interface StudentStats {
+  total: number;
+  active: number;
+  assigned: number;
+  unassigned: number;
+  with_parents: number;
+  special_needs: number;
+  assignment_pct: number;
+}
+
+export interface VehicleStats {
+  total: number;
+  active: number;
+  assigned: number;
+  unassigned: number;
+  maintenance: number;
+  assignment_pct: number;
+}
+
+export interface RouteStats {
+  total: number;
+  active: number;
+  inactive: number;
+  draft: number;
+  schools_served: number;
+}
+
+export interface UserStats {
+  total: number;
+  active: number;
+  inactive: number;
+  dispatchers: number;
+  admins: number;
 }
 
 export interface SchoolFilterOptions {
@@ -134,10 +187,45 @@ export async function getFleetLive(filters: FleetLiveFilters = {}): Promise<Flee
   return data.data;
 }
 
-export async function getDispatchRuns(date?: string): Promise<DispatchBoard> {
+export interface DispatchRunsParams {
+  date?: string;
+  search?: string;
+  assignment?: "assigned" | "unassigned" | "";
+  status?: string;
+  route_type?: string;
+  school_id?: string;
+}
+
+export async function getDispatchRuns(params: DispatchRunsParams = {}): Promise<DispatchBoard> {
+  const out: Record<string, string> = {};
+  if (params.date) out.date = params.date;
+  if (params.search) out.search = params.search;
+  if (params.assignment) out.assignment = params.assignment;
+  if (params.status) out.status = params.status;
+  if (params.route_type) out.route_type = params.route_type;
+  if (params.school_id) out.school_id = params.school_id;
   const { data } = await api.get<{ data: DispatchBoard }>("/dispatch/runs", {
-    params: date ? { date } : undefined,
+    params: Object.keys(out).length ? out : undefined,
   });
+  return data.data;
+}
+
+export interface CreateDispatchRunPayload {
+  route_id: string;
+  name: string;
+  scheduled_start_time: string;
+  scheduled_end_time?: string;
+  direction: "to_school" | "from_school" | "other";
+  service_date: string;
+  driver_id?: string;
+  vehicle_id?: string;
+  notes?: string;
+  estimated_distance_miles?: number;
+  estimated_duration_minutes?: number;
+}
+
+export async function createDispatchRun(payload: CreateDispatchRunPayload): Promise<DispatchRunRow> {
+  const { data } = await api.post<{ data: DispatchRunRow; message: string }>("/dispatch/runs", payload);
   return data.data;
 }
 
@@ -227,6 +315,36 @@ export async function getSchoolStats(): Promise<SchoolStats> {
   return data.data;
 }
 
+export async function getDriverStats(): Promise<DriverStats> {
+  const { data } = await api.get<{ data: DriverStats }>("/drivers/stats");
+  return data.data;
+}
+
+export async function getParentStats(): Promise<ParentStats> {
+  const { data } = await api.get<{ data: ParentStats }>("/parents/stats");
+  return data.data;
+}
+
+export async function getStudentStats(): Promise<StudentStats> {
+  const { data } = await api.get<{ data: StudentStats }>("/students/stats");
+  return data.data;
+}
+
+export async function getVehicleStats(): Promise<VehicleStats> {
+  const { data } = await api.get<{ data: VehicleStats }>("/vehicles/stats");
+  return data.data;
+}
+
+export async function getRouteStats(): Promise<RouteStats> {
+  const { data } = await api.get<{ data: RouteStats }>("/routes/stats");
+  return data.data;
+}
+
+export async function getUserStats(): Promise<UserStats> {
+  const { data } = await api.get<{ data: UserStats }>("/users/stats");
+  return data.data;
+}
+
 export async function getSchoolFilterOptions(): Promise<SchoolFilterOptions> {
   const { data } = await api.get<{ data: SchoolFilterOptions }>("/schools/filter-options");
   return data.data;
@@ -297,6 +415,11 @@ export async function unlinkStudentParent(studentId: string, linkId: string) {
 
 export async function getParentChildren(): Promise<ParentChildView[]> {
   const { data } = await api.get<{ data: ParentChildView[] }>("/parent/children");
+  return data.data;
+}
+
+export async function getSchoolPortal(): Promise<SchoolPortalPayload> {
+  const { data } = await api.get<{ data: SchoolPortalPayload }>("/school/portal");
   return data.data;
 }
 
@@ -568,6 +691,18 @@ export async function updateRolePermissions(roleId: string, permissionIds: strin
     permission_ids: permissionIds,
   });
   return data;
+}
+
+export async function listDashboardChatContacts() {
+  const { data } = await api.get<{ data: DashboardChatContact[] }>("/chat/contacts");
+  return data.data;
+}
+
+export async function startDashboardChatConversation(userId: string) {
+  const { data } = await api.post<{ data: DashboardChatConversation }>("/chat/conversations", {
+    user_id: userId,
+  });
+  return data.data;
 }
 
 export async function listDashboardChatConversations() {

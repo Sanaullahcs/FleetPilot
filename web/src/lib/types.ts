@@ -36,6 +36,14 @@ export interface AuthUser {
   zip?: string | null;
   job_title?: string | null;
   role: UserRole;
+  school_id?: string | null;
+  school?: {
+    id: string;
+    name: string;
+    code: string;
+    city?: string | null;
+    state?: string | null;
+  } | null;
   organization: OrganizationSummary | null;
   roles: string[];
   permissions: string[];
@@ -370,6 +378,7 @@ export interface DispatchBoard {
     in_progress: number;
   };
   runs: DispatchRunRow[];
+  filtered_total?: number;
 }
 
 export interface ParentStudentLink {
@@ -642,7 +651,7 @@ export interface PermissionGroup {
 
 export interface DashboardChatConversation {
   id: string;
-  type: "driver_support" | "parent_driver" | "parent_school";
+  type: "driver_support" | "driver_school" | "parent_driver" | "parent_school" | "parent_support" | "staff_direct";
   title: string;
   subtitle: string | null;
   participants: { name: string; role: string }[];
@@ -653,6 +662,14 @@ export interface DashboardChatConversation {
   } | null;
   unread_count: number;
   updated_at: string;
+}
+
+export interface DashboardChatContact {
+  user_id: string;
+  name: string;
+  role: string;
+  subtitle: string;
+  conversation_id: string | null;
 }
 
 export interface DashboardChatMessage {
@@ -666,4 +683,89 @@ export interface DashboardChatMessage {
     name: string;
     role: string;
   };
+}
+
+export interface SchoolPortalAlert {
+  id: string;
+  severity: "info" | "warning" | "danger";
+  title: string;
+  message: string;
+}
+
+export interface SchoolPortalRouteRun {
+  id: string;
+  name: string;
+  direction: string;
+  scheduled_start_time: string | null;
+  scheduled_end_time: string | null;
+  status: string;
+}
+
+export interface SchoolPortalRoute {
+  id: string;
+  name: string;
+  code: string | null;
+  type: string;
+  status: string;
+  runs_count: number;
+  runs: SchoolPortalRouteRun[];
+}
+
+export interface SchoolPortalAssignment {
+  id: string;
+  service_date: string | null;
+  status: string;
+  run: {
+    id: string;
+    name: string;
+    direction: string;
+    scheduled_start_time: string | null;
+  } | null;
+  route: {
+    id: string;
+    name: string;
+    code: string | null;
+    type: string;
+  } | null;
+  driver: {
+    id: string;
+    full_name: string;
+    employee_id: string | null;
+    phone: string | null;
+  } | null;
+  vehicle: {
+    id: string;
+    vehicle_number: string;
+    type: string;
+    license_plate: string | null;
+  } | null;
+}
+
+export interface SchoolPortalPayload {
+  school: {
+    id: string;
+    name: string;
+    code: string | null;
+    district: string | null;
+    grade_levels: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    phone: string | null;
+    principal_name: string | null;
+    website: string | null;
+    bell_times: Record<string, string> | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
+  stats: {
+    students_total: number;
+    students_active: number;
+    routes_active: number;
+    runs_today: number;
+  };
+  routes: SchoolPortalRoute[];
+  today_assignments: SchoolPortalAssignment[];
+  alerts: SchoolPortalAlert[];
 }

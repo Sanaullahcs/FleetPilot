@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/auth';
 import { SweetAlertHost } from '@/components/ui/sweet-alert-host';
 import { AppSplashScreen } from '@/components/splash/app-splash-screen';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { getMobileRole } from '@/constants/app';
 import { Colors } from '@/constants/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -50,7 +51,8 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
 function PushNotificationBootstrap() {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
-  const enabled = !!(token && user && (user.role === 'driver' || user.role === 'parent'));
+  const mobileRole = getMobileRole(user);
+  const enabled = !!(token && mobileRole);
   usePushNotifications(enabled);
   return null;
 }
@@ -104,7 +106,7 @@ export default function RootLayout() {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
+          queries: { retry: 2, refetchOnWindowFocus: true, staleTime: 15_000 },
         },
       }),
   );

@@ -162,6 +162,8 @@ export function SearchableSelect({
   disabled = false,
   className,
   emptyMessage = "No options available",
+  searchable = true,
+  unresolvedLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -173,6 +175,8 @@ export function SearchableSelect({
   disabled?: boolean;
   className?: string;
   emptyMessage?: string;
+  searchable?: boolean;
+  unresolvedLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -183,7 +187,9 @@ export function SearchableSelect({
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
 
   const selected = options.find((o) => o.value === value);
-  const display = selected?.label ?? (value ? value : showAllOption ? allLabel : placeholder);
+  const display =
+    selected?.label ??
+    (value ? (unresolvedLabel ?? placeholder) : showAllOption ? allLabel : placeholder);
 
   const filtered = options.filter((o) => {
     const q = query.trim().toLowerCase();
@@ -238,7 +244,7 @@ export function SearchableSelect({
             className="fp-dropdown-panel animate-dropdown-in overflow-hidden p-0"
             style={{ top: pos.top, left: pos.left, width: Math.max(pos.width, 220) }}
           >
-            <div className="border-b border-slate-100 p-2">
+            <div className={cn("border-b border-slate-100 p-2", !searchable && "hidden")}>
               <div className="relative">
                 <svg
                   className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -341,7 +347,7 @@ export function SearchableSelect({
           className,
         )}
       >
-        <span className={cn("truncate", !selected && value === "" && showAllOption && "text-slate-500")}>
+        <span className={cn("truncate", !selected && !value && showAllOption && "text-slate-500", !selected && value && "text-slate-500")}>
           {display}
         </span>
         <ChevronIcon open={open} />

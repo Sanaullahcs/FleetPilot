@@ -98,11 +98,9 @@ export function PageHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        {eyebrow && (
-          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-brand-primary">{eyebrow}</p>
-        )}
-        <h2 className="text-2xl font-bold tracking-tight text-brand-secondary sm:text-3xl">{title}</h2>
-        {description && <p className="mt-1.5 text-sm text-slate-500">{description}</p>}
+        {eyebrow && <p className="fp-eyebrow mb-1">{eyebrow}</p>}
+        <h2 className="fp-title">{title}</h2>
+        {description && <p className="fp-subtitle mt-1.5">{description}</p>}
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}
     </div>
@@ -135,9 +133,9 @@ export function StatCard({
       />
       <div className="relative flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-bold text-brand-secondary">{value}</p>
-          {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+          <p className="fp-label">{label}</p>
+          <p className="fp-stat-value mt-1.5">{value}</p>
+          {hint && <p className="fp-stat-hint mt-0.5">{hint}</p>}
           {trend && <p className="mt-2 text-xs font-medium text-emerald-600">{trend}</p>}
         </div>
         {icon && (

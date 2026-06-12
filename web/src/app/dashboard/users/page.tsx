@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { UserStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -211,6 +212,8 @@ function UsersPageContent() {
         }
         action={<Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add user</Button>}
       />
+
+      <UserStatRow />
 
       <FilterBar
         search={search}

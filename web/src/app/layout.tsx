@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Inter, Oswald } from "next/font/google";
 import "sweetalert2/dist/sweetalert2.min.css";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+
+const oswald = Oswald({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -30,9 +33,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }}>
+    <html lang="en" className={`light ${inter.variable} ${oswald.variable}`} style={{ colorScheme: "light" }}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-slate-50 text-slate-900 antialiased`}
+        className={`${inter.className} min-h-screen bg-slate-50 font-sans text-sm leading-normal text-slate-900 antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

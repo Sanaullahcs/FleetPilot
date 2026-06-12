@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PageHeader, Button, EmptyState } from "@/components/ui/primitives";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader, Button, EmptyState, SearchInput } from "@/components/ui/primitives";
+import { LiveIndicator } from "@/components/dashboard/live-indicator";
+import { NewMessageModal } from "@/components/dashboard/new-message-modal";
+import { MessagesStatRow } from "@/components/dashboard/resource-stat-rows";
+import {
+  countConversationsByTab,
+  filterConversationsByTab,
+  MESSAGE_CATEGORY_TABS,
+  MessageCategoryTabs,
+  type MessageCategoryTab,
+} from "@/components/dashboard/message-category-tabs";
 import { getApiErrorMessage } from "@/lib/api";
 import { toastError } from "@/lib/alerts";
 import {
@@ -10,11 +20,15 @@ import {
   listDashboardChatMessages,
   sendDashboardChatMessage,
 } from "@/lib/resources";
-import type { DashboardChatConversation } from "@/lib/types";
+import { useAuthStore } from "@/store/auth";
+import type { DashboardChatConversation, DashboardChatMessage } from "@/lib/types";
 import { cn, titleCase } from "@/lib/utils";
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleString([], {
+  const date = new Date(iso);
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diffSec < 60) return "Just now";
+  return date.toLocaleString([], {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -25,6 +39,9 @@ function formatTime(iso: string) {
 function typeLabel(type: DashboardChatConversation["type"]) {
   if (type === "parent_driver") return "Parent ↔ Driver";
   if (type === "parent_school") return "Parent ↔ School";
+  if (type === "driver_school") return "Driver ↔ School";
+  if (type === "parent_support") return "Parent ↔ Transportation";
+  if (type === "staff_direct") return "Direct message";
   return "Driver support";
 }
 
@@ -32,33 +49,89 @@ function participantLine(conversation: DashboardChatConversation) {
   return conversation.participants.map((p) => `${p.name} (${titleCase(p.role.replace(/_/g, " "))})`).join(" · ");
 }
 
+function visibleTabsForRole(role: string | undefined): MessageCategoryTab[] {
+  if (role === "school_contact") {
+    return ["parent_school", "driver_school"];
+  }
+  return ["all", "parent_driver", "parent_school", "driver_school", "parent_support", "driver_support"];
+}
+
 export default function MessagesPage() {
   const queryClient = useQueryClient();
+  const userRole = useAuthStore((s) => s.user?.role);
+  const canStartChat = userRole === "admin" || userRole === "dispatcher";
+  const visibleTabs = useMemo(() => visibleTabsForRole(userRole), [userRole]);
+  const defaultTab = visibleTabs[0] ?? "all";
+
+  const [activeTab, setActiveTab] = useState<MessageCategoryTab>(defaultTab);
+  const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(0);
+
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(defaultTab);
+      setSelectedId(null);
+    }
+  }, [activeTab, defaultTab, visibleTabs]);
 
   const conversationsQuery = useQuery({
     queryKey: ["dashboard-chat-conversations"],
     queryFn: listDashboardChatConversations,
-    refetchInterval: 5_000,
+    refetchInterval: 2500,
+    placeholderData: keepPreviousData,
   });
 
   const conversations = conversationsQuery.data?.items ?? [];
   const unreadTotal = conversationsQuery.data?.unread_total ?? 0;
-  const activeId = selectedId ?? conversations[0]?.id ?? null;
+  const tabCounts = useMemo(() => countConversationsByTab(conversations), [conversations]);
+
+  const filteredConversations = useMemo(() => {
+    let items = filterConversationsByTab(conversations, activeTab);
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((c) => {
+      const participantText = c.participants.map((p) => p.name).join(" ").toLowerCase();
+      const lastBody = (c.last_message?.body ?? "").toLowerCase();
+      return (
+        participantText.includes(q) ||
+        lastBody.includes(q) ||
+        typeLabel(c.type).toLowerCase().includes(q)
+      );
+    });
+  }, [conversations, activeTab, search]);
+
+  const activeTabConfig = MESSAGE_CATEGORY_TABS.find((t) => t.id === activeTab)!;
+
+  useEffect(() => {
+    if (selectedId && !filteredConversations.some((c) => c.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [filteredConversations, selectedId]);
+
+  const activeId = selectedId ?? filteredConversations[0]?.id ?? null;
 
   const messagesQuery = useQuery({
     queryKey: ["dashboard-chat-messages", activeId],
     queryFn: () => listDashboardChatMessages(activeId!),
     enabled: !!activeId,
-    refetchInterval: 4_000,
+    refetchInterval: 2500,
+    placeholderData: keepPreviousData,
   });
 
+  const messages = messagesQuery.data ?? [];
+  const messagesInitialLoading = messagesQuery.isLoading && !messagesQuery.data;
+
   useEffect(() => {
-    if (messagesQuery.isSuccess && activeId) {
-      void queryClient.invalidateQueries({ queryKey: ["dashboard-chat-conversations"] });
+    const count = messages.length;
+    if (count > prevMessageCountRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messagesQuery.isSuccess, activeId, queryClient]);
+    prevMessageCountRef.current = count;
+  }, [messages.length, activeId]);
 
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === activeId) ?? null,
@@ -67,41 +140,121 @@ export default function MessagesPage() {
 
   const sendMutation = useMutation({
     mutationFn: (body: string) => sendDashboardChatMessage(activeId!, body),
-    onSuccess: () => {
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey: ["dashboard-chat-messages", activeId] });
+      const previous = queryClient.getQueryData<Awaited<ReturnType<typeof listDashboardChatMessages>>>([
+        "dashboard-chat-messages",
+        activeId,
+      ]);
+      const optimistic: DashboardChatMessage = {
+        id: `temp-${Date.now()}`,
+        body,
+        time: new Date().toISOString(),
+        is_mine: true,
+        is_system: false,
+        sender: { id: null, name: "You", role: "dispatcher" },
+      };
+      queryClient.setQueryData(
+        ["dashboard-chat-messages", activeId],
+        [...(previous ?? []), optimistic],
+      );
       setDraft("");
+      return { previous };
+    },
+    onError: (error, _body, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["dashboard-chat-messages", activeId], context.previous);
+      }
+      toastError("Message failed", getApiErrorMessage(error));
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["dashboard-chat-messages", activeId] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard-chat-conversations"] });
     },
-    onError: (error) => toastError("Message failed", getApiErrorMessage(error)),
   });
 
   const onSend = () => {
     const body = draft.trim();
-    if (!body || !activeId) return;
+    if (!body || !activeId || sendMutation.isPending) return;
     sendMutation.mutate(body);
+  };
+
+  const conversationsInitialLoading = conversationsQuery.isLoading && !conversationsQuery.data;
+  const isSyncing = conversationsQuery.isFetching || (activeId ? messagesQuery.isFetching : false);
+
+  const handleTabChange = (tab: MessageCategoryTab) => {
+    setActiveTab(tab);
+    setSelectedId(null);
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Messages"
-        subtitle={
+        description={
           unreadTotal > 0
-            ? `${unreadTotal} unread conversation${unreadTotal === 1 ? "" : "s"} across parent, driver, and dispatch threads.`
-            : "Monitor parent, driver, and dispatch conversations with the correct participants."
+            ? `${unreadTotal} unread across all categories · ${activeTabConfig.description}`
+            : activeTabConfig.description
+        }
+        action={
+          <div className="flex items-center gap-3">
+            <LiveIndicator active={isSyncing || conversationsQuery.isSuccess} />
+            {canStartChat ? (
+              <Button size="sm" onClick={() => setNewMessageOpen(true)}>
+                + New message
+              </Button>
+            ) : null}
+          </div>
         }
       />
+
+      <MessagesStatRow
+        conversations={conversations}
+        unreadTotal={unreadTotal}
+        isLoading={conversationsInitialLoading}
+      />
+
+      {visibleTabs.length > 1 && (
+        <MessageCategoryTabs
+          active={activeTab}
+          onChange={handleTabChange}
+          counts={tabCounts}
+          visibleTabs={visibleTabs}
+        />
+      )}
+
+      <div className="fp-card p-4">
+        <label className="fp-label mb-1.5 block">Search conversations</label>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by participant or message…"
+        />
+        {search.trim() ? (
+          <p className="mt-2 text-xs font-medium text-brand-accent">
+            {filteredConversations.length} conversation{filteredConversations.length === 1 ? "" : "s"}
+          </p>
+        ) : null}
+      </div>
 
       <div className="grid min-h-[560px] grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[320px_1fr]">
         <div className="border-b border-slate-200 lg:border-b-0 lg:border-r">
           <div className="border-b border-slate-100 px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Conversations</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+              {activeTabConfig.label}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {filteredConversations.length} conversation{filteredConversations.length === 1 ? "" : "s"}
+              {tabCounts[activeTab].unread > 0
+                ? ` · ${tabCounts[activeTab].unread} unread`
+                : ""}
+            </p>
           </div>
           <div className="max-h-[640px] overflow-y-auto">
-            {conversationsQuery.isLoading ? (
+            {conversationsInitialLoading ? (
               <p className="px-4 py-8 text-sm text-slate-500">Loading conversations…</p>
-            ) : conversations.length ? (
-              conversations.map((item) => {
+            ) : filteredConversations.length ? (
+              filteredConversations.map((item) => {
                 const active = item.id === activeId;
                 return (
                   <button
@@ -144,7 +297,7 @@ export default function MessagesPage() {
               })
             ) : (
               <div className="p-4">
-                <EmptyState message="No conversations yet." />
+                <EmptyState message={activeTabConfig.emptyMessage} />
               </div>
             )}
           </div>
@@ -154,22 +307,27 @@ export default function MessagesPage() {
           {activeConversation ? (
             <>
               <div className="border-b border-slate-100 px-5 py-4">
-                <p className="text-lg font-semibold text-brand-secondary">{activeConversation.title}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-brand-primary/70">
+                  {typeLabel(activeConversation.type)}
+                </p>
+                <p className="mt-1 text-lg font-semibold text-brand-secondary">{activeConversation.title}</p>
                 <p className="mt-1 text-sm text-slate-500">{participantLine(activeConversation)}</p>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-                {messagesQuery.isLoading ? (
+                {messagesInitialLoading ? (
                   <p className="text-sm text-slate-500">Loading messages…</p>
-                ) : messagesQuery.data?.length ? (
-                  messagesQuery.data.map((message) => (
+                ) : messages.length ? (
+                  <>
+                  {messages.map((message) => (
                     <div
                       key={message.id}
                       className={cn(
-                        "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
+                        "max-w-[85%] rounded-2xl px-4 py-3 text-sm transition-opacity",
                         message.is_mine
                           ? "ml-auto bg-brand-primary text-white"
                           : "bg-slate-100 text-brand-secondary",
+                        message.id.startsWith("temp-") && "opacity-80",
                       )}
                     >
                       {!message.is_mine ? (
@@ -182,7 +340,9 @@ export default function MessagesPage() {
                         {formatTime(message.time)}
                       </p>
                     </div>
-                  ))
+                  ))}
+                  <div ref={messagesEndRef} />
+                  </>
                 ) : (
                   <EmptyState message="No messages in this thread yet." />
                 )}
@@ -193,23 +353,44 @@ export default function MessagesPage() {
                   <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        onSend();
+                      }
+                    }}
                     rows={2}
                     placeholder="Reply as dispatch…"
                     className="min-h-[52px] flex-1 resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-brand-primary"
                   />
                   <Button onClick={onSend} disabled={!draft.trim() || sendMutation.isPending}>
-                    Send
+                    {sendMutation.isPending ? "Sending…" : "Send"}
                   </Button>
                 </div>
               </div>
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center p-8">
-              <EmptyState message="Select a conversation to view messages." />
+              <EmptyState
+                message={
+                  filteredConversations.length
+                    ? "Select a conversation to view messages."
+                    : activeTabConfig.emptyMessage
+                }
+              />
             </div>
           )}
         </div>
       </div>
+
+      <NewMessageModal
+        open={newMessageOpen}
+        onClose={() => setNewMessageOpen(false)}
+        onStarted={(conversationId) => {
+          setSelectedId(conversationId);
+          setActiveTab("all");
+        }}
+      />
     </div>
   );
 }

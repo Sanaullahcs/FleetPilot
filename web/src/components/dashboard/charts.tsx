@@ -19,6 +19,9 @@ import {
 } from "recharts";
 import { brand, chartColor } from "@/lib/brand";
 import { Card } from "@/components/ui/primitives";
+import { SearchableSelect } from "@/components/ui/dropdown-menu";
+import { PERIOD_OPTIONS, ROUTE_TYPE_OPTIONS } from "@/components/dashboard/dashboard-analytics-filters";
+import type { DashboardFilters } from "@/lib/resources";
 import { cn } from "@/lib/utils";
 
 export interface ChartPoint {
@@ -94,7 +97,134 @@ function ChartTooltipContent({
   );
 }
 
-const cardStyle = "!p-4 sm:!p-5 [&>div:first-child]:mb-3";
+const cardStyle = "!p-0 !shadow-none !border-0 bg-transparent";
+
+function DashboardChartCard({
+  title,
+  subtitle,
+  accent,
+  action,
+  children,
+  className,
+}: {
+  title: string;
+  subtitle?: string;
+  accent: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative flex h-full min-h-[18rem] flex-col overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm sm:min-h-[20rem] sm:p-5",
+        className,
+      )}
+    >
+      <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: accent }} />
+      <div
+        className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-[0.05]"
+        style={{ background: `radial-gradient(circle, ${accent} 0%, transparent 70%)` }}
+        aria-hidden
+      />
+      <div className="relative mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+        </div>
+        {action}
+      </div>
+      <div className="relative min-h-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ children, tone = "emerald" }: { children: React.ReactNode; tone?: "emerald" | "cyan" }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium",
+        tone === "emerald" ? "bg-emerald-50 text-emerald-700" : "bg-brand-accent-light text-brand-accent-dark",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function ChartCardFilters({
+  filters,
+  onChange,
+  schoolOptions,
+  showRouteType = false,
+}: {
+  filters: DashboardFilters;
+  onChange: (patch: Partial<DashboardFilters>) => void;
+  schoolOptions: { label: string; value: string }[];
+  showRouteType?: boolean;
+}) {
+  const isCustom = filters.period === "custom";
+
+  return (
+    <div className="space-y-2">
+      <div className={cn("grid grid-cols-1 gap-2", showRouteType ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        <div className="min-w-0">
+          <label className="fp-label mb-1 block">Period</label>
+          <SearchableSelect
+            value={filters.period ?? "all"}
+            onChange={(v) => onChange({ period: v as DashboardFilters["period"] })}
+            options={PERIOD_OPTIONS}
+            showAllOption={false}
+            placeholder="All time"
+          />
+        </div>
+        <div className="min-w-0">
+          <label className="fp-label mb-1 block">School</label>
+          <SearchableSelect
+            value={filters.school_id ?? ""}
+            onChange={(v) => onChange({ school_id: v || undefined })}
+            options={schoolOptions}
+            allLabel="All schools"
+          />
+        </div>
+        {showRouteType && (
+          <div className="min-w-0 sm:col-span-1">
+            <label className="fp-label mb-1 block">Route type</label>
+            <SearchableSelect
+              value={filters.route_type ?? ""}
+              onChange={(v) => onChange({ route_type: v || undefined })}
+              options={ROUTE_TYPE_OPTIONS}
+              allLabel="All types"
+            />
+          </div>
+        )}
+      </div>
+      {isCustom && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <label className="fp-label mb-1 block">From</label>
+            <input
+              type="date"
+              className="fp-input"
+              value={filters.from ?? ""}
+              onChange={(e) => onChange({ from: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="fp-label mb-1 block">To</label>
+            <input
+              type="date"
+              className="fp-input"
+              value={filters.to ?? ""}
+              onChange={(e) => onChange({ to: e.target.value })}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function applyColors(data: ChartPoint[], offset = 0): ChartPoint[] {
   return data.filter((d) => d.value > 0).map((d, i) => ({ ...d, fill: d.fill ?? chartColor(i + offset) }));
@@ -167,8 +297,8 @@ function DonutRing({
       {activeIndex === null && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="text-center leading-none">
-            <p className="text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{total}</p>
-            <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">Total</p>
+            <p className="text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl">{total}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">Total</p>
           </div>
         </div>
       )}
@@ -268,15 +398,25 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
 
   if (!colored.length) {
     return (
-      <Card title="Fleet overview" subtitle="Total resources across your organization" className={cn(cardStyle, "h-full")}>
+      <DashboardChartCard
+        title="Fleet overview"
+        subtitle="Total resources across your organization"
+        accent={brand.primary}
+        className="h-full"
+      >
         <ChartEmpty />
-      </Card>
+      </DashboardChartCard>
     );
   }
 
   return (
-    <Card title="Fleet overview" subtitle="Total resources across your organization" className={cn(cardStyle, "h-full min-w-0")}>
-      <div className="h-52 w-full min-w-0 sm:h-60 lg:h-64">
+    <DashboardChartCard
+      title="Fleet overview"
+      subtitle="Total resources across your organization"
+      accent={brand.primary}
+      className="h-full min-w-0"
+    >
+      <div className="h-44 w-full min-w-0 sm:h-48">
         <ResponsiveContainer width="100%" height="100%" debounce={50}>
           <BarChart data={colored} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="18%">
             <XAxis
@@ -309,7 +449,7 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </Card>
+    </DashboardChartCard>
   );
 }
 
@@ -353,39 +493,31 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
   const colored = applyColors(data, 0);
   const total = colored.reduce((s, d) => s + d.value, 0);
   const activeTotal = colored.reduce((s, d) => s + (d.active ?? d.value), 0);
+  const activeItem = activeIndex != null ? colored[activeIndex] : null;
 
   if (!colored.length || total === 0) {
     return (
-      <Card title="Routes by type" subtitle="Morning, afternoon, and special services" className={cn(cardStyle, "h-full")}>
+      <DashboardChartCard
+        title="Routes by type"
+        subtitle="Morning, afternoon, and special services"
+        accent={brand.accent}
+        className="h-full"
+      >
         <ChartEmpty message="No routes yet" />
-      </Card>
+      </DashboardChartCard>
     );
   }
 
   return (
-    <Card
+    <DashboardChartCard
       title="Routes by type"
       subtitle="Morning, afternoon, and special services"
-      className={cn(cardStyle, "flex h-full min-w-0 flex-col")}
-      action={
-        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-          {activeTotal} active
-        </span>
-      }
+      accent={brand.accent}
+      className="flex h-full min-w-0 flex-col"
+      action={<StatusBadge>{activeTotal} active</StatusBadge>}
     >
-      <div className="grid min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center">
-        <div className="relative mx-auto aspect-square w-full max-w-[11rem] sm:max-w-[12rem]">
-          {activeIndex != null && colored[activeIndex] && (
-            <DonutHoverLabel
-              name={colored[activeIndex].name}
-              value={
-                colored[activeIndex].active != null
-                  ? `${colored[activeIndex].value} total · ${colored[activeIndex].active} active`
-                  : colored[activeIndex].value
-              }
-              fill={colored[activeIndex].fill ?? brand.primary}
-            />
-          )}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:items-center md:gap-5">
+        <div className="relative mx-auto h-32 w-32 shrink-0 md:mx-0">
           <ResponsiveContainer width="100%" height="100%" debounce={50}>
             <PieChart>
               <Pie
@@ -424,17 +556,25 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            {activeIndex === null && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-1">
+            {activeItem ? (
+              <div className="max-w-full text-center leading-tight">
+                <p className="truncate text-[10px] font-medium text-slate-500">{activeItem.name}</p>
+                <p className="text-lg font-semibold tabular-nums text-slate-900">{activeItem.value}</p>
+                {activeItem.active != null && (
+                  <p className="text-[10px] text-emerald-600">{activeItem.active} active</p>
+                )}
+              </div>
+            ) : (
               <div className="text-center leading-none">
-                <p className="text-2xl font-bold tabular-nums text-slate-900 sm:text-3xl">{total}</p>
-                <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">Routes</p>
+                <p className="text-xl font-semibold tabular-nums text-slate-900">{total}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Routes</p>
               </div>
             )}
           </div>
         </div>
 
-        <ul className="space-y-3">
+        <ul className="min-w-0 flex-1 space-y-2.5">
           {colored.map((item, i) => {
             const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
             const active = item.active ?? item.value;
@@ -444,44 +584,36 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
             return (
               <li
                 key={item.name}
-                className={cn(
-                  "rounded-xl border border-slate-100 p-3 transition",
-                  highlighted ? "bg-white shadow-sm" : "bg-slate-50/80 opacity-70",
-                )}
+                className={cn("rounded-lg px-1 py-1 transition", !highlighted && "opacity-60")}
                 onMouseEnter={() => setActiveIndex(i)}
                 onMouseLeave={() => setActiveIndex(null)}
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-800">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.fill }} />
+                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                  <span className="flex min-w-0 items-center gap-1.5 font-medium text-slate-700">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.fill }} />
                     <span className="truncate">{item.name}</span>
                   </span>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-slate-900">
+                  <span className="shrink-0 font-medium tabular-nums text-slate-800">
                     {item.value}
-                    <span className="ml-1 text-xs font-normal text-slate-400">({pct}%)</span>
+                    <span className="ml-1 font-normal text-slate-400">({pct}%)</span>
                   </span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-1 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(pct, 4)}%`, background: item.fill }}
                   />
                 </div>
-                <p className="mt-2 text-[11px] text-slate-500">
-                  <span className="font-semibold text-emerald-700">{active}</span> active
-                  {item.value > active && (
-                    <span> · {item.value - active} inactive</span>
-                  )}
-                  {item.value > 0 && (
-                    <span className="text-slate-400"> · {activePct}% live</span>
-                  )}
+                <p className="mt-1 text-[11px] text-slate-500">
+                  <span className="font-medium text-emerald-700">{active}</span> active
+                  {item.value > 0 && <span className="text-slate-400"> · {activePct}% live</span>}
                 </p>
               </li>
             );
           })}
         </ul>
       </div>
-    </Card>
+    </DashboardChartCard>
   );
 }
 

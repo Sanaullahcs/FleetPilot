@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ParentPortalController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SchoolController;
+use App\Http\Controllers\Api\SchoolPortalController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
@@ -70,6 +71,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/fleet/live', [FleetRadarController::class, 'live'])->middleware('permission:vehicles.view');
 
     Route::get('/dispatch/runs', [DispatchController::class, 'runsToday'])->middleware('permission:routes.view');
+    Route::post('/dispatch/runs', [DispatchController::class, 'storeRun'])->middleware('permission:routes.update');
     Route::post('/dispatch/runs/{run}/assign', [DispatchController::class, 'assign'])->middleware('permission:routes.update');
     Route::patch('/dispatch/assignments/{assignment}', [DispatchController::class, 'updateAssignment'])->middleware('permission:routes.update');
     Route::patch('/dispatch/assignments/{assignment}/cancel', [DispatchController::class, 'cancelAssignment'])->middleware('permission:routes.update');
@@ -78,6 +80,8 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/parent/profile', [ParentPortalController::class, 'profile']);
     Route::put('/parent/profile', [ParentPortalController::class, 'updateProfile']);
     Route::get('/parent/tracking', [ParentPortalController::class, 'tracking']);
+
+    Route::get('/school/portal', [SchoolPortalController::class, 'portal']);
 
     Route::get('/driver/runs/today', [DriverPortalController::class, 'runsToday']);
     Route::get('/driver/schedule', [DriverPortalController::class, 'schedule']);
@@ -98,11 +102,14 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/mobile/chat/conversations/{conversation}/messages', [MobileChatController::class, 'send']);
 
     Route::get('/chat/conversations', [DashboardChatController::class, 'conversations']);
+    Route::post('/chat/conversations', [DashboardChatController::class, 'store']);
+    Route::get('/chat/contacts', [DashboardChatController::class, 'contacts']);
     Route::get('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'messages']);
     Route::post('/chat/conversations/{conversation}/read', [DashboardChatController::class, 'markRead']);
     Route::post('/chat/conversations/{conversation}/messages', [DashboardChatController::class, 'send']);
 
     // Parents (admin)
+    Route::get('/parents/stats', [ParentController::class, 'stats'])->middleware('permission:students.view');
     Route::get('/parents', [ParentController::class, 'index'])->middleware('permission:students.view');
     Route::get('/parents/{parentAccount}', [ParentController::class, 'show'])->middleware('permission:students.view');
     Route::post('/parents', [ParentController::class, 'store'])->middleware('permission:students.create');
@@ -113,6 +120,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/parents/{parentAccount}/students/{parentStudent}', [ParentController::class, 'unlinkStudent'])->middleware('permission:students.update');
 
     // Students
+    Route::get('/students/stats', [StudentController::class, 'stats'])->middleware('permission:students.view');
     Route::get('/students', [StudentController::class, 'index'])->middleware('permission:students.view');
     Route::get('/students/{student}', [StudentController::class, 'show'])->middleware('permission:students.view');
     Route::post('/students', [StudentController::class, 'store'])->middleware('permission:students.create');
@@ -126,6 +134,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Drivers
     Route::get('/drivers/student-assignments', [DriverController::class, 'studentAssignments'])->middleware('permission:drivers.view');
+    Route::get('/drivers/stats', [DriverController::class, 'stats'])->middleware('permission:drivers.view');
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.view');
     Route::get('/drivers/{driver}', [DriverController::class, 'show'])->middleware('permission:drivers.view');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.create');
@@ -135,6 +144,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])->middleware('permission:drivers.delete');
 
     // Vehicles
+    Route::get('/vehicles/stats', [VehicleController::class, 'stats'])->middleware('permission:vehicles.view');
     Route::get('/vehicles', [VehicleController::class, 'index'])->middleware('permission:vehicles.view');
     Route::get('/vehicles/{vehicle}', [VehicleController::class, 'show'])->middleware('permission:vehicles.view');
     Route::post('/vehicles', [VehicleController::class, 'store'])->middleware('permission:vehicles.create');
@@ -153,6 +163,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/schools/{school}', [SchoolController::class, 'destroy'])->middleware('permission:schools.delete');
 
     // Routes
+    Route::get('/routes/stats', [RouteController::class, 'stats'])->middleware('permission:routes.view');
     Route::get('/routes', [RouteController::class, 'index'])->middleware('permission:routes.view');
     Route::get('/routes/{route}', [RouteController::class, 'show'])->middleware('permission:routes.view');
     Route::post('/routes', [RouteController::class, 'store'])->middleware('permission:routes.create');
@@ -161,6 +172,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/routes/{route}', [RouteController::class, 'destroy'])->middleware('permission:routes.delete');
 
     // Users & access control (admin)
+    Route::get('/users/stats', [UserController::class, 'stats'])->middleware('permission:users.view');
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:users.view');
     Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:users.view');
     Route::post('/users', [UserController::class, 'store'])->middleware('permission:users.create');

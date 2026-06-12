@@ -8,7 +8,7 @@ import { ParentTrackingMap } from '@/components/maps/parent-tracking-map';
 import { PhotoAvatar } from '@/components/ui/photo-avatar';
 import { Colors, RoleAccents } from '@/constants/theme';
 import { formatTime } from '@/lib/format';
-import { hasGoogleMapsKey } from '@/lib/map-config';
+import { getMapModeLabel } from '@/lib/map-config';
 import { fetchParentTracking } from '@/lib/mobile-api';
 import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
 
@@ -36,7 +36,7 @@ export function ParentTrackMapScreen() {
 
   const vehicle = focusTrack?.vehicle;
   const live = focusTrack?.tracking_status === 'in_progress';
-  const previewMode = !hasGoogleMapsKey();
+  const mapModeLabel = getMapModeLabel();
 
   const callDriver = () => {
     const phone = vehicle?.driver?.phone;
@@ -69,7 +69,7 @@ export function ParentTrackMapScreen() {
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>Live map</Text>
-            {previewMode ? <Text style={styles.headerSub}>Minnesota preview</Text> : null}
+            {mapModeLabel ? <Text style={styles.headerSub}>{mapModeLabel}</Text> : null}
           </View>
           <View style={styles.headerSpacer} />
         </View>

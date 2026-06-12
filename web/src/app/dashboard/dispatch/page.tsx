@@ -2,24 +2,37 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
+import { PageState } from "@/components/ui/page-state";
+import { RowActions, type ActionMenuItem } from "@/components/ui/row-actions";
+import { DispatchStatRow } from "@/components/dashboard/resource-stat-rows";
+import { DispatchServiceDateCard } from "@/components/dashboard/dispatch-service-date-card";
+import { DispatchRunViewModal } from "@/components/dashboard/dispatch-run-view-modal";
 import { SearchableSelect } from "@/components/ui/dropdown-menu";
+import { FormLabel } from "@/components/ui/form-controls";
 import { Modal } from "@/components/ui/modal";
 import { StatusChip } from "@/components/dashboard/status-chip";
 import { formatVehicleType } from "@/components/dashboard/assignment-ui";
-import { toastError, toastSuccess } from "@/lib/alerts";
+import { CreateDispatchRunModal } from "@/components/dashboard/create-dispatch-run-modal";
+import { toastError, toastSuccess, confirmCancelAssignment } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
 import {
   assignDispatchRun,
   cancelDispatchAssignment,
   getDispatchRuns,
   listDrivers,
+  listSchools,
   listVehicles,
   updateDispatchAssignment,
 } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
+import { buildVehicleSelectOptions } from "@/lib/picker-options";
 import { cn, titleCase } from "@/lib/utils";
+import { idColumn } from "@/lib/table-utils";
 import type { DispatchRunRow } from "@/lib/types";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -31,7 +44,26 @@ const TYPE_LABELS: Record<string, string> = {
   charter: "Charter",
 };
 
-type FilterTab = "all" | "unassigned" | "assigned" | "in_progress";
+const ROUTE_TYPE_OPTIONS = [
+  { label: "Morning (AM)", value: "am" },
+  { label: "Afternoon (PM)", value: "pm" },
+  { label: "Midday", value: "midday" },
+  { label: "Activity", value: "activity" },
+  { label: "Special ed", value: "sped" },
+  { label: "Charter", value: "charter" },
+];
+
+const ASSIGNMENT_OPTIONS = [
+  { label: "Unassigned", value: "unassigned" },
+  { label: "Assigned", value: "assigned" },
+];
+
+const STATUS_OPTIONS = [
+  { label: "Scheduled", value: "scheduled" },
+  { label: "In progress", value: "in_progress" },
+  { label: "Completed", value: "completed" },
+  { label: "Cancelled", value: "cancelled" },
+];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -50,17 +82,6 @@ function directionLabel(direction: string | null | undefined) {
   if (direction === "to_school") return "To school";
   if (direction === "from_school") return "From school";
   return direction ? titleCase(direction.replace(/_/g, " ")) : "—";
-}
-
-function SummaryPill({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-2xl font-bold tabular-nums" style={{ color: accent ?? "#18181b" }}>
-        {value}
-      </p>
-    </div>
-  );
 }
 
 function AssignRunModal({
@@ -106,11 +127,20 @@ function AssignRunModal({
 
   const vehicleOptions = useMemo(
     () =>
-      vehicles.map((v) => ({
-        label: `${v.vehicle_number} · ${formatVehicleType(v.type)}`,
-        value: v.id,
-      })),
-    [vehicles],
+      buildVehicleSelectOptions(
+        vehicles,
+        drivers,
+        run?.assignment?.vehicle
+          ? [
+              {
+                id: run.assignment.vehicle.id,
+                vehicle_number: run.assignment.vehicle.vehicle_number,
+                type: run.assignment.vehicle.type,
+              },
+            ]
+          : [],
+      ),
+    [vehicles, drivers, run?.assignment?.vehicle],
   );
 
   const assignMutation = useMutation({
@@ -191,9 +221,7 @@ function AssignRunModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
-              Driver <span className="font-normal normal-case text-slate-400">(approved & active only)</span>
-            </label>
+            <FormLabel hint="(approved & active only)">Driver</FormLabel>
             <SearchableSelect
               value={driverId}
               onChange={handleDriverChange}
@@ -209,12 +237,13 @@ function AssignRunModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Vehicle</label>
+            <FormLabel>Vehicle</FormLabel>
             <SearchableSelect
               value={vehicleId}
               onChange={setVehicleId}
               options={vehicleOptions}
               placeholder={vehiclesLoading ? "Loading vehicles…" : "Select vehicle"}
+              unresolvedLabel="Select vehicle"
               showAllOption={false}
             />
           </div>
@@ -234,17 +263,101 @@ function AssignRunModal({
   );
 }
 
+function formatScheduleDate(iso: string) {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function buildRunActions({
+  run,
+  serviceDate,
+  canUpdate,
+  onView,
+  onAssign,
+  onCancel,
+  onOpenRoute,
+  onOpenRadar,
+}: {
+  run: DispatchRunRow;
+  serviceDate: string;
+  canUpdate: boolean;
+  onView: () => void;
+  onAssign: () => void;
+  onCancel: () => void;
+  onOpenRoute: () => void;
+  onOpenRadar: () => void;
+}): ActionMenuItem[] {
+  const assigned = run.assignment;
+  const canCancel =
+    canUpdate &&
+    assigned &&
+    assigned.status !== "in_progress" &&
+    assigned.status !== "completed";
+
+  return [
+    { label: "View details", onClick: onView },
+    {
+      label: assigned ? "Change driver & vehicle" : "Assign driver & vehicle",
+      onClick: onAssign,
+      hidden: !canUpdate,
+    },
+    { label: "Open route & runs", onClick: onOpenRoute, hidden: !run.route?.id },
+    {
+      label: "Track on live radar",
+      onClick: onOpenRadar,
+      hidden: !assigned?.vehicle,
+    },
+    {
+      label: "Cancel assignment",
+      variant: "danger",
+      onClick: onCancel,
+      hidden: !canCancel,
+    },
+  ];
+}
+
 export default function DispatchPage() {
+  const router = useRouter();
   const can = usePermission();
   const queryClient = useQueryClient();
   const [serviceDate, setServiceDate] = useState(todayIso);
-  const [filter, setFilter] = useState<FilterTab>("all");
+  const [search, setSearch] = useState("");
+  const [assignment, setAssignment] = useState("");
+  const [routeType, setRouteType] = useState("");
+  const [schoolId, setSchoolId] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [assignRun, setAssignRun] = useState<DispatchRunRow | null>(null);
+  const [viewRun, setViewRun] = useState<DispatchRunRow | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const { data: schoolsPage } = useQuery({
+    queryKey: ["schools", "dispatch-filter"],
+    queryFn: () => listSchools({ per_page: 200, sort_by: "name", sort_dir: "asc" }),
+  });
+
+  const schoolOptions = useMemo(
+    () => (schoolsPage?.data ?? []).map((s) => ({ label: s.name, value: s.id, sublabel: s.code ?? undefined })),
+    [schoolsPage?.data],
+  );
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ["dispatch-runs", serviceDate],
-    queryFn: () => getDispatchRuns(serviceDate),
+    queryKey: ["dispatch-runs", serviceDate, search, assignment, routeType, schoolId, statusFilter],
+    queryFn: () =>
+      getDispatchRuns({
+        date: serviceDate,
+        search: search || undefined,
+        assignment: assignment as "" | "assigned" | "unassigned",
+        route_type: routeType || undefined,
+        school_id: schoolId || undefined,
+        status: statusFilter || undefined,
+      }),
+    placeholderData: keepPreviousData,
   });
+
+  const initialLoading = isLoading && !data;
 
   const cancelMutation = useMutation({
     mutationFn: cancelDispatchAssignment,
@@ -256,41 +369,162 @@ export default function DispatchPage() {
     onError: (e) => toastError("Cancel failed", getApiErrorMessage(e, "Could not cancel assignment.")),
   });
 
-  const filteredRuns = useMemo(() => {
-    const runs = data?.runs ?? [];
-    switch (filter) {
-      case "unassigned":
-        return runs.filter((r) => !r.assignment);
-      case "assigned":
-        return runs.filter((r) => r.assignment);
-      case "in_progress":
-        return runs.filter((r) => r.assignment?.status === "in_progress");
-      default:
-        return runs;
-    }
-  }, [data?.runs, filter]);
+  const handleCancelAssignment = async (run: DispatchRunRow) => {
+    const assignmentId = run.assignment?.id;
+    if (!assignmentId) return;
 
+    const ok = await confirmCancelAssignment(run.name, serviceDate);
+    if (ok) cancelMutation.mutate(assignmentId);
+  };
+
+  const runHandlers = (run: DispatchRunRow) => ({
+    onView: () => setViewRun(run),
+    onAssign: () => setAssignRun(run),
+    onCancel: () => void handleCancelAssignment(run),
+    onOpenRoute: () => {
+      if (run.route?.id) router.push(`/dashboard/routes?id=${run.route.id}`);
+    },
+    onOpenRadar: () => router.push("/dashboard/radar"),
+  });
+
+  const runs = data?.runs ?? [];
   const summary = data?.summary ?? { total: 0, assigned: 0, unassigned: 0, in_progress: 0 };
+  const resultCount = data?.filtered_total ?? runs.length;
 
-  const filterTabs: { id: FilterTab; label: string; count: number }[] = [
-    { id: "all", label: "All runs", count: summary.total },
-    { id: "unassigned", label: "Unassigned", count: summary.unassigned },
-    { id: "assigned", label: "Assigned", count: summary.assigned },
-    { id: "in_progress", label: "In progress", count: summary.in_progress },
+  const clearFilters = () => {
+    setSearch("");
+    setAssignment("");
+    setRouteType("");
+    setSchoolId("");
+    setStatusFilter("");
+  };
+
+  const activePills = [
+    ...(search ? [{ key: "search", label: `Search: ${search}` }] : []),
+    ...(assignment ? [{ key: "assignment", label: assignment === "unassigned" ? "Unassigned" : "Assigned" }] : []),
+    ...(routeType ? [{ key: "route_type", label: `Type: ${TYPE_LABELS[routeType] ?? routeType}` }] : []),
+    ...(schoolId
+      ? [{ key: "school_id", label: `School: ${schoolOptions.find((s) => s.value === schoolId)?.label ?? schoolId}` }]
+      : []),
+    ...(statusFilter ? [{ key: "status", label: `Status: ${titleCase(statusFilter.replace(/_/g, " "))}` }] : []),
   ];
+
+  const columns: Column<DispatchRunRow>[] = useMemo(
+    () => [
+      idColumn("route_code", (run) => run.route?.code ?? run.id.slice(0, 8).toUpperCase()),
+      {
+        key: "name",
+        header: "Run",
+        primary: true,
+        sortable: true,
+        sortValue: (run) => run.name,
+        render: (run) => (
+          <div>
+            <p className="font-semibold text-slate-900">{run.name}</p>
+            <p className="text-xs text-slate-500">{directionLabel(run.direction)}</p>
+          </div>
+        ),
+      },
+      {
+        key: "route",
+        header: "Route / school",
+        sortable: true,
+        sortValue: (run) => run.route?.name ?? "",
+        render: (run) => (
+          <div>
+            <p className="font-medium text-slate-800">{run.route?.name ?? "—"}</p>
+            <p className="text-xs text-slate-500">
+              {run.route?.school?.name ?? "—"}
+              {run.route?.type ? ` · ${TYPE_LABELS[run.route.type] ?? run.route.type}` : ""}
+            </p>
+          </div>
+        ),
+      },
+      {
+        key: "time",
+        header: "Schedule",
+        sortable: true,
+        sortValue: (run) => run.scheduled_start_time ?? "",
+        render: (run) => (
+          <div className="text-slate-700">
+            <p className="text-xs font-medium text-slate-500">{formatScheduleDate(serviceDate)}</p>
+            <p className="tabular-nums">
+              {formatTime(run.scheduled_start_time)} – {formatTime(run.scheduled_end_time)}
+            </p>
+          </div>
+        ),
+      },
+      {
+        key: "driver",
+        header: "Driver",
+        sortable: true,
+        sortValue: (run) =>
+          run.assignment?.driver
+            ? `${run.assignment.driver.last_name} ${run.assignment.driver.first_name}`
+            : "",
+        render: (run) =>
+          run.assignment?.driver ? (
+            <div>
+              <p className="font-medium text-slate-900">
+                {run.assignment.driver.first_name} {run.assignment.driver.last_name}
+              </p>
+              {run.assignment.driver.employee_id && (
+                <p className="text-xs text-slate-500">{run.assignment.driver.employee_id}</p>
+              )}
+            </div>
+          ) : (
+            <span className="text-slate-400">—</span>
+          ),
+      },
+      {
+        key: "vehicle",
+        header: "Vehicle",
+        hideOnMobile: true,
+        sortable: true,
+        sortValue: (run) => run.assignment?.vehicle?.vehicle_number ?? "",
+        render: (run) =>
+          run.assignment?.vehicle ? (
+            <div>
+              <p className="font-medium text-slate-900">{run.assignment.vehicle.vehicle_number}</p>
+              <p className="text-xs text-slate-500">{formatVehicleType(run.assignment.vehicle.type)}</p>
+            </div>
+          ) : (
+            <span className="text-slate-400">—</span>
+          ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        sortable: true,
+        sortValue: (run) => run.assignment?.status ?? "unassigned",
+        render: (run) =>
+          run.assignment ? (
+            <StatusChip status={run.assignment.status} />
+          ) : (
+            <Badge className="bg-amber-50 text-amber-800 ring-1 ring-amber-200">Unassigned</Badge>
+          ),
+      },
+    ],
+    [serviceDate],
+  );
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Today's dispatch"
-        description="Assign drivers and vehicles to scheduled runs. Only approved, active drivers appear in the picker."
+        description="Create runs, assign drivers and vehicles, and monitor today's service board."
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/dashboard/radar">
-              <Button variant="secondary">Live radar</Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            {can("routes.update") && (
+              <Button onClick={() => setCreateOpen(true)}>+ Create run</Button>
+            )}
+            <Link href="/dashboard/radar" className="w-full sm:w-auto">
+              <Button variant="secondary" className="w-full sm:w-auto">
+                Live radar
+              </Button>
             </Link>
             {can("routes.update") && summary.unassigned > 0 && (
-              <Button variant="primary" onClick={() => setFilter("unassigned")}>
+              <Button variant="primary" className="w-full sm:w-auto" onClick={() => setAssignment("unassigned")}>
                 {summary.unassigned} need assignment
               </Button>
             )}
@@ -298,173 +532,126 @@ export default function DispatchPage() {
         }
       />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <SummaryPill label="Total runs" value={summary.total} />
-          <SummaryPill label="Assigned" value={summary.assigned} accent="#059669" />
-          <SummaryPill label="Unassigned" value={summary.unassigned} accent="#d97706" />
-          <SummaryPill label="In progress" value={summary.in_progress} accent="#4f5ba9" />
-        </div>
-        <div className="sm:w-48">
-          <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Service date</label>
-          <input
-            type="date"
-            className="fp-input"
-            value={serviceDate}
-            onChange={(e) => setServiceDate(e.target.value)}
+      <div className="grid grid-cols-1 items-stretch gap-2.5 lg:grid-cols-[1fr_12.5rem]">
+        <DispatchStatRow summary={summary} isLoading={initialLoading} />
+        <DispatchServiceDateCard value={serviceDate} onChange={setServiceDate} className="lg:justify-self-end" />
+      </div>
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search run, route, driver, vehicle, or school…"
+        resultCount={resultCount}
+        onClear={clearFilters}
+        filters={[
+          {
+            key: "assignment",
+            label: "Assignment",
+            value: assignment,
+            onChange: setAssignment,
+            options: ASSIGNMENT_OPTIONS,
+          },
+          {
+            key: "status",
+            label: "Run status",
+            value: statusFilter,
+            onChange: setStatusFilter,
+            options: STATUS_OPTIONS,
+          },
+          {
+            key: "route_type",
+            label: "Route type",
+            value: routeType,
+            onChange: setRouteType,
+            options: ROUTE_TYPE_OPTIONS,
+          },
+          {
+            key: "school_id",
+            label: "School",
+            value: schoolId,
+            onChange: setSchoolId,
+            options: schoolOptions,
+          },
+        ]}
+      />
+
+      <ActiveFilterPills
+        items={activePills}
+        onRemove={(key) => {
+          if (key === "search") setSearch("");
+          if (key === "assignment") setAssignment("");
+          if (key === "route_type") setRouteType("");
+          if (key === "school_id") setSchoolId("");
+          if (key === "status") setStatusFilter("");
+        }}
+      />
+
+      {isFetching && !initialLoading && (
+        <p className="text-xs text-slate-400">Updating dispatch board…</p>
+      )}
+
+      <PageState
+        isLoading={initialLoading}
+        isError={isError}
+        onRetry={() => refetch()}
+        isEmpty={!initialLoading && !isError && runs.length === 0}
+        emptyMessage={
+          summary.total === 0
+            ? "No active runs scheduled for this day. Check routes and run templates."
+            : "No runs match your filters."
+        }
+      >
+        <div className={cn("transition-opacity", isFetching && "opacity-90")}>
+          <DataTable
+            columns={columns}
+            rows={runs}
+            rowKey={(run) => run.id}
+            defaultSortKey="time"
+            defaultSortDir="asc"
+            emptyMessage="No runs match your filters."
+            actions={(run) => {
+              const handlers = runHandlers(run);
+              return (
+                <RowActions
+                  items={buildRunActions({
+                    run,
+                    serviceDate,
+                    canUpdate: can("routes.update"),
+                    ...handlers,
+                  })}
+                />
+              );
+            }}
           />
         </div>
-      </div>
+      </PageState>
 
-      <div className="flex flex-wrap gap-2">
-        {filterTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setFilter(tab.id)}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-              filter === tab.id
-                ? "bg-brand-primary text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
-            )}
-          >
-            {tab.label}
-            <span className="ml-1.5 tabular-nums opacity-80">({tab.count})</span>
-          </button>
-        ))}
-        {isFetching && !isLoading && (
-          <span className="self-center text-xs text-slate-400">Refreshing…</span>
-        )}
-      </div>
+      <CreateDispatchRunModal
+        open={createOpen}
+        serviceDate={serviceDate}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ["dispatch-runs"] });
+          queryClient.invalidateQueries({ queryKey: ["fleet-live"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["route-stats"] });
+        }}
+      />
 
-      {isLoading && (
-        <div className="fp-card flex flex-col items-center justify-center py-20">
-          <p className="text-sm text-slate-500">Loading today&apos;s runs…</p>
-        </div>
-      )}
-      {isError && (
-        <div className="fp-card flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm font-medium text-brand-secondary">Could not load dispatch board.</p>
-          <Button variant="secondary" className="mt-4" onClick={() => refetch()}>
-            Try again
-          </Button>
-        </div>
-      )}
-
-      {!isLoading && !isError && (
-        <div className="fp-card overflow-hidden">
-          {filteredRuns.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <p className="text-sm font-semibold text-slate-800">No runs for this filter</p>
-              <p className="mt-1 text-xs text-slate-500">
-                {summary.total === 0
-                  ? "No active runs scheduled for this day. Check routes and run templates."
-                  : "Try another filter or date."}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[880px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Run</th>
-                    <th className="px-4 py-3">Route / school</th>
-                    <th className="px-4 py-3">Schedule</th>
-                    <th className="px-4 py-3">Driver</th>
-                    <th className="px-4 py-3">Vehicle</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRuns.map((run) => {
-                    const assigned = run.assignment;
-                    const canCancel =
-                      can("routes.update") &&
-                      assigned &&
-                      assigned.status !== "in_progress" &&
-                      assigned.status !== "completed";
-
-                    return (
-                      <tr key={run.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-slate-900">{run.name}</p>
-                          <p className="text-xs text-slate-500">{directionLabel(run.direction)}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-800">{run.route?.name ?? "—"}</p>
-                          <p className="text-xs text-slate-500">
-                            {run.route?.school?.name ?? "—"}
-                            {run.route?.type ? ` · ${TYPE_LABELS[run.route.type] ?? run.route.type}` : ""}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 tabular-nums text-slate-700">
-                          {formatTime(run.scheduled_start_time)} – {formatTime(run.scheduled_end_time)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {assigned?.driver ? (
-                            <div>
-                              <p className="font-medium text-slate-900">
-                                {assigned.driver.first_name} {assigned.driver.last_name}
-                              </p>
-                              {assigned.driver.employee_id && (
-                                <p className="text-xs text-slate-500">{assigned.driver.employee_id}</p>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {assigned?.vehicle ? (
-                            <div>
-                              <p className="font-medium text-slate-900">{assigned.vehicle.vehicle_number}</p>
-                              <p className="text-xs text-slate-500">{formatVehicleType(assigned.vehicle.type)}</p>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {assigned ? (
-                            <StatusChip status={assigned.status} />
-                          ) : (
-                            <Badge className="bg-amber-50 text-amber-800 ring-1 ring-amber-200">Unassigned</Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            {can("routes.update") && (
-                              <Button
-                                size="sm"
-                                variant={assigned ? "secondary" : "primary"}
-                                onClick={() => setAssignRun(run)}
-                              >
-                                {assigned ? "Update" : "Assign"}
-                              </Button>
-                            )}
-                            {canCancel && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => cancelMutation.mutate(assigned!.id)}
-                                disabled={cancelMutation.isPending}
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+      <DispatchRunViewModal
+        open={!!viewRun}
+        run={viewRun}
+        serviceDate={serviceDate}
+        onClose={() => setViewRun(null)}
+        onAssign={
+          viewRun && can("routes.update")
+            ? () => {
+                setAssignRun(viewRun);
+                setViewRun(null);
+              }
+            : undefined
+        }
+      />
 
       <AssignRunModal
         open={!!assignRun}

@@ -35,7 +35,7 @@ import { CaptchaField } from '@/components/auth/captcha-field';
 import { LegalPolicyModal } from '@/components/legal/legal-policy-modal';
 import { SignupForm } from '@/features/auth/signup-form';
 import { RoleToggle } from '@/features/auth/role-toggle';
-import { ROLE_MISMATCH_MESSAGES, ROLE_PORTALS } from '@/features/auth/role-portals';
+import { ROLE_MISMATCH_MESSAGES, ROLE_PORTALS, demoCredentialsForRole } from '@/features/auth/role-portals';
 import { useKeyboardInset } from '@/hooks/use-keyboard-inset';
 import type { LegalDocumentId } from '@/lib/mobile-types';
 
@@ -76,8 +76,8 @@ export function AuthScreen() {
 
   const [role, setRole] = useState<MobileRole>('parent');
   const [mode, setMode] = useState<AuthMode>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() => demoCredentialsForRole('parent').email);
+  const [password, setPassword] = useState(() => demoCredentialsForRole('parent').password);
   const [showPassword, setShowPassword] = useState(false);
   const [captchaValid, setCaptchaValid] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors<SignInField>>({});
@@ -125,6 +125,9 @@ export function AuthScreen() {
     setRole(next);
     clearAuthErrors();
     setCaptchaValid(false);
+    const demo = demoCredentialsForRole(next);
+    setEmail(demo.email);
+    setPassword(demo.password);
   };
 
   const onSubmit = async () => {
@@ -164,8 +167,9 @@ export function AuthScreen() {
   };
 
   const fillDemo = () => {
-    setEmail(roleConfig.demoEmail);
-    setPassword('password');
+    const demo = demoCredentialsForRole(role);
+    setEmail(demo.email);
+    setPassword(demo.password);
     setMode('signin');
     clearAuthErrors();
   };
@@ -236,7 +240,7 @@ export function AuthScreen() {
                     authInputStyle(Boolean(fieldErrors.email)),
                   ]}
                 >
-                  <Ionicons name="mail-outline" size={16} color={fieldErrors.email ? Colors.danger : Colors.placeholder} />
+                  <Ionicons name="mail-outline" size={18} color={fieldErrors.email ? Colors.danger : Colors.placeholder} />
                   <TextInput
                     value={email}
                     onChangeText={(text) => {

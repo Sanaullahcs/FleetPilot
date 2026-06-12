@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Models\Driver;
+use App\Models\Route;
 use App\Models\Run;
 use App\Models\RunAssignment;
 use App\Models\Vehicle;
@@ -45,7 +46,15 @@ class DispatchController extends Controller
             ])
             ->orderBy('scheduled_start_time')
             ->get()
-            ->filter(function (Run $run) use ($dayOfWeek) {
+            ->filter(function (Run $run) use ($dayOfWeek, $date) {
+                $hasAssignmentForDate = $run->assignments->contains(
+                    fn ($a) => $a->status !== 'cancelled'
+                        && Carbon::parse($a->service_date)->isSameDay($date),
+                );
+                if ($hasAssignmentForDate) {
+                    return true;
+                }
+
                 $days = $run->route?->days_of_week;
                 if (empty($days) || ! is_array($days)) {
                     return true;
@@ -56,22 +65,122 @@ class DispatchController extends Controller
             ->values();
 
         $items = $runs->map(fn (Run $run) => $this->formatRunRow($run))->all();
+        $summarySource = $items;
+        $items = $this->filterDispatchItems($items, $request);
 
-        $assigned = collect($items)->filter(fn ($row) => $row['assignment'] !== null)->count();
-        $inProgress = collect($items)->filter(fn ($row) => ($row['assignment']['status'] ?? null) === 'in_progress')->count();
+        $assigned = collect($summarySource)->filter(fn ($row) => $row['assignment'] !== null)->count();
+        $inProgress = collect($summarySource)->filter(fn ($row) => ($row['assignment']['status'] ?? null) === 'in_progress')->count();
 
         return response()->json([
             'data' => [
                 'date' => $date->toDateString(),
                 'summary' => [
-                    'total' => count($items),
+                    'total' => count($summarySource),
                     'assigned' => $assigned,
-                    'unassigned' => count($items) - $assigned,
+                    'unassigned' => count($summarySource) - $assigned,
                     'in_progress' => $inProgress,
                 ],
-                'runs' => $items,
+                'runs' => array_values($items),
+                'filtered_total' => count($items),
             ],
         ]);
+    }
+
+    public function storeRun(Request $request): JsonResponse
+    {
+        $this->assertOpsRole($request);
+        $orgId = $request->user()->organization_id;
+        $schoolId = $this->schoolScopeId($request->user());
+
+        $data = $request->validate([
+            'route_id' => ['required', 'uuid', 'exists:routes,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'scheduled_start_time' => ['required', 'string', 'max:8'],
+            'scheduled_end_time' => ['nullable', 'string', 'max:8'],
+            'direction' => ['required', 'in:to_school,from_school,other'],
+            'estimated_distance_miles' => ['nullable', 'numeric', 'min:0'],
+            'estimated_duration_minutes' => ['nullable', 'integer', 'min:1'],
+            'service_date' => ['required', 'date'],
+            'driver_id' => ['nullable', 'uuid', 'exists:drivers,id'],
+            'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,id'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if (! empty($data['driver_id']) xor ! empty($data['vehicle_id'])) {
+            throw ValidationException::withMessages([
+                'driver_id' => 'Select both a driver and a vehicle to dispatch immediately, or leave both empty.',
+            ]);
+        }
+
+        $route = Route::forOrganization($orgId)->find($data['route_id']);
+        if (! $route) {
+            throw ValidationException::withMessages(['route_id' => 'Route not found in your organization.']);
+        }
+        if ($route->status !== 'active') {
+            throw ValidationException::withMessages(['route_id' => 'Route must be active before scheduling a run.']);
+        }
+        if ($schoolId && $route->school_id !== $schoolId) {
+            abort(403, 'You can only create runs for your school.');
+        }
+
+        $serviceDate = Carbon::parse($data['service_date'])->startOfDay();
+        $startTime = $this->normalizeTime($data['scheduled_start_time']);
+        $endTime = isset($data['scheduled_end_time']) ? $this->normalizeTime($data['scheduled_end_time']) : null;
+
+        if ($endTime && $this->timeToMinutes($endTime) <= $this->timeToMinutes($startTime)) {
+            throw ValidationException::withMessages([
+                'scheduled_end_time' => 'End time must be after start time.',
+            ]);
+        }
+
+        $this->ensureRouteRunsOnDate($route, $serviceDate);
+
+        $run = Run::create([
+            'route_id' => $route->id,
+            'name' => $data['name'],
+            'scheduled_start_time' => $startTime,
+            'scheduled_end_time' => $endTime,
+            'direction' => $data['direction'],
+            'estimated_distance_miles' => $data['estimated_distance_miles'] ?? null,
+            'estimated_duration_minutes' => $data['estimated_duration_minutes'] ?? null,
+            'status' => 'active',
+            'effective_date' => $serviceDate->toDateString(),
+            'created_by' => $request->user()->id,
+        ]);
+
+        if (! empty($data['driver_id']) && ! empty($data['vehicle_id'])) {
+            $driver = $this->assertEligibleDriver($orgId, $data['driver_id']);
+            $vehicle = $this->assertActiveVehicle($orgId, $data['vehicle_id']);
+            $this->assertNoConflict($serviceDate, $driver->id, $vehicle->id, $run);
+
+            RunAssignment::create([
+                'run_id' => $run->id,
+                'service_date' => $serviceDate->toDateString(),
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicle->id,
+                'status' => 'scheduled',
+                'notes' => $data['notes'] ?? null,
+                'created_by' => $request->user()->id,
+            ]);
+        }
+
+        $run->load([
+            'route:id,name,code,type,school_id,days_of_week',
+            'route.school:id,name,code',
+            'assignments' => fn ($q) => $q
+                ->whereDate('service_date', $serviceDate)
+                ->with([
+                    'driver:id,first_name,last_name,employee_id,status',
+                    'vehicle:id,vehicle_number,type,status',
+                ]),
+        ]);
+
+        return response()->json([
+            'data' => $this->formatRunRow($run),
+            'message' => ! empty($data['driver_id'])
+                ? 'Run created and dispatched.'
+                : 'Run created. Assign a driver and vehicle when ready.',
+        ], 201);
     }
 
     public function assign(Request $request, Run $run): JsonResponse
@@ -235,6 +344,58 @@ class DispatchController extends Controller
     }
 
     /**
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterDispatchItems(array $items, Request $request): array
+    {
+        $search = strtolower(trim($request->string('search')->toString()));
+        if ($search !== '') {
+            $items = array_values(array_filter($items, function (array $row) use ($search) {
+                $haystack = strtolower(implode(' ', array_filter([
+                    $row['name'] ?? '',
+                    $row['route']['name'] ?? '',
+                    $row['route']['code'] ?? '',
+                    $row['route']['school']['name'] ?? '',
+                    $row['route']['school']['code'] ?? '',
+                    $row['assignment']['driver']['first_name'] ?? '',
+                    $row['assignment']['driver']['last_name'] ?? '',
+                    $row['assignment']['driver']['employee_id'] ?? '',
+                    $row['assignment']['vehicle']['vehicle_number'] ?? '',
+                ])));
+
+                return str_contains($haystack, $search);
+            }));
+        }
+
+        $assignment = $request->string('assignment')->toString();
+        if ($assignment === 'unassigned') {
+            $items = array_values(array_filter($items, fn (array $row) => $row['assignment'] === null));
+        } elseif ($assignment === 'assigned') {
+            $items = array_values(array_filter($items, fn (array $row) => $row['assignment'] !== null));
+        }
+
+        $status = $request->string('status')->toString();
+        if ($status === 'in_progress') {
+            $items = array_values(array_filter($items, fn (array $row) => ($row['assignment']['status'] ?? null) === 'in_progress'));
+        } elseif ($status !== '') {
+            $items = array_values(array_filter($items, fn (array $row) => ($row['assignment']['status'] ?? null) === $status));
+        }
+
+        $routeType = $request->string('route_type')->toString();
+        if ($routeType !== '') {
+            $items = array_values(array_filter($items, fn (array $row) => ($row['route']['type'] ?? null) === $routeType));
+        }
+
+        $schoolId = $request->string('school_id')->toString();
+        if ($schoolId !== '') {
+            $items = array_values(array_filter($items, fn (array $row) => ($row['route']['school']['id'] ?? null) === $schoolId));
+        }
+
+        return $items;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function formatRunRow(Run $run): array
@@ -393,6 +554,33 @@ class DispatchController extends Controller
                 ]);
             }
         }
+    }
+
+    private function ensureRouteRunsOnDate(Route $route, Carbon $serviceDate): void
+    {
+        $dayOfWeek = $serviceDate->dayOfWeekIso;
+        $days = $route->days_of_week ?? [];
+
+        if (empty($days) || ! is_array($days)) {
+            return;
+        }
+
+        if (in_array($dayOfWeek, $days, true)) {
+            return;
+        }
+
+        $route->update([
+            'days_of_week' => array_values(array_unique([...$days, $dayOfWeek])),
+        ]);
+    }
+
+    private function normalizeTime(string $time): string
+    {
+        $parts = explode(':', $time);
+        $hour = str_pad((string) (int) ($parts[0] ?? 0), 2, '0', STR_PAD_LEFT);
+        $minute = str_pad((string) (int) ($parts[1] ?? 0), 2, '0', STR_PAD_LEFT);
+
+        return "{$hour}:{$minute}:00";
     }
 
     private function timeToMinutes(?string $time): int

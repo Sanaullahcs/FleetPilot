@@ -6,12 +6,13 @@ import { useRequireAuth } from "@/hooks/use-require-auth";
 import { useAuthStore } from "@/store/auth";
 import { logout as logoutApi } from "@/lib/auth-api";
 import { confirmLogout, toastSuccess } from "@/lib/alerts";
-import { getPageHeaderTitle, getRoleLabel } from "@/lib/portal";
+import { getPageHeaderTitle, isSchoolPortalPath } from "@/lib/portal";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { DashboardTopBar } from "@/components/dashboard/dashboard-top-bar";
 import { AssignmentPickerHost } from "@/components/dashboard/assignment-picker-host";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { UserMenu } from "@/components/dashboard/user-menu";
-import { NavProgress } from "@/components/ui/nav-progress";
+import { PageTransition } from "@/components/ui/nav-progress";
 import { Spinner } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const clear = useAuthStore((s) => s.clear);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const headerTitle = user ? getPageHeaderTitle(pathname, user.role) : "FleetPilot";
+  const headerTitle = user ? getPageHeaderTitle(pathname) : "FleetPilot";
 
   useEffect(() => {
     document.title = `FleetPilot — ${headerTitle}`;
@@ -62,9 +63,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       pathname.startsWith("/dashboard/users") ||
       pathname.startsWith("/dashboard/roles") ||
       pathname.startsWith("/dashboard/my-children") ||
+      pathname.startsWith("/dashboard/my-school") ||
       pathname.startsWith("/dashboard/organizations");
     if (blocked) {
       router.replace("/dashboard/my-schedule");
+    }
+  }, [user, pathname, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== "school_contact") return;
+    if (!isSchoolPortalPath(pathname)) {
+      router.replace("/dashboard/my-school");
     }
   }, [user, pathname, router]);
 
@@ -85,7 +94,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const isHome = pathname === "/dashboard";
   const isRadar = pathname === "/dashboard/radar";
   const showNotifications = user.role !== "super_admin";
 
@@ -96,46 +104,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div
         className={cn(
           "flex min-w-0 flex-col",
-          isRadar ? "fixed inset-y-0 right-0 z-10 md:left-64" : "min-h-screen md:ml-64",
+          isRadar ? "fixed inset-y-0 right-0 z-10 md:left-60" : "min-h-screen md:ml-60",
         )}
       >
         {!isRadar && (
-          <header className="sticky top-0 z-30 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur">
-            <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-              <NavProgress />
-              <div className="flex min-w-0 items-center gap-3">
-                <button
-                  onClick={() => setDrawerOpen(true)}
-                  className="shrink-0 rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 md:hidden"
-                  aria-label="Open menu"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                    <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                </button>
-                <div className="min-w-0">
-                  <h1 className="truncate text-base font-semibold text-slate-900 sm:text-lg">{headerTitle}</h1>
-                  {isHome && (
-                    <p className="truncate text-xs text-slate-500">
-                      {getRoleLabel(user.role)}
-                      {user.organization ? ` · ${user.organization.name}` : ""}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                {showNotifications && <NotificationBell userId={user.id} />}
-                <UserMenu user={user} onLogout={handleLogout} />
-              </div>
-            </div>
-          </header>
+          <DashboardTopBar
+            title={headerTitle}
+            onMenuOpen={() => setDrawerOpen(true)}
+            showNotifications={showNotifications}
+            user={user}
+            onLogout={handleLogout}
+          />
         )}
 
         {isRadar && (
-          <div className="absolute right-3 top-3 z-[800] flex items-center gap-2 sm:right-4 sm:top-4">
+          <div className="pointer-events-none absolute right-3 top-3 z-[800] flex items-center gap-3 sm:right-5 sm:top-4">
             <button
+              type="button"
               onClick={() => setDrawerOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 text-slate-700 shadow-lg ring-1 ring-slate-200/80 md:hidden"
+              className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white/95 text-slate-700 shadow-lg md:hidden"
               aria-label="Open menu"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -143,11 +130,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </svg>
             </button>
             {showNotifications && (
-              <div className="rounded-xl bg-white/95 p-0.5 shadow-lg ring-1 ring-slate-200/80">
+              <div className="pointer-events-auto shrink-0 pr-0.5">
                 <NotificationBell userId={user.id} />
               </div>
             )}
-            <div className="rounded-xl bg-white/95 shadow-lg ring-1 ring-slate-200/80">
+            <div className="pointer-events-auto shrink-0">
               <UserMenu user={user} onLogout={handleLogout} />
             </div>
           </div>
@@ -156,10 +143,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main
           className={cn(
             "min-w-0 flex-1",
-            isRadar ? "h-dvh overflow-hidden" : "overflow-x-hidden p-4 sm:p-6",
+            isRadar
+              ? "h-dvh overflow-hidden"
+              : "mx-auto w-full max-w-[1680px] overflow-x-hidden px-4 py-4 sm:px-5 sm:py-5 lg:px-6",
           )}
         >
-          {children}
+          {isRadar ? children : <PageTransition>{children}</PageTransition>}
         </main>
       </div>
       <AssignmentPickerHost />

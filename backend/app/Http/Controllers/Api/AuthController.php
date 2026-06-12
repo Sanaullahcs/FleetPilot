@@ -228,7 +228,7 @@ class AuthController extends Controller
      */
     private function userPayload($user): array
     {
-        $user->loadMissing('roles.permissions', 'organization');
+        $user->loadMissing('roles.permissions', 'organization', 'school:id,name,code,city,state');
 
         return [
             'id' => $user->id,
@@ -243,6 +243,14 @@ class AuthController extends Controller
             'zip' => $user->zip,
             'job_title' => $user->job_title,
             'role' => $user->role,
+            'school_id' => $user->school_id,
+            'school' => $user->school ? [
+                'id' => $user->school->id,
+                'name' => $user->school->name,
+                'code' => $user->school->code,
+                'city' => $user->school->city,
+                'state' => $user->school->state,
+            ] : null,
             'organization' => $user->organization ? [
                 'id' => $user->organization->id,
                 'name' => $user->organization->name,

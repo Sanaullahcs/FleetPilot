@@ -92,6 +92,15 @@ class DatabaseSeeder extends Seeder
             ],
             'driver' => ['name' => 'Driver', 'permissions' => ['runs.view', 'students.view']],
             'parent' => ['name' => 'Parent', 'permissions' => ['students.view']],
+            'school_contact' => [
+                'name' => 'School Contact',
+                'permissions' => [
+                    'students.view',
+                    'routes.view',
+                    'runs.view',
+                    'schools.view',
+                ],
+            ],
         ];
 
         $roles = [];

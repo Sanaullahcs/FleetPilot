@@ -17,7 +17,11 @@ import { PhotoAvatar } from '@/components/ui/photo-avatar';
 import { Colors, RoleAccents } from '@/constants/theme';
 import { formatTimeRange } from '@/lib/format';
 import { fetchParentChildren, fetchParentTracking } from '@/lib/mobile-api';
-import { findDriverConversationForStudent } from '@/lib/chat-api';
+import {
+  findDriverConversationForStudent,
+  findParentSupportConversation,
+  findSchoolConversationForSchool,
+} from '@/lib/chat-api';
 import { showConfirmAlert, showSweetAlert } from '@/store/sweet-alert';
 
 export function ChildDetailScreen() {
@@ -55,6 +59,37 @@ export function ChildDetailScreen() {
       }
     } catch {
       // fall through to messages list
+    }
+    router.push('/messages');
+  };
+
+  const openSchoolChat = async () => {
+    const schoolId = child?.school?.id;
+    if (!schoolId) {
+      router.push('/messages');
+      return;
+    }
+    try {
+      const conversation = await findSchoolConversationForSchool(schoolId);
+      if (conversation) {
+        router.push(`/chat/${conversation.id}`);
+        return;
+      }
+    } catch {
+      // fall through
+    }
+    router.push('/messages');
+  };
+
+  const openSupportChat = async () => {
+    try {
+      const conversation = await findParentSupportConversation();
+      if (conversation) {
+        router.push(`/chat/${conversation.id}`);
+        return;
+      }
+    } catch {
+      // fall through
     }
     router.push('/messages');
   };
@@ -150,7 +185,9 @@ export function ChildDetailScreen() {
             contentContainerStyle={styles.actionsRow}
           >
             <ActionChip icon="call-outline" label="Call" onPress={callDriver} />
-            <ActionChip icon="chatbubbles-outline" label="Chat" onPress={() => void openDriverChat()} />
+            <ActionChip icon="chatbubbles-outline" label="Driver" onPress={() => void openDriverChat()} />
+            <ActionChip icon="school-outline" label="School" onPress={() => void openSchoolChat()} />
+            <ActionChip icon="headset-outline" label="Transport" onPress={() => void openSupportChat()} />
             <ActionChip
               icon="calendar-outline"
               label="Absence"

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { PageHeader, Button, Badge } from "@/components/ui/primitives";
+import { DriverStatRow } from "@/components/dashboard/resource-stat-rows";
 import { DataTable, Pagination, type Column } from "@/components/ui/data-table";
 import { FilterBar, ActiveFilterPills } from "@/components/ui/filter-bar";
 import { PageState } from "@/components/ui/page-state";
@@ -466,6 +467,8 @@ export default function DriversPage() {
         description="Manage drivers, vehicle assignments, student routes, licensing, and compliance."
         action={can("drivers.create") && <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add driver</Button>}
       />
+
+      <DriverStatRow />
 
       <PageTabs
         tabs={[

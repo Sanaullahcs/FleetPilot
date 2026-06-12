@@ -171,9 +171,9 @@ export function UserMenu({
         aria-controls={menuId}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex items-center gap-2 rounded-xl border border-transparent py-1 pl-1 pr-2 transition",
-          "hover:border-slate-200 hover:bg-slate-50",
-          open && "border-slate-200 bg-slate-50",
+          "flex shrink-0 items-center gap-2 rounded-lg border border-transparent py-1 pl-0.5 pr-2 transition",
+          "hover:border-slate-200 hover:bg-white",
+          open && "border-slate-200 bg-white",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/40",
         )}
       >

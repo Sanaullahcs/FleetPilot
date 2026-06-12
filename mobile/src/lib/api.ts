@@ -40,7 +40,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError('Unable to connect. Check your network and API URL.', 0);
+    throw new ApiError(
+      `Unable to connect to ${API_URL}. Check Wi‑Fi, that the backend runs on 0.0.0.0:8000, and EXPO_PUBLIC_API_URL matches your PC IP.`,
+      0,
+    );
   }
 
   if (res.status === 401 && auth) {

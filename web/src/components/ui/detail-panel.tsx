@@ -26,8 +26,8 @@ export function DetailStat({
           : "border-slate-200 bg-slate-50/80",
       )}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={cn("mt-1 text-xl font-bold tabular-nums", accent ? "text-brand-accent-dark" : "text-slate-900")}>
+      <p className="fp-label">{label}</p>
+      <p className={cn("fp-stat-value-sm mt-1", accent ? "text-brand-accent-dark" : "text-slate-900")}>
         {value}
       </p>
     </div>
@@ -48,8 +48,8 @@ export function DetailSection({
       <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
         <span className="h-4 w-1 rounded-full bg-brand-accent" aria-hidden />
         <div>
-          <h3 className="text-sm font-bold text-slate-900">{title}</h3>
-          {description && <p className="text-xs text-slate-500">{description}</p>}
+          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          {description && <p className="fp-subtitle text-xs">{description}</p>}
         </div>
       </div>
       {children}
@@ -77,7 +77,7 @@ export function DetailItem({
   const display = value ?? "—";
   return (
     <div className={cn("rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3", className)}>
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+      <dt className="fp-label">{label}</dt>
       <dd className={cn("mt-1 text-sm font-medium text-slate-900", mono && "font-mono text-xs")}>
         {href && display !== "—" ? (
           <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-accent hover:underline">

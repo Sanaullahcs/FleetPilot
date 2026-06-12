@@ -21,12 +21,13 @@ class MobileChatService
 
     public function ensureConversations(User $user): void
     {
-        if ($user->role === 'driver') {
+        if ($user->hasRole('driver')) {
             $this->ensureDriverSupport($user);
             $this->ensureDriverParentThreads($user);
+            $this->ensureDriverSchoolThreads($user);
         }
 
-        if ($user->role === 'parent') {
+        if ($user->hasRole('parent')) {
             $this->ensureParentThreads($user);
         }
     }
@@ -38,9 +39,17 @@ class MobileChatService
     {
         $this->ensureConversations($user);
 
+        $organizationId = $this->resolveOrganizationId($user);
+        if (! $organizationId) {
+            return collect();
+        }
+
         return MobileChatConversation::query()
-            ->where('organization_id', $user->organization_id)
-            ->whereJsonContains('participant_user_ids', $user->id)
+            ->where('organization_id', $organizationId)
+            ->where(function ($query) use ($user) {
+                $query->whereJsonContains('participant_user_ids', $user->id)
+                    ->orWhereJsonContains('participant_user_ids', (string) $user->id);
+            })
             ->orderByDesc('last_message_at')
             ->get()
             ->filter(fn (MobileChatConversation $c) => $this->isVisibleToUser($c, $user))
@@ -72,7 +81,7 @@ class MobileChatService
 
         return MobileChatConversation::query()
             ->where('organization_id', $staff->organization_id)
-            ->where('type', 'parent_school')
+            ->whereIn('type', ['parent_school', 'driver_school'])
             ->where('metadata->school_id', $staff->school_id)
             ->orderByDesc('last_message_at')
             ->get()
@@ -91,7 +100,7 @@ class MobileChatService
         }
 
         if ($user->role === 'school_contact') {
-            if ($conversation->type !== 'parent_school') {
+            if (! in_array($conversation->type, ['parent_school', 'driver_school'], true)) {
                 abort(403);
             }
             if (($conversation->metadata['school_id'] ?? null) !== $user->school_id) {
@@ -308,6 +317,7 @@ class MobileChatService
             'subtitle' => $subtitle,
             'avatar_type' => $avatarType,
             'student_id' => $metadata['student_id'] ?? null,
+            'school_id' => $metadata['school_id'] ?? null,
             'last_message' => $last ? [
                 'body' => Str::limit($last->body, 80),
                 'time' => $last->created_at->toIso8601String(),
@@ -339,7 +349,7 @@ class MobileChatService
         return [
             'id' => $conversation->id,
             'type' => $conversation->type,
-            'title' => $this->staffConversationTitle($conversation),
+            'title' => $this->staffConversationTitle($conversation, $staff),
             'subtitle' => $metadata['subtitle'] ?? null,
             'participants' => $this->participantSummaries($conversation),
             'last_message' => $last ? [
@@ -387,32 +397,57 @@ class MobileChatService
 
     private function isVisibleToUser(MobileChatConversation $conversation, User $user): bool
     {
-        if ($user->role !== 'driver' || $conversation->type !== 'parent_driver') {
+        if (! $user->hasRole('driver') || $conversation->type !== 'parent_driver') {
             return true;
         }
 
         $other = $this->otherParticipantUser($conversation, $user);
 
-        return $other !== null && $other->id !== $user->id && $other->role === 'parent';
+        return $other !== null && $other->id !== $user->id && $other->hasRole('parent');
+    }
+
+    private function resolveOrganizationId(User $user): ?string
+    {
+        if ($user->organization_id) {
+            return $user->organization_id;
+        }
+
+        if ($user->hasRole('driver')) {
+            return Driver::query()->where('user_id', $user->id)->value('organization_id');
+        }
+
+        if ($user->hasRole('parent')) {
+            return ParentAccount::query()->where('user_id', $user->id)->value('organization_id');
+        }
+
+        return null;
     }
 
     private function ensureDriverSupport(User $user): void
     {
+        $organizationId = $this->resolveOrganizationId($user);
+        if (! $organizationId) {
+            return;
+        }
+
         $exists = MobileChatConversation::query()
-            ->where('organization_id', $user->organization_id)
+            ->where('organization_id', $organizationId)
             ->where('type', 'driver_support')
-            ->whereJsonContains('participant_user_ids', $user->id)
+            ->where(function ($query) use ($user) {
+                $query->whereJsonContains('participant_user_ids', $user->id)
+                    ->orWhereJsonContains('participant_user_ids', (string) $user->id);
+            })
             ->exists();
 
         if ($exists) {
             return;
         }
 
-        $dispatch = $this->findDispatchUser($user->organization_id);
-        $participants = array_values(array_filter([$user->id, $dispatch?->id]));
+        $dispatch = $this->findDispatchUser($organizationId);
+        $participants = array_values(array_unique(array_filter([$user->id, $dispatch?->id])));
 
         $conversation = MobileChatConversation::create([
-            'organization_id' => $user->organization_id,
+            'organization_id' => $organizationId,
             'type' => 'driver_support',
             'title' => 'Dispatch & Support',
             'participant_user_ids' => $participants,
@@ -445,7 +480,7 @@ class MobileChatService
                 }
 
                 $this->ensureParentDriverConversation(
-                    organizationId: $user->organization_id,
+                    organizationId: $this->resolveOrganizationId($user) ?? $driver->organization_id,
                     parentUser: $account->user,
                     driver: $driver,
                     student: $student,
@@ -454,8 +489,86 @@ class MobileChatService
         }
     }
 
+    private function ensureDriverSchoolThreads(User $user): void
+    {
+        $driver = Driver::where('user_id', $user->id)->first();
+        if (! $driver) {
+            return;
+        }
+
+        $organizationId = $this->resolveOrganizationId($user) ?? $driver->organization_id;
+        if (! $organizationId) {
+            return;
+        }
+
+        $schoolIds = Student::query()
+            ->where('assigned_driver_id', $driver->id)
+            ->whereNotNull('school_id')
+            ->pluck('school_id')
+            ->unique()
+            ->filter();
+
+        foreach (School::query()->whereIn('id', $schoolIds)->get() as $school) {
+            $conversation = MobileChatConversation::query()
+                ->where('organization_id', $organizationId)
+                ->where('type', 'driver_school')
+                ->whereJsonContains('participant_user_ids', $user->id)
+                ->where('metadata->school_id', $school->id)
+                ->first();
+
+            $liaison = User::query()
+                ->where('organization_id', $organizationId)
+                ->where('school_id', $school->id)
+                ->where('role', 'school_contact')
+                ->where('is_active', true)
+                ->first();
+
+            if ($conversation) {
+                if ($liaison && ! in_array($liaison->id, $conversation->participant_user_ids ?? [], true)) {
+                    $participants = array_values(array_unique([
+                        ...($conversation->participant_user_ids ?? []),
+                        $liaison->id,
+                    ]));
+                    $conversation->update(['participant_user_ids' => $participants]);
+                }
+
+                continue;
+            }
+
+            $participants = array_values(array_unique(array_filter([
+                $user->id,
+                $liaison?->id,
+            ])));
+
+            $conversation = MobileChatConversation::create([
+                'organization_id' => $organizationId,
+                'type' => 'driver_school',
+                'title' => $school->name,
+                'participant_user_ids' => $participants ?: [$user->id],
+                'metadata' => [
+                    'subtitle' => 'School transportation office',
+                    'school_id' => $school->id,
+                    'driver_id' => $driver->id,
+                    'avatar_type' => 'school',
+                ],
+                'last_message_at' => now()->subHours(3),
+            ]);
+
+            $this->seedWelcome(
+                $conversation,
+                $liaison,
+                "Hello from {$school->name}. Message us about student pickups, dismissals, or route changes.",
+            );
+        }
+    }
+
     private function ensureParentThreads(User $user): void
     {
+        $organizationId = $this->resolveOrganizationId($user);
+        if (! $organizationId) {
+            return;
+        }
+
         $account = ParentAccount::where('user_id', $user->id)->first();
         $students = $account
             ? Student::query()->whereIn('id', function ($q) use ($account) {
@@ -467,7 +580,7 @@ class MobileChatService
             $driver = $student->assignedDriver;
             if ($driver?->user_id) {
                 $this->ensureParentDriverConversation(
-                    organizationId: $user->organization_id,
+                    organizationId: $organizationId,
                     parentUser: $user,
                     driver: $driver,
                     student: $student,
@@ -481,22 +594,31 @@ class MobileChatService
                 continue;
             }
 
-            $exists = MobileChatConversation::query()
-                ->where('organization_id', $user->organization_id)
+            $conversation = MobileChatConversation::query()
+                ->where('organization_id', $organizationId)
                 ->where('type', 'parent_school')
                 ->whereJsonContains('participant_user_ids', $user->id)
                 ->where('metadata->school_id', $school->id)
-                ->exists();
-
-            if ($exists) {
-                continue;
-            }
+                ->first();
 
             $liaison = User::query()
-                ->where('organization_id', $user->organization_id)
+                ->where('organization_id', $organizationId)
                 ->where('school_id', $school->id)
+                ->where('role', 'school_contact')
                 ->where('is_active', true)
                 ->first();
+
+            if ($conversation) {
+                if ($liaison && ! in_array($liaison->id, $conversation->participant_user_ids ?? [], true)) {
+                    $participants = array_values(array_unique([
+                        ...($conversation->participant_user_ids ?? []),
+                        $liaison->id,
+                    ]));
+                    $conversation->update(['participant_user_ids' => $participants]);
+                }
+
+                continue;
+            }
 
             $participants = array_values(array_unique(array_filter([
                 $user->id,
@@ -504,43 +626,60 @@ class MobileChatService
             ])));
 
             $conversation = MobileChatConversation::create([
-                'organization_id' => $user->organization_id,
+                'organization_id' => $organizationId,
                 'type' => 'parent_school',
                 'title' => $school->name,
                 'participant_user_ids' => $participants ?: [$user->id],
                 'metadata' => [
-                    'subtitle' => 'Transportation office',
+                    'subtitle' => 'School transportation office',
                     'school_id' => $school->id,
                     'avatar_type' => 'school',
                 ],
                 'last_message_at' => now()->subHours(2),
             ]);
 
-            $this->seedWelcome($conversation, null, "Hello from {$school->name} transportation. We're here for enrollment and route changes.");
+            $this->seedWelcome($conversation, $liaison, "Hello from {$school->name} transportation. We're here for enrollment and route changes.");
         }
 
         $supportExists = MobileChatConversation::query()
-            ->where('organization_id', $user->organization_id)
-            ->where('type', 'driver_support')
+            ->where('organization_id', $organizationId)
+            ->where('type', 'parent_support')
             ->whereJsonContains('participant_user_ids', $user->id)
             ->exists();
 
         if (! $supportExists) {
-            $dispatch = $this->findDispatchUser($user->organization_id);
+            $legacy = MobileChatConversation::query()
+                ->where('organization_id', $organizationId)
+                ->where('type', 'driver_support')
+                ->whereJsonContains('participant_user_ids', $user->id)
+                ->first();
 
-            $conversation = MobileChatConversation::create([
-                'organization_id' => $user->organization_id,
-                'type' => 'driver_support',
-                'title' => 'FleetPilot Support',
-                'participant_user_ids' => array_values(array_filter([$user->id, $dispatch?->id])),
-                'metadata' => [
-                    'subtitle' => 'App help & general questions',
-                    'avatar_type' => 'support',
-                ],
-                'last_message_at' => now()->subDay(),
-            ]);
+            if ($legacy) {
+                $legacy->update([
+                    'type' => 'parent_support',
+                    'title' => 'Transportation office',
+                    'metadata' => array_merge($legacy->metadata ?? [], [
+                        'subtitle' => 'Dispatch & route help',
+                        'avatar_type' => 'support',
+                    ]),
+                ]);
+            } else {
+                $dispatch = $this->findDispatchUser($organizationId);
 
-            $this->seedWelcome($conversation, $dispatch, 'How can we help you today?');
+                $conversation = MobileChatConversation::create([
+                    'organization_id' => $organizationId,
+                    'type' => 'parent_support',
+                    'title' => 'Transportation office',
+                    'participant_user_ids' => array_values(array_filter([$user->id, $dispatch?->id])),
+                    'metadata' => [
+                        'subtitle' => 'Dispatch & route help',
+                        'avatar_type' => 'support',
+                    ],
+                    'last_message_at' => now()->subDay(),
+                ]);
+
+                $this->seedWelcome($conversation, $dispatch, 'How can transportation help you today?');
+            }
         }
     }
 
@@ -605,6 +744,209 @@ class MobileChatService
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listMessageableContacts(User $staff): array
+    {
+        $orgId = $staff->organization_id;
+        $contacts = [];
+
+        $append = function (User $user, string $subtitle, ?string $conversationId = null) use (&$contacts, $staff): void {
+            if ($user->id === $staff->id || ! $user->is_active) {
+                return;
+            }
+
+            $contacts[$user->id] = [
+                'user_id' => $user->id,
+                'name' => trim("{$user->first_name} {$user->last_name}"),
+                'role' => $user->role,
+                'subtitle' => $subtitle,
+                'conversation_id' => $conversationId,
+            ];
+        };
+
+        Driver::forOrganization($orgId)
+            ->with('user:id,first_name,last_name,role,is_active,email')
+            ->whereNotNull('user_id')
+            ->orderBy('last_name')
+            ->get()
+            ->each(function (Driver $driver) use ($append) {
+                if (! $driver->user) {
+                    return;
+                }
+                $append(
+                    $driver->user,
+                    trim(($driver->employee_id ? "Driver · {$driver->employee_id}" : 'Driver').($driver->status !== 'active' ? ' · inactive' : '')),
+                    $this->existingStaffConversationId($driver->user, 'driver_support'),
+                );
+            });
+
+        ParentAccount::query()
+            ->where('organization_id', $orgId)
+            ->with('user:id,first_name,last_name,role,is_active,email')
+            ->withCount('students')
+            ->whereHas('user', fn ($q) => $q->where('is_active', true))
+            ->orderBy('id')
+            ->get()
+            ->each(function (ParentAccount $account) use ($append) {
+                if (! $account->user) {
+                    return;
+                }
+                $append(
+                    $account->user,
+                    'Parent · '.((int) $account->students_count).' linked student(s)',
+                    $this->existingStaffConversationId($account->user, 'staff_direct'),
+                );
+            });
+
+        User::query()
+            ->where('organization_id', $orgId)
+            ->where('role', 'school_contact')
+            ->where('is_active', true)
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'role', 'is_active', 'school_id'])
+            ->each(function (User $user) use ($append, $orgId) {
+                $school = $user->school_id ? School::query()->find($user->school_id) : null;
+                $append(
+                    $user,
+                    $school ? "School · {$school->name}" : 'School contact',
+                    $this->existingStaffConversationId($user, 'staff_direct'),
+                );
+            });
+
+        User::query()
+            ->where('organization_id', $orgId)
+            ->whereIn('role', ['admin', 'dispatcher'])
+            ->where('is_active', true)
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'role', 'is_active'])
+            ->each(function (User $user) use ($append, $staff) {
+                if ($user->id === $staff->id) {
+                    return;
+                }
+                $append(
+                    $user,
+                    ucfirst(str_replace('_', ' ', $user->role)),
+                    $this->existingStaffConversationId($user, 'staff_direct'),
+                );
+            });
+
+        return collect($contacts)
+            ->sortBy([['role', 'asc'], ['name', 'asc']])
+            ->values()
+            ->all();
+    }
+
+    public function findOrCreateStaffConversation(User $staff, string $targetUserId): MobileChatConversation
+    {
+        $target = User::query()->findOrFail($targetUserId);
+
+        if ($target->organization_id !== $staff->organization_id) {
+            abort(403);
+        }
+
+        if ($target->id === $staff->id) {
+            abort(422, 'You cannot start a conversation with yourself.');
+        }
+
+        if ($target->role === 'driver') {
+            return $this->findOrCreateDriverSupportForStaff($staff, $target);
+        }
+
+        $existing = MobileChatConversation::query()
+            ->where('organization_id', $staff->organization_id)
+            ->where('type', 'staff_direct')
+            ->whereJsonContains('participant_user_ids', $staff->id)
+            ->whereJsonContains('participant_user_ids', $target->id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return MobileChatConversation::create([
+            'organization_id' => $staff->organization_id,
+            'type' => 'staff_direct',
+            'title' => trim("{$target->first_name} {$target->last_name}"),
+            'participant_user_ids' => [$staff->id, $target->id],
+            'metadata' => [
+                'subtitle' => ucfirst(str_replace('_', ' ', $target->role)),
+                'target_user_id' => $target->id,
+                'avatar_type' => $target->role,
+            ],
+            'last_message_at' => now(),
+        ]);
+    }
+
+    private function findOrCreateDriverSupportForStaff(User $staff, User $driverUser): MobileChatConversation
+    {
+        $existing = MobileChatConversation::query()
+            ->where('organization_id', $staff->organization_id)
+            ->where('type', 'driver_support')
+            ->whereJsonContains('participant_user_ids', $driverUser->id)
+            ->first();
+
+        if ($existing) {
+            $participants = $existing->participant_user_ids ?? [];
+            if (! in_array($staff->id, $participants, true)) {
+                $participants[] = $staff->id;
+                $existing->update(['participant_user_ids' => array_values(array_unique($participants))]);
+            }
+
+            return $existing->fresh();
+        }
+
+        $conversation = MobileChatConversation::create([
+            'organization_id' => $staff->organization_id,
+            'type' => 'driver_support',
+            'title' => 'Dispatch & Support',
+            'participant_user_ids' => array_values(array_unique([$driverUser->id, $staff->id])),
+            'metadata' => [
+                'subtitle' => 'Route help, delays, and app support',
+                'avatar_type' => 'support',
+            ],
+            'last_message_at' => now(),
+        ]);
+
+        $this->seedWelcome($conversation, $staff, 'Hi — dispatch is here if you need route or schedule help.');
+
+        return $conversation;
+    }
+
+    private function existingStaffConversationId(User $target, string $preferredType): ?string
+    {
+        if ($target->role === 'driver') {
+            $conversation = MobileChatConversation::query()
+                ->where('organization_id', $target->organization_id)
+                ->where('type', 'driver_support')
+                ->whereJsonContains('participant_user_ids', $target->id)
+                ->first();
+
+            return $conversation?->id;
+        }
+
+        if ($target->role === 'parent') {
+            $conversation = MobileChatConversation::query()
+                ->where('organization_id', $target->organization_id)
+                ->where('type', 'parent_support')
+                ->whereJsonContains('participant_user_ids', $target->id)
+                ->first();
+
+            if ($conversation) {
+                return $conversation->id;
+            }
+        }
+
+        $conversation = MobileChatConversation::query()
+            ->where('organization_id', $target->organization_id)
+            ->where('type', 'staff_direct')
+            ->whereJsonContains('participant_user_ids', $target->id)
+            ->first();
+
+        return $conversation?->id;
+    }
+
+    /**
      * @return array{0: string, 1: ?string, 2: string}
      */
     private function resolveConversationDisplay(MobileChatConversation $conversation, User $user): array
@@ -634,6 +976,38 @@ class MobileChatService
             }
         }
 
+        if ($conversation->type === 'parent_support' && $user->role === 'parent') {
+            return [
+                $conversation->title,
+                $metadata['subtitle'] ?? 'Dispatch & route help',
+                'support',
+            ];
+        }
+
+        if ($conversation->type === 'parent_school' && $user->role === 'parent') {
+            return [
+                $conversation->title,
+                $metadata['subtitle'] ?? 'School transportation office',
+                'school',
+            ];
+        }
+
+        if ($conversation->type === 'driver_school' && $user->role === 'driver') {
+            return [
+                $conversation->title,
+                $metadata['subtitle'] ?? 'School transportation office',
+                'school',
+            ];
+        }
+
+        if ($conversation->type === 'driver_support' && $user->role === 'driver') {
+            return [
+                $conversation->title,
+                $metadata['subtitle'] ?? 'Route help, delays, and app support',
+                'support',
+            ];
+        }
+
         return [
             $conversation->title,
             $metadata['subtitle'] ?? null,
@@ -641,7 +1015,7 @@ class MobileChatService
         ];
     }
 
-    private function staffConversationTitle(MobileChatConversation $conversation): string
+    private function staffConversationTitle(MobileChatConversation $conversation, ?User $staff = null): string
     {
         if ($conversation->type === 'parent_driver') {
             $participants = $this->participantSummaries($conversation);
@@ -656,8 +1030,48 @@ class MobileChatService
         if ($conversation->type === 'driver_support') {
             $driver = collect($this->participantSummaries($conversation))->firstWhere('role', 'driver');
             if ($driver) {
-                return "{$driver['name']} · Support";
+                return "{$driver['name']} · Driver support";
             }
+        }
+
+        if ($conversation->type === 'parent_support') {
+            $parent = collect($this->participantSummaries($conversation))->firstWhere('role', 'parent');
+            if ($parent) {
+                return "{$parent['name']} · Transportation";
+            }
+
+            return 'Parent · Transportation office';
+        }
+
+        if ($conversation->type === 'driver_school') {
+            $metadata = $conversation->metadata ?? [];
+            $driver = collect($this->participantSummaries($conversation))->firstWhere('role', 'driver');
+            $schoolName = $metadata['school_name'] ?? $conversation->title;
+            if ($driver) {
+                return "{$driver['name']} ↔ {$schoolName}";
+            }
+
+            return "Driver ↔ {$schoolName}";
+        }
+
+        if ($conversation->type === 'parent_school') {
+            $parent = collect($this->participantSummaries($conversation))->firstWhere('role', 'parent');
+            if ($parent) {
+                return "{$parent['name']} ↔ {$conversation->title}";
+            }
+        }
+
+        if ($conversation->type === 'staff_direct') {
+            $participants = $this->participantSummaries($conversation);
+            if ($staff) {
+                $staffName = trim("{$staff->first_name} {$staff->last_name}");
+                $other = collect($participants)->first(fn ($p) => $p['name'] !== $staffName);
+                if ($other) {
+                    return $other['name'];
+                }
+            }
+
+            return collect($participants)->pluck('name')->join(' · ') ?: $conversation->title;
         }
 
         return $conversation->title;

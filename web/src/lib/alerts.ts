@@ -93,6 +93,25 @@ export async function confirmAction(
   return result.isConfirmed;
 }
 
+export async function confirmCancelAssignment(
+  runLabel: string,
+  serviceDate?: string,
+): Promise<boolean> {
+  const result = await base.fire({
+    title: "Cancel this assignment?",
+    html: `<p class="text-sm text-slate-600">Remove the driver and vehicle from <strong>${runLabel}</strong>${
+      serviceDate ? ` on <strong>${serviceDate}</strong>` : ""
+    }. The run will return to unassigned.</p>`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes, cancel assignment",
+    cancelButtonText: "Keep assignment",
+    confirmButtonColor: brand.danger,
+    focusCancel: true,
+  });
+  return result.isConfirmed;
+}
+
 export async function confirmBlock(userName: string, isActive: boolean): Promise<boolean> {
   return confirmAction(
     isActive ? "Block this user?" : "Activate this user?",

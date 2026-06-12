@@ -42,6 +42,9 @@ import type { ChatMessage } from '@/lib/chat-types';
 
 import { showSweetAlert } from '@/store/sweet-alert';
 import { useChatBannerStore } from '@/store/chat-banner';
+import { useAuthStore } from '@/store/auth';
+import { getQueryErrorMessage } from '@/lib/query-utils';
+import { EmptyState } from '@/components/ui/primitives';
 
 
 
@@ -130,11 +133,15 @@ export function ChatThreadScreen() {
 
 
 
+  const token = useAuthStore((s) => s.token);
+
   const conversations = useQuery({
 
     queryKey: ['chat-conversations'],
 
     queryFn: fetchChatConversations,
+
+    enabled: !!token,
 
   });
 
@@ -150,7 +157,7 @@ export function ChatThreadScreen() {
 
     queryFn: () => fetchChatMessages(conversationId!),
 
-    enabled: !!conversationId,
+    enabled: !!token && !!conversationId,
 
     refetchInterval: 5_000,
 
@@ -283,6 +290,17 @@ export function ChatThreadScreen() {
         {messages.isLoading ? (
 
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+
+        ) : messages.isError ? (
+
+          <EmptyState
+            title="Couldn't load messages"
+            message={getQueryErrorMessage(messages.error)}
+            icon="cloud-offline-outline"
+            accent={Colors.danger}
+            actionLabel="Try again"
+            onAction={() => void messages.refetch()}
+          />
 
         ) : (
 

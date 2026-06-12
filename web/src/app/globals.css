@@ -25,6 +25,69 @@ body {
   color: var(--brand-secondary);
 }
 
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold text-slate-900;
+  }
+}
+
+@layer components {
+  .fp-title {
+    @apply text-2xl font-semibold text-slate-900;
+  }
+
+  .fp-title-sm {
+    @apply text-lg font-semibold text-slate-900;
+  }
+
+  .fp-subtitle {
+    @apply text-sm font-normal leading-relaxed text-slate-500;
+  }
+
+  .fp-eyebrow {
+    @apply text-sm font-medium text-brand-primary;
+  }
+
+  .fp-label {
+    @apply text-sm font-medium text-slate-700;
+  }
+
+  .fp-stat-value {
+    @apply text-2xl font-semibold tabular-nums text-slate-900;
+  }
+
+  .fp-stat-value-sm {
+    @apply text-xl font-semibold tabular-nums text-slate-900;
+  }
+
+  .fp-stat-hint {
+    @apply text-sm font-normal text-slate-500;
+  }
+
+  /* Auth only — condensed display + Inter body (see auth-shell) */
+  .fp-auth-display {
+    @apply font-display text-4xl font-semibold uppercase leading-[1.05] tracking-wide;
+  }
+
+  .fp-auth-display-hero {
+    @apply fp-auth-display text-white xl:text-[2.75rem];
+  }
+
+  .fp-auth-display-form {
+    @apply fp-auth-display text-slate-900 sm:text-[2.35rem];
+  }
+}
+
 @layer components {
   .fp-card {
     @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50;
@@ -33,7 +96,31 @@ body {
     @apply fp-card transition duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-brand-primary/10;
   }
   .fp-input {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-brand-secondary outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20;
+    @apply w-full rounded-lg border border-slate-300/80 bg-white px-3.5 py-2.5 text-sm text-brand-secondary outline-none transition;
+    @apply placeholder:text-slate-400 focus:border-brand-primary focus:ring-[3px] focus:ring-brand-primary/10;
+  }
+  .fp-time-input,
+  .fp-date-input {
+    @apply fp-input min-h-[42px] appearance-none;
+    color-scheme: light;
+  }
+  .fp-time-input::-webkit-calendar-picker-indicator,
+  .fp-date-input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 2.75rem;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .fp-native-select {
+    @apply fp-select-trigger w-full appearance-none cursor-pointer pr-10;
+  }
+  .fp-native-select option {
+    @apply text-brand-secondary;
   }
   .fp-gradient-header {
     background: linear-gradient(135deg, #4f5ba9 0%, #3d4587 55%, #18181b 100%);
@@ -91,14 +178,124 @@ body {
   transform-origin: top center;
 }
 
-.fp-auth-card {
-  @apply overflow-hidden rounded-3xl border border-white/80 bg-white/90 shadow-[0_24px_80px_-12px_rgba(15,17,23,0.12)] backdrop-blur-xl;
+@layer components {
+  .fp-auth-card {
+    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm;
+  }
+
+  /* ─── Auth: left brand panel ─── */
+  .auth-hero {
+    background: linear-gradient(150deg, #3d4587 0%, #4f5ba9 48%, #3a3f7d 100%);
+  }
+
+  .auth-hero-pattern {
+    pointer-events: none;
+    opacity: 0.5;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 80% at 30% 30%, black, transparent);
+  }
+
+  /* ─── Auth: header ─── */
+  .auth-header-cta {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-brand-primary px-5 py-2.5 text-[13px] font-semibold leading-none text-white shadow-sm shadow-brand-primary/25 transition;
+    @apply hover:bg-brand-dark hover:shadow-md hover:shadow-brand-primary/30;
+  }
+
+  /* ─── Auth: cards & fields ─── */
+  .auth-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm;
+  }
+
+  .auth-glass-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm;
+  }
+
+  .fp-auth-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-brand-secondary outline-none transition;
+    @apply placeholder:text-slate-400/80 hover:border-slate-300;
+    @apply focus:border-brand-primary focus:ring-[3px] focus:ring-brand-primary/10;
+  }
+
+  .auth-demo-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition;
+    @apply hover:border-brand-primary/40 hover:bg-brand-light/40 hover:text-brand-primary;
+  }
+
+  .auth-role-card {
+    @apply rounded-xl border border-slate-200/90 bg-white transition duration-150;
+    @apply hover:border-brand-primary/30 hover:bg-brand-light/30;
+  }
+
+  .auth-role-card-active {
+    @apply bg-white shadow-sm shadow-brand-primary/10;
+  }
+
+  .fp-auth-btn {
+    @apply rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-md shadow-brand-primary/25 transition;
+    background: linear-gradient(135deg, #4f5ba9 0%, #3d4587 100%);
+    @apply hover:shadow-lg hover:shadow-brand-primary/35 hover:brightness-105;
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
 }
 
-.fp-auth-btn {
-  @apply rounded-2xl bg-brand-primary px-4 py-3.5 text-sm font-semibold text-white transition;
-  @apply hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:ring-offset-2;
-  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100;
+/* ─── Scrollbars ─── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Sidebar nav: invisible until hover */
+.fp-sidebar-scroll {
+  scrollbar-color: transparent transparent;
+}
+
+.fp-sidebar-scroll:hover {
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.fp-sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.fp-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: none;
+}
+
+.fp-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  border: none;
 }
 
 @keyframes skeleton-shimmer {
@@ -295,6 +492,22 @@ body {
 
 .leaflet-control-zoom a:hover {
   background: #f1f5f9 !important;
+}
+
+.fp-radar-map .leaflet-bottom.leaflet-right {
+  right: 12px;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .fp-radar-map .leaflet-bottom.leaflet-right {
+    top: auto;
+    bottom: 5.5rem;
+    transform: none;
+  }
 }
 
 @layer utilities {

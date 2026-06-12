@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { SearchableSelect } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/primitives";
@@ -11,6 +11,12 @@ import { StatusChip } from "@/components/dashboard/status-chip";
 import { formatVehicleType } from "@/components/dashboard/assignment-ui";
 import { ROUTE_TYPE_OPTIONS } from "@/components/dashboard/dashboard-analytics-filters";
 import { getFleetLive, listDrivers } from "@/lib/resources";
+import {
+  RADAR_LIVE_POLL_MS,
+  RADAR_SNAPSHOT_STALE_MS,
+  readRadarLivePreference,
+  writeRadarLivePreference,
+} from "@/lib/radar-config";
 import type { FleetLiveFilters, FleetLiveVehicle } from "@/lib/types";
 import { DRIVER_STATUS_OPTIONS, VEHICLE_STATUS_OPTIONS } from "@/lib/status-options";
 import { cn } from "@/lib/utils";
@@ -294,8 +300,25 @@ export function FleetRadarView() {
   const [driverId, setDriverId] = useState("");
   const [movement, setMovement] = useState<"" | "moving" | "idle">("");
   const [routeType, setRouteType] = useState("");
+  const [liveTracking, setLiveTracking] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (mounted) setLiveTracking(readRadarLivePreference());
+  }, [mounted]);
+
+  const toggleLiveTracking = () => {
+    setLiveTracking((prev) => {
+      const next = !prev;
+      writeRadarLivePreference(next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (liveTracking && mounted) void refetch();
+  }, [liveTracking, mounted]); // eslint-disable-line react-hooks/exhaustive-deps -- refetch once when enabling live mode
 
   const deferredSearch = useDeferredValue(search);
   const queryFilters: FleetLiveFilters = useMemo(
@@ -317,9 +340,14 @@ export function FleetRadarView() {
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["fleet-live", queryFilters],
     queryFn: () => getFleetLive(queryFilters),
-    refetchInterval: 4000,
+    refetchInterval: liveTracking ? RADAR_LIVE_POLL_MS : false,
+    refetchOnWindowFocus: liveTracking,
+    staleTime: liveTracking ? 0 : RADAR_SNAPSHOT_STALE_MS,
+    placeholderData: keepPreviousData,
     enabled: mounted,
   });
+
+  const initialLoading = isLoading && !data;
 
   const { data: driversPage } = useQuery({
     queryKey: ["drivers", "radar-filter"],
@@ -387,8 +415,9 @@ export function FleetRadarView() {
         selectedId={selectedId}
         onSelect={selectVehicle}
         fitKey={fitKey}
-        followSelected={followSelected}
+        followSelected={followSelected && liveTracking}
         showSweep={showSweep}
+        liveTracking={liveTracking}
         className="absolute inset-0"
       />
 
@@ -397,15 +426,50 @@ export function FleetRadarView() {
         <div className="pointer-events-auto flex max-w-xl flex-col gap-2">
           <div className="flex items-center gap-2 rounded-2xl bg-white/95 px-4 py-2.5 ring-1 ring-black/5 backdrop-blur">
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className={cn("absolute h-full w-full rounded-full bg-emerald-500", isFetching && "animate-ping opacity-60")} />
-              <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+              <span
+                className={cn(
+                  "absolute h-full w-full rounded-full",
+                  liveTracking ? "bg-emerald-500" : "bg-slate-400",
+                  liveTracking && isFetching && "animate-ping opacity-60",
+                )}
+              />
+              <span
+                className={cn(
+                  "relative h-2 w-2 rounded-full",
+                  liveTracking ? "bg-emerald-500" : "bg-slate-400",
+                )}
+              />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-slate-900">Live radar</p>
               <p className="text-[10px] tabular-nums text-slate-500">
                 {vehicles.length} units · {movingCount} moving
+                {liveTracking ? ` · updates every ${RADAR_LIVE_POLL_MS / 1000}s` : " · snapshot mode"}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={toggleLiveTracking}
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold transition",
+                liveTracking
+                  ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                  : "bg-slate-100 text-slate-600 ring-1 ring-slate-200 hover:bg-slate-200",
+              )}
+              aria-pressed={liveTracking}
+            >
+              {liveTracking ? "Live on" : "Live off"}
+            </button>
+            {!liveTracking ? (
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+                className="shrink-0 rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-brand-primary hover:underline disabled:opacity-50"
+              >
+                Refresh
+              </button>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2 rounded-2xl bg-white/95 px-3 py-2 ring-1 ring-black/5 backdrop-blur">
@@ -457,8 +521,8 @@ export function FleetRadarView() {
         </div>
       </div>
 
-      {/* Map controls */}
-      <div className="pointer-events-none absolute bottom-20 right-3 z-20 flex flex-col gap-2 sm:bottom-6 sm:right-4">
+      {/* Map controls — top right under search HUD; zoom stays center-right on map */}
+      <div className="pointer-events-none absolute right-3 top-[7.5rem] z-20 flex flex-col gap-2 sm:right-4 sm:top-32">
         <div className="pointer-events-auto flex flex-col gap-2">
           <IconButton label="Fit all units" onClick={() => setFitKey((k) => k + 1)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -495,7 +559,7 @@ export function FleetRadarView() {
         </div>
       )}
 
-      {!isLoading && !isError && vehicles.length === 0 && (
+      {!isError && !initialLoading && vehicles.length === 0 && (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-4 lg:bottom-6">
           <div className="pointer-events-auto rounded-2xl bg-white/95 px-5 py-4 text-center ring-1 ring-black/5">
             <p className="text-sm font-semibold text-slate-800">No units on map</p>
@@ -504,7 +568,7 @@ export function FleetRadarView() {
         </div>
       )}
 
-      {isLoading && (
+      {initialLoading && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
           <div className="rounded-2xl bg-white px-6 py-4 ring-1 ring-black/5">
             <Spinner className="mx-auto h-8 w-8" />
@@ -603,8 +667,14 @@ export function FleetRadarView() {
 
       {dataUpdatedAt > 0 && panel === "none" && (
         <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
-          <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-medium tabular-nums text-slate-500 ring-1 ring-black/5">
-            Updated {new Date(dataUpdatedAt).toLocaleTimeString()}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-[10px] font-medium tabular-nums text-slate-500 ring-1 ring-black/5">
+            {liveTracking && isFetching ? (
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              </span>
+            ) : null}
+            {liveTracking ? "Live" : "Snapshot"} · {new Date(dataUpdatedAt).toLocaleTimeString()}
           </span>
         </div>
       )}

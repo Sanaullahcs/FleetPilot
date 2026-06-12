@@ -4,6 +4,56 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
+const PANEL_GAP = 6;
+const VIEWPORT_PAD = 8;
+const DEFAULT_LIST_MAX = 224;
+
+interface FloatingPanelPosition {
+  top: number;
+  left: number;
+  width: number;
+  listMaxHeight: number;
+  placement: "above" | "below";
+}
+
+function positionFloatingPanel(
+  rect: DOMRect,
+  {
+    width,
+    listMaxHeight = DEFAULT_LIST_MAX,
+    headerHeight = 0,
+    align = "start",
+  }: {
+    width: number;
+    listMaxHeight?: number;
+    headerHeight?: number;
+    align?: "start" | "end";
+  },
+): FloatingPanelPosition {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const spaceBelow = vh - rect.bottom - PANEL_GAP;
+  const spaceAbove = rect.top - PANEL_GAP;
+  const minComfortable = Math.min(listMaxHeight, 140);
+
+  const placement: "above" | "below" =
+    spaceBelow >= minComfortable || spaceBelow >= spaceAbove ? "below" : "above";
+
+  const available = placement === "below" ? spaceBelow : spaceAbove;
+  const resolvedListMax = Math.max(96, Math.min(listMaxHeight, available - headerHeight - 12));
+
+  const panelHeight = headerHeight + resolvedListMax + 16;
+  const top =
+    placement === "below"
+      ? rect.bottom + PANEL_GAP
+      : Math.max(VIEWPORT_PAD, rect.top - panelHeight - PANEL_GAP);
+
+  let left = align === "end" ? rect.right - width : rect.left;
+  left = Math.max(VIEWPORT_PAD, Math.min(left, vw - width - VIEWPORT_PAD));
+
+  return { top, left, width, listMaxHeight: resolvedListMax, placement };
+}
+
 export function DotsIcon({ className }: { className?: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" className={className} aria-hidden>
@@ -39,19 +89,27 @@ export function DropdownMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState<FloatingPanelPosition>({
+    top: 0,
+    left: 0,
+    width,
+    listMaxHeight: DEFAULT_LIST_MAX,
+    placement: "below",
+  });
 
   const visible = items.filter((i) => !i.hidden);
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const left = align === "end" ? rect.right - width : rect.left;
-    setPos({
-      top: rect.bottom + 6,
-      left: Math.max(8, Math.min(left, window.innerWidth - width - 8)),
-    });
-  }, [align, width]);
+    setPos(
+      positionFloatingPanel(rect, {
+        width,
+        listMaxHeight: visible.length * 40 + 16,
+        align,
+      }),
+    );
+  }, [align, width, visible.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,8 +142,17 @@ export function DropdownMenu({
             ref={panelRef}
             id={menuId}
             role="menu"
-            className="fp-dropdown-panel animate-dropdown-in"
-            style={{ top: pos.top, left: pos.left, width, minWidth: width }}
+            className={cn(
+              "fp-dropdown-panel animate-dropdown-in overflow-y-auto fp-dropdown-scroll",
+              pos.placement === "above" && "origin-bottom",
+            )}
+            style={{
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              minWidth: pos.width,
+              maxHeight: pos.listMaxHeight,
+            }}
           >
             {visible.map((item, index) => {
               const prev = visible[index - 1];
@@ -161,6 +228,7 @@ export function SearchableSelect({
   showAllOption = true,
   disabled = false,
   className,
+  compact = false,
   emptyMessage = "No options available",
   searchable = true,
   unresolvedLabel,
@@ -174,6 +242,7 @@ export function SearchableSelect({
   showAllOption?: boolean;
   disabled?: boolean;
   className?: string;
+  compact?: boolean;
   emptyMessage?: string;
   searchable?: boolean;
   unresolvedLabel?: string;
@@ -184,7 +253,13 @@ export function SearchableSelect({
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const [pos, setPos] = useState<FloatingPanelPosition>({
+    top: 0,
+    left: 0,
+    width: 220,
+    listMaxHeight: DEFAULT_LIST_MAX,
+    placement: "below",
+  });
 
   const selected = options.find((o) => o.value === value);
   const display =
@@ -201,8 +276,14 @@ export function SearchableSelect({
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
-  }, []);
+    setPos(
+      positionFloatingPanel(rect, {
+        width: Math.max(rect.width, 220),
+        listMaxHeight: DEFAULT_LIST_MAX,
+        headerHeight: searchable ? 52 : 0,
+      }),
+    );
+  }, [searchable]);
 
   useEffect(() => {
     if (!open) {
@@ -241,8 +322,11 @@ export function SearchableSelect({
       ? createPortal(
           <div
             ref={panelRef}
-            className="fp-dropdown-panel animate-dropdown-in overflow-hidden p-0"
-            style={{ top: pos.top, left: pos.left, width: Math.max(pos.width, 220) }}
+            className={cn(
+              "fp-dropdown-panel animate-dropdown-in overflow-hidden p-0",
+              pos.placement === "above" && "origin-bottom",
+            )}
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
           >
             <div className={cn("border-b border-slate-100 p-2", !searchable && "hidden")}>
               <div className="relative">
@@ -269,7 +353,12 @@ export function SearchableSelect({
                 />
               </div>
             </div>
-            <ul id={listId} role="listbox" className="max-h-56 overflow-y-auto py-1.5 fp-dropdown-scroll">
+            <ul
+              id={listId}
+              role="listbox"
+              className="overflow-y-auto py-1.5 fp-dropdown-scroll"
+              style={{ maxHeight: pos.listMaxHeight }}
+            >
               {showAllOption && !query && (
                 <li>
                   <button
@@ -339,9 +428,13 @@ export function SearchableSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!disabled) setOpen((o) => !o);
+        }}
         className={cn(
           "fp-select-trigger",
+          compact && "fp-select-trigger-compact",
           open && "fp-select-trigger-open",
           disabled && "cursor-not-allowed opacity-50",
           className,

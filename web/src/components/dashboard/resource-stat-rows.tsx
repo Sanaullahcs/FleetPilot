@@ -41,6 +41,7 @@ import {
 } from "@/components/dashboard/stat-icons";
 import { brand } from "@/lib/brand";
 import {
+  getComplaintStats,
   getDriverStats,
   getParentStats,
   getRouteStats,
@@ -449,6 +450,43 @@ export function RolesStatRow({
         hint="Permissions enabled"
         accent={brand.chart[4]}
         icon={<ChecklistIcon />}
+      />
+    </div>
+  );
+}
+
+export function ComplaintStatRow() {
+  const { data: stats, isLoading } = useQuery({ queryKey: ["complaint-stats"], queryFn: getComplaintStats });
+
+  return (
+    <div className={GRID}>
+      <DashboardStatTile
+        label="Open complaints"
+        value={loading(isLoading, stats?.open ?? 0)}
+        hint={`${stats?.total ?? 0} total registered`}
+        accent={brand.primary}
+        icon={<HeadsetIcon />}
+      />
+      <DashboardStatTile
+        label="Urgent priority"
+        value={loading(isLoading, stats?.urgent ?? 0)}
+        hint="Needs immediate attention"
+        accent={brand.orange}
+        icon={<AlertCircleIcon />}
+      />
+      <DashboardStatTile
+        label="Unassigned"
+        value={loading(isLoading, stats?.unassigned ?? 0)}
+        hint={`${stats?.waiting_on_submitter ?? 0} waiting on submitter`}
+        accent={brand.cyan}
+        icon={<UnassignedIcon />}
+      />
+      <DashboardStatTile
+        label="Resolved this week"
+        value={loading(isLoading, stats?.resolved_this_week ?? 0)}
+        hint="Closed in the last 7 days"
+        accent={brand.chart[4]}
+        icon={<CheckCircleIcon />}
       />
     </div>
   );

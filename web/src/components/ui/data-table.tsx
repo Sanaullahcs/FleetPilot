@@ -133,7 +133,7 @@ export function DataTable<T>({
   return (
     <>
       {/* Desktop / tablet table */}
-      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
+      <div className="hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block md:overflow-x-auto">
         <table className="w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>

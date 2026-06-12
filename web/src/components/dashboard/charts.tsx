@@ -117,7 +117,7 @@ function DashboardChartCard({
   return (
     <div
       className={cn(
-        "relative flex h-full min-h-[18rem] flex-col overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm sm:min-h-[20rem] sm:p-5",
+        "relative flex h-full min-h-[14rem] flex-col overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm sm:min-h-[15rem] sm:p-4",
         className,
       )}
     >
@@ -127,14 +127,14 @@ function DashboardChartCard({
         style={{ background: `radial-gradient(circle, ${accent} 0%, transparent 70%)` }}
         aria-hidden
       />
-      <div className="relative mb-3 flex flex-wrap items-start justify-between gap-2">
+      <div className="relative mb-2.5 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
         </div>
         {action}
       </div>
-      <div className="relative min-h-0 flex-1">{children}</div>
+      <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
@@ -416,9 +416,9 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
       accent={brand.primary}
       className="h-full min-w-0"
     >
-      <div className="h-44 w-full min-w-0 sm:h-48">
+      <div className="h-full min-h-[10rem] w-full min-w-0 flex-1">
         <ResponsiveContainer width="100%" height="100%" debounce={50}>
-          <BarChart data={colored} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="18%">
+          <BarChart data={colored} margin={{ top: 4, right: 4, left: 0, bottom: 2 }} barCategoryGap="20%">
             <XAxis
               dataKey="name"
               tick={{ fontSize: 11, fill: "#64748b" }}
@@ -433,7 +433,7 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
               tickLine={false}
               allowDecimals={false}
               width={28}
-              domain={[0, Math.ceil(maxVal * 1.15)]}
+              domain={[0, Math.ceil(maxVal * 1.12)]}
             />
             <Tooltip
               content={<ChartTooltipContent label="Count" />}
@@ -441,7 +441,7 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
               cursor={{ fill: "rgba(148,163,184,0.12)", radius: 6 }}
               wrapperStyle={tooltipWrapperStyle}
             />
-            <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+            <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={56} isAnimationActive={false}>
               {colored.map((entry) => (
                 <Cell key={entry.name} fill={entry.fill} />
               ))}
@@ -516,8 +516,9 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
       className="flex h-full min-w-0 flex-col"
       action={<StatusBadge>{activeTotal} active</StatusBadge>}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:items-center md:gap-5">
-        <div className="relative mx-auto h-32 w-32 shrink-0 md:mx-0">
+      <div className="flex h-full min-h-0 flex-1 flex-col gap-4 md:flex-row md:items-stretch md:gap-5">
+        <div className="flex min-h-[9.5rem] flex-1 items-center justify-center md:min-h-0 md:max-w-[46%]">
+          <div className="relative aspect-square h-full w-full max-h-full max-w-[11.5rem] md:max-w-none">
           <ResponsiveContainer width="100%" height="100%" debounce={50}>
             <PieChart>
               <Pie
@@ -567,14 +568,15 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
               </div>
             ) : (
               <div className="text-center leading-none">
-                <p className="text-xl font-semibold tabular-nums text-slate-900">{total}</p>
-                <p className="mt-0.5 text-[11px] text-slate-400">Routes</p>
+                <p className="text-2xl font-semibold tabular-nums text-slate-900">{total}</p>
+                <p className="mt-1 text-xs text-slate-400">Routes</p>
               </div>
             )}
           </div>
+          </div>
         </div>
 
-        <ul className="min-w-0 flex-1 space-y-2.5">
+        <ul className="flex min-h-0 flex-1 flex-col justify-center gap-2.5 md:gap-3">
           {colored.map((item, i) => {
             const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
             const active = item.active ?? item.value;
@@ -588,24 +590,24 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
                 onMouseEnter={() => setActiveIndex(i)}
                 onMouseLeave={() => setActiveIndex(null)}
               >
-                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                  <span className="flex min-w-0 items-center gap-1.5 font-medium text-slate-700">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.fill }} />
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-2 font-medium text-slate-700">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.fill }} />
                     <span className="truncate">{item.name}</span>
                   </span>
-                  <span className="shrink-0 font-medium tabular-nums text-slate-800">
+                  <span className="shrink-0 font-semibold tabular-nums text-slate-800">
                     {item.value}
                     <span className="ml-1 font-normal text-slate-400">({pct}%)</span>
                   </span>
                 </div>
-                <div className="h-1 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(pct, 4)}%`, background: item.fill }}
+                    style={{ width: `${Math.max(pct, 6)}%`, background: item.fill }}
                   />
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  <span className="font-medium text-emerald-700">{active}</span> active
+                <p className="mt-1 text-xs text-slate-500">
+                  <span className="font-semibold text-emerald-700">{active}</span> active
                   {item.value > 0 && <span className="text-slate-400"> · {activePct}% live</span>}
                 </p>
               </li>

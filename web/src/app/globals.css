@@ -133,7 +133,10 @@ body {
     @apply border-brand-accent ring-2 ring-brand-accent/20;
   }
   .fp-dropdown-panel {
-    @apply fixed z-[250] rounded-xl border border-slate-200/90 bg-white py-1.5 shadow-xl shadow-slate-300/25;
+    @apply fixed z-[300] rounded-xl border border-slate-200/90 bg-white py-1.5 shadow-xl shadow-slate-300/25;
+  }
+  .fp-select-trigger-compact {
+    @apply rounded-lg px-2.5 py-1.5 text-xs;
   }
   .fp-dropdown-scroll {
     scrollbar-width: thin;
@@ -296,6 +299,31 @@ body {
   background: #cbd5e1;
   border-radius: 9999px;
   border: none;
+}
+
+.fp-sidebar-brand {
+  @apply flex min-w-0 items-center gap-2.5 rounded-lg px-0.5 py-1 transition-colors duration-150;
+  @apply hover:bg-slate-50/80;
+}
+
+.fp-sidebar-brand-mark {
+  @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-light ring-1 ring-brand-primary/10;
+}
+
+.fp-sidebar-brand:hover .fp-sidebar-brand-mark {
+  @apply ring-brand-primary/20;
+}
+
+.fp-sidebar-brand-copy {
+  @apply flex min-w-0 flex-col justify-center gap-0;
+}
+
+.fp-sidebar-brand-name {
+  @apply block truncate text-[15px] font-bold leading-tight tracking-tight text-slate-900;
+}
+
+.fp-sidebar-brand-role {
+  @apply block truncate text-[11px] font-medium leading-tight text-slate-500;
 }
 
 @keyframes skeleton-shimmer {

@@ -36,7 +36,7 @@ export function StatCardSkeleton({ accent = brand.primary }: { accent?: string }
 
 export function ChartCardSkeleton({ tall = false }: { tall?: boolean }) {
   return (
-    <div className={cn("fp-card p-6", tall ? "min-h-[320px]" : "min-h-[260px]")}>
+    <div className={cn("fp-card p-6", tall ? "min-h-[240px]" : "min-h-[220px]")}>
       <Skeleton className="h-4 w-32" />
       <Skeleton className="mt-2 h-3 w-48" />
       <div className="mt-6 flex items-end justify-center gap-3">

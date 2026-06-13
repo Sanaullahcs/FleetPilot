@@ -31,7 +31,6 @@ export interface SignupSchool {
 export interface RegisterPayload {
   role: SignupRole;
   organization_id: string;
-  admin_user_id: string;
   school_id?: string;
   first_name: string;
   last_name: string;
@@ -59,7 +58,6 @@ export interface RegisterPayload {
 export interface SignupFormState {
   role: SignupRole;
   organizationId: string;
-  adminUserId: string;
   schoolId: string;
   firstName: string;
   lastName: string;
@@ -97,7 +95,6 @@ export const RELATIONSHIP_OPTIONS = [
 export const EMPTY_SIGNUP_FORM: SignupFormState = {
   role: 'parent',
   organizationId: '',
-  adminUserId: '',
   schoolId: '',
   firstName: '',
   lastName: '',
@@ -134,7 +131,6 @@ export function buildRegisterPayload(form: SignupFormState): RegisterPayload {
   return {
     role: form.role,
     organization_id: form.organizationId,
-    admin_user_id: form.adminUserId,
     school_id: !isDriver ? form.schoolId : undefined,
     first_name: form.firstName.trim(),
     last_name: form.lastName.trim(),
@@ -164,7 +160,6 @@ export function validateSignupForm(form: SignupFormState): FieldErrors<SignupFie
   const errors: FieldErrors<SignupField> = {};
 
   if (!form.organizationId) errors.organizationId = 'Select a transportation provider.';
-  if (!form.adminUserId) errors.adminUserId = 'Select an administrator.';
   if (form.role === 'parent' && !form.schoolId) errors.schoolId = 'Select a school.';
   if (!form.firstName.trim()) errors.firstName = 'First name is required.';
   if (!form.lastName.trim()) errors.lastName = 'Last name is required.';
@@ -188,7 +183,6 @@ export function validateSignupForm(form: SignupFormState): FieldErrors<SignupFie
 
 const SIGNUP_FIELD_MAP: Record<string, SignupField> = {
   organization_id: 'organizationId',
-  admin_user_id: 'adminUserId',
   school_id: 'schoolId',
   first_name: 'firstName',
   last_name: 'lastName',

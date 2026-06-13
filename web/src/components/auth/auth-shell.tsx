@@ -607,7 +607,7 @@ export function AuthRoleGrid({
 }) {
   if (compact) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
         {roles.map((r) => {
           const active = selected === r.id;
           return (
@@ -617,7 +617,7 @@ export function AuthRoleGrid({
               onClick={() => onSelect(r.id)}
               title={r.description}
               className={cn(
-                "auth-role-card flex flex-col items-center gap-1.5 px-2 py-2.5 text-center",
+                "auth-role-card flex min-w-0 flex-col items-center gap-1 px-1 py-2 text-center sm:gap-1.5 sm:px-2 sm:py-2.5",
                 active && "auth-role-card-active",
               )}
               style={active ? { borderColor: `${r.accent}66` } : undefined}
@@ -631,7 +631,7 @@ export function AuthRoleGrid({
               >
                 <r.Icon />
               </span>
-              <span className={cn("text-[11px] font-bold leading-tight", active ? "text-brand-secondary" : "text-slate-500")}>
+              <span className={cn("max-w-full text-[9px] font-bold leading-snug sm:text-[10px]", active ? "text-brand-secondary" : "text-slate-500")}>
                 {r.short}
               </span>
             </button>

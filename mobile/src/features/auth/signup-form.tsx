@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@/components/ui/icons';
 import { Colors, RoleAccents } from '@/constants/theme';
 import { ui } from '@/constants/ui-styles';
-import { fetchSignupAdmins, fetchSignupOrganizations, fetchSignupSchools, register } from '@/lib/auth-api';
+import { fetchSignupOrganizations, fetchSignupSchools, register } from '@/lib/auth-api';
 import {
   buildRegisterPayload,
   EMPTY_SIGNUP_FORM,
@@ -37,7 +37,6 @@ import { demoCredentialsForRole } from '@/features/auth/role-portals';
 
 type PickerKind =
   | 'organization'
-  | 'admin'
   | 'school'
   | 'relationship'
   | 'license_state'
@@ -87,12 +86,6 @@ export function SignupForm({
     queryFn: () => fetchSignupOrganizations(orgSearch || undefined),
   });
 
-  const admins = useQuery({
-    queryKey: ['signup-admins', form.organizationId],
-    queryFn: () => fetchSignupAdmins(form.organizationId),
-    enabled: !!form.organizationId,
-  });
-
   const schools = useQuery({
     queryKey: ['signup-schools', form.organizationId],
     queryFn: () => fetchSignupSchools(form.organizationId),
@@ -100,7 +93,7 @@ export function SignupForm({
   });
 
   useEffect(() => {
-    patch({ adminUserId: '', schoolId: '' });
+    patch({ schoolId: '' });
   }, [form.organizationId]);
 
   useEffect(() => {
@@ -123,7 +116,6 @@ export function SignupForm({
   const accent = form.role === 'driver' ? RoleAccents.driver : RoleAccents.parent;
 
   const selectedOrg = orgs.data?.find((o) => o.id === form.organizationId);
-  const selectedAdmin = admins.data?.find((a) => a.id === form.adminUserId);
   const selectedSchool = schools.data?.find((s) => s.id === form.schoolId);
   const selectedRelationship = RELATIONSHIP_OPTIONS.find((r) => r.value === form.relationship);
 
@@ -170,13 +162,6 @@ export function SignupForm({
     if (picker === 'organization') {
       return (orgs.data ?? []).map((o) => ({ id: o.id, title: o.name, subtitle: o.slug }));
     }
-    if (picker === 'admin') {
-      return (admins.data ?? []).map((a) => ({
-        id: a.id,
-        title: `${a.first_name} ${a.last_name}`,
-        subtitle: a.role === 'admin' ? 'Administrator' : 'Dispatcher',
-      }));
-    }
     if (picker === 'school') {
       return (schools.data ?? []).map((s) => ({
         id: s.id,
@@ -191,11 +176,10 @@ export function SignupForm({
       return US_STATES.map((s) => ({ id: s.value, title: s.label, subtitle: s.value }));
     }
     return [];
-  }, [picker, orgs.data, admins.data, schools.data]);
+  }, [picker, orgs.data, schools.data]);
 
   const onPick = (id: string) => {
     if (picker === 'organization') patch({ organizationId: id });
-    else if (picker === 'admin') patch({ adminUserId: id });
     else if (picker === 'school') patch({ schoolId: id });
     else if (picker === 'relationship') patch({ relationship: id });
     else if (picker === 'license_state') patch({ licenseState: id });
@@ -206,9 +190,7 @@ export function SignupForm({
   const pickerTitle =
     picker === 'organization'
       ? 'Transportation provider'
-      : picker === 'admin'
-        ? 'Administrator'
-        : picker === 'school'
+      : picker === 'school'
           ? 'School'
           : picker === 'relationship'
             ? 'Relationship to student'
@@ -261,15 +243,6 @@ export function SignupForm({
         onPress={() => setPicker('organization')}
         accent={accent}
         error={fieldErrors.organizationId}
-      />
-      <SelectField
-        label="Reviewing administrator"
-        value={selectedAdmin ? `${selectedAdmin.first_name} ${selectedAdmin.last_name}` : undefined}
-        placeholder={form.organizationId ? 'Select administrator' : 'Choose provider first'}
-        onPress={() => form.organizationId && setPicker('admin')}
-        disabled={!form.organizationId}
-        accent={accent}
-        error={fieldErrors.adminUserId}
       />
       {form.role === 'parent' ? (
         <SelectField
@@ -474,8 +447,7 @@ export function SignupForm({
                 autoCapitalize="none"
               />
             ) : null}
-            {(picker === 'admin' && admins.isLoading) ||
-            (picker === 'school' && schools.isLoading) ||
+            {(picker === 'school' && schools.isLoading) ||
             (picker === 'organization' && orgs.isFetching) ? (
               <ActivityIndicator color={Colors.primary} style={{ margin: 24 }} />
             ) : (

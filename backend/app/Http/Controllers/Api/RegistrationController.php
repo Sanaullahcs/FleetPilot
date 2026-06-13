@@ -139,14 +139,13 @@ class RegistrationController extends Controller
     {
         $data = $request->validate(array_merge([
             'organization_id' => ['required', 'uuid', 'exists:organizations,id'],
-            'admin_user_id' => ['required', 'uuid'],
             'date_of_birth' => ['nullable', 'date'],
             'emergency_contact_name' => ['nullable', 'string', 'max:100'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:20'],
             'employee_id' => ['nullable', 'string', 'max:50'],
         ], $this->driverCredentialRules(requireLicense: true, requireInsurance: true), $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
 
-        $admin = $this->resolveOrgAdmin($data['organization_id'], $data['admin_user_id']);
+        $admin = $this->resolveDefaultOrgAdmin($data['organization_id']);
 
         $user = User::create(array_merge(
             $this->userPayload($data, 'driver', false),
@@ -200,18 +199,7 @@ class RegistrationController extends Controller
             'department' => ['nullable', 'string', 'max:100'],
         ], $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
 
-        $admin = User::query()
-            ->where('organization_id', $data['organization_id'])
-            ->whereIn('role', ['admin', 'dispatcher'])
-            ->where('is_active', true)
-            ->orderByRaw("CASE WHEN role = 'admin' THEN 0 ELSE 1 END")
-            ->first();
-
-        if (! $admin) {
-            throw ValidationException::withMessages([
-                'organization_id' => ['This provider has no active administrator to review your request.'],
-            ]);
-        }
+        $admin = $this->resolveDefaultOrgAdmin($data['organization_id']);
 
         $school = School::create([
             'organization_id' => $data['organization_id'],
@@ -256,7 +244,6 @@ class RegistrationController extends Controller
     {
         $data = $request->validate(array_merge([
             'organization_id' => ['required', 'uuid', 'exists:organizations,id'],
-            'admin_user_id' => ['required', 'uuid'],
             'school_id' => ['required', 'uuid'],
             'relationship' => ['nullable', Rule::in(['mother', 'father', 'guardian', 'grandparent', 'other'])],
             'child_first_name' => ['nullable', 'string', 'max:100'],
@@ -264,7 +251,7 @@ class RegistrationController extends Controller
             'child_grade' => ['nullable', 'string', 'max:20'],
         ], $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
 
-        $admin = $this->resolveOrgAdmin($data['organization_id'], $data['admin_user_id']);
+        $admin = $this->resolveDefaultOrgAdmin($data['organization_id']);
         $this->resolveOrgSchool($data['organization_id'], $data['school_id']);
 
         $user = User::create(array_merge(
@@ -300,7 +287,6 @@ class RegistrationController extends Controller
     {
         $data = $request->validate(array_merge([
             'organization_id' => ['required', 'uuid', 'exists:organizations,id'],
-            'admin_user_id' => ['required', 'uuid'],
             'company_name' => ['required', 'string', 'max:255'],
             'business_type' => ['nullable', 'string', 'max:100'],
             'tax_id' => ['nullable', 'string', 'max:50'],
@@ -316,7 +302,7 @@ class RegistrationController extends Controller
             'mc_number' => ['nullable', 'string', 'max:50'],
         ], $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
 
-        $admin = $this->resolveOrgAdmin($data['organization_id'], $data['admin_user_id']);
+        $admin = $this->resolveDefaultOrgAdmin($data['organization_id']);
 
         $user = User::create(array_merge(
             $this->userPayload($data, 'contractor', false),
@@ -418,6 +404,25 @@ class RegistrationController extends Controller
         ]);
 
         return $parts ? implode(', ', $parts) : null;
+    }
+
+    private function resolveDefaultOrgAdmin(string $organizationId): User
+    {
+        $admin = User::query()
+            ->where('organization_id', $organizationId)
+            ->whereIn('role', ['admin', 'dispatcher'])
+            ->where('is_active', true)
+            ->orderByRaw("CASE WHEN role = 'admin' THEN 0 ELSE 1 END")
+            ->orderBy('last_name')
+            ->first();
+
+        if (! $admin) {
+            throw ValidationException::withMessages([
+                'organization_id' => ['This provider has no active administrator to review your request.'],
+            ]);
+        }
+
+        return $admin;
     }
 
     private function resolveOrgAdmin(string $organizationId, string $adminUserId): User

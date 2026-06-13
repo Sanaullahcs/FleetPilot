@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import {
-  fetchSignupAdmins,
   fetchSignupOrganizations,
   fetchSignupSchools,
   register as submitRegistration,
@@ -34,6 +33,13 @@ import { FileUploadField } from "@/components/ui/file-upload-field";
 import { brand } from "@/lib/brand";
 import { WEB_DEMO_ACCOUNTS } from "@/lib/demo-accounts";
 import { LICENSE_CLASSES, US_STATES } from "@/lib/us-states";
+import {
+  RoleIconContractor,
+  RoleIconDriver,
+  RoleIconParent,
+  RoleIconSchool,
+  RoleIconTransportationProvider,
+} from "@/components/auth/signup-role-icons";
 
 const addressFields = {
   address: z.string().min(1, "Street address is required.").max(500),
@@ -63,7 +69,6 @@ const signupSchema = z
     website: z.string().max(255).optional().or(z.literal("")),
     timezone: z.string().max(50).optional().or(z.literal("")),
     organization_id: z.string(),
-    admin_user_id: z.string(),
     school_id: z.string(),
     school_name: z.string().max(255),
     school_code: z.string().max(50).optional().or(z.literal("")),
@@ -132,9 +137,6 @@ const signupSchema = z
       if (!data.insurance_policy_number?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Policy number is required.", path: ["insurance_policy_number"] });
       if (!data.insurance_expiry?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Insurance expiry is required.", path: ["insurance_expiry"] });
     }
-    if (!data.admin_user_id) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select an administrator.", path: ["admin_user_id"] });
-    }
     if (data.role === "parent" && !data.school_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select a school.", path: ["school_id"] });
     }
@@ -143,11 +145,11 @@ const signupSchema = z
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 const ROLES: { id: SignupRole; label: string; short: string; description: string; accent: string; Icon: () => React.ReactNode }[] = [
-  { id: "admin", label: "Transportation Provider", short: "Provider", description: "Register your fleet company and manage operations", accent: brand.primary, Icon: RoleIconBus },
-  { id: "driver", label: "Driver", short: "Driver", description: "Join your employer and access your route schedule", accent: brand.cyan, Icon: RoleIconPerson },
-  { id: "school_contact", label: "School", short: "School", description: "Connect your campus with district transportation", accent: brand.orange, Icon: RoleIconSchool },
-  { id: "parent", label: "Parent", short: "Parent", description: "Track buses and stay connected with your child's school", accent: brand.accent, Icon: RoleIconFamily },
+  { id: "admin", label: "Transportation Provider", short: "Transportation Provider", description: "Register your fleet company and manage operations", accent: brand.primary, Icon: RoleIconTransportationProvider },
   { id: "contractor", label: "Contractor", short: "Contractor", description: "Operate routes a provider delegates to your fleet", accent: "#8B5CF6", Icon: RoleIconContractor },
+  { id: "school_contact", label: "School", short: "School", description: "Connect your campus with district transportation", accent: brand.orange, Icon: RoleIconSchool },
+  { id: "driver", label: "Driver", short: "Driver", description: "Join your employer and access your route schedule", accent: brand.cyan, Icon: RoleIconDriver },
+  { id: "parent", label: "Parent", short: "Parent", description: "Track buses and stay connected with your child's school", accent: brand.accent, Icon: RoleIconParent },
 ];
 
 const STEPS: Record<SignupRole, AuthStep[]> = {
@@ -195,17 +197,17 @@ const STEP_FIELDS: Record<SignupRole, Record<string, (keyof SignupFormValues)[]>
     account: ["first_name", "last_name", "email", "phone", "job_title", "password", "password_confirmation"],
   },
   driver: {
-    provider: ["organization_id", "admin_user_id"],
+    provider: ["organization_id"],
     account: ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
     profile: ["address", "city", "state", "zip", "license_number", "license_class", "license_state", "license_expiry", "insurance_provider", "insurance_policy_number", "insurance_expiry"],
   },
   parent: {
-    provider: ["organization_id", "admin_user_id", "school_id"],
+    provider: ["organization_id", "school_id"],
     account: ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
     family: ["address", "city", "state", "zip"],
   },
   contractor: {
-    provider: ["organization_id", "admin_user_id"],
+    provider: ["organization_id"],
     company: ["company_name", "business_type", "tax_id", "fleet_size", "driver_count", "vehicle_count", "years_in_business", "coverage_areas", "service_radius_miles", "insurance_carrier", "contractor_insurance_policy", "dot_number", "mc_number", "address", "city", "state", "zip"],
     account: ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
   },
@@ -254,7 +256,6 @@ const EMPTY_FORM: SignupFormValues = {
   website: "",
   timezone: "America/New_York",
   organization_id: "",
-  admin_user_id: "",
   school_id: "",
   school_name: "",
   school_code: "",
@@ -309,6 +310,7 @@ export default function SignupPage() {
   const isDriver = role === "driver";
   const isSchool = role === "school_contact";
   const isContractor = role === "contractor";
+  const isParent = role === "parent";
   const needsSchoolSelect = role === "parent";
   const activeRole = ROLES.find((r) => r.id === role)!;
   const steps = STEPS[role];
@@ -343,12 +345,6 @@ export default function SignupPage() {
     enabled: !isProvider,
   });
 
-  const adminsQuery = useQuery({
-    queryKey: ["signup-admins", organizationId],
-    queryFn: () => fetchSignupAdmins(organizationId),
-    enabled: !isProvider && !isSchool && !!organizationId,
-  });
-
   const schoolsQuery = useQuery({
     queryKey: ["signup-schools", organizationId],
     queryFn: () => fetchSignupSchools(organizationId),
@@ -356,10 +352,6 @@ export default function SignupPage() {
   });
 
   const orgOptions = useMemo(() => (orgsQuery.data ?? []).map((o) => ({ value: o.id, label: o.name })), [orgsQuery.data]);
-  const adminOptions = useMemo(
-    () => (adminsQuery.data ?? []).map((a) => ({ value: a.id, label: `${a.first_name} ${a.last_name}` })),
-    [adminsQuery.data],
-  );
   const schoolOptions = useMemo(
     () => (schoolsQuery.data ?? []).map((s) => ({ value: s.id, label: s.name })),
     [schoolsQuery.data],
@@ -369,7 +361,6 @@ export default function SignupPage() {
 
   const onOrgChange = (value: string) => {
     setValue("organization_id", value);
-    setValue("admin_user_id", "");
     setValue("school_id", "");
   };
 
@@ -438,7 +429,6 @@ export default function SignupPage() {
     website: isProvider ? v.website || undefined : undefined,
     timezone: isProvider ? v.timezone || undefined : undefined,
     organization_id: !isProvider ? v.organization_id : undefined,
-    admin_user_id: !isProvider && !isSchool ? v.admin_user_id : undefined,
     school_id: needsSchoolSelect ? v.school_id : undefined,
     school_name: isSchool ? v.school_name : undefined,
     school_code: isSchool ? v.school_code || undefined : undefined,
@@ -560,33 +550,51 @@ export default function SignupPage() {
 
                 {currentStep.id === "provider" && (
                   <div className="space-y-4">
-                    {isSchool ? (
-                      <>
-                        <AuthField label="Transportation Provider *" error={errors.organization_id?.message} hint="Select the company that handles your district's bus routes">
-                          <SearchableSelect value={organizationId} onChange={onOrgChange} options={orgOptions} placeholder="Select provider" showAllOption={false} />
-                        </AuthField>
-                        <div className="rounded-xl border border-brand-orange/20 bg-brand-orange/5 px-4 py-3 text-sm text-slate-600">
-                          <p className="font-semibold text-brand-secondary">What happens next?</p>
-                          <p className="mt-1 text-xs leading-relaxed">You&apos;ll enter your school details on the next step. Your provider will review and activate your account.</p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <AuthField label="Transportation Provider *" error={errors.organization_id?.message}>
-                          <SearchableSelect value={organizationId} onChange={onOrgChange} options={orgOptions} placeholder="Select provider" showAllOption={false} />
-                        </AuthField>
-                        <AuthField label="Administrator *" error={errors.admin_user_id?.message}>
-                          <SearchableSelect value={watch("admin_user_id")} onChange={(v) => setValue("admin_user_id", v)} options={adminOptions} placeholder={organizationId ? "Select admin" : "Select provider first"} showAllOption={false} disabled={!organizationId} />
-                        </AuthField>
-                        {needsSchoolSelect && (
-                          <div className="sm:col-span-2">
-                            <AuthField label="School *" error={errors.school_id?.message}>
-                              <SearchableSelect value={watch("school_id")} onChange={(v) => setValue("school_id", v)} options={schoolOptions} placeholder={organizationId ? "Select school" : "Select provider first"} showAllOption={false} disabled={!organizationId} />
-                            </AuthField>
-                          </div>
-                        )}
-                      </div>
+                    <AuthField
+                      label="Transportation Provider *"
+                      error={errors.organization_id?.message}
+                      hint={isSchool ? "Select the company that handles your district's bus routes" : undefined}
+                    >
+                      <SearchableSelect
+                        value={organizationId}
+                        onChange={onOrgChange}
+                        options={orgOptions}
+                        placeholder="Select provider"
+                        showAllOption={false}
+                      />
+                    </AuthField>
+                    {needsSchoolSelect && (
+                      <AuthField label="School *" error={errors.school_id?.message}>
+                        <SearchableSelect
+                          value={watch("school_id")}
+                          onChange={(v) => setValue("school_id", v)}
+                          options={schoolOptions}
+                          placeholder={organizationId ? "Select school" : "Select provider first"}
+                          showAllOption={false}
+                          disabled={!organizationId}
+                        />
+                      </AuthField>
                     )}
+                    <div
+                      className="rounded-xl border px-4 py-3 text-sm text-slate-600"
+                      style={{
+                        borderColor: `${activeRole.accent}33`,
+                        backgroundColor: `${activeRole.accent}0D`,
+                      }}
+                    >
+                      <p className="font-semibold text-brand-secondary">What happens next?</p>
+                      <p className="mt-1 text-xs leading-relaxed">
+                        {isSchool
+                          ? "You'll enter your school details on the next step. Your provider will review and activate your account."
+                          : isParent
+                            ? "After you submit, your transportation provider will review your request and link your children to your account."
+                            : isDriver
+                              ? "Your provider will review your credentials and activate your driver account before you can sign in."
+                              : isContractor
+                                ? "Your provider will review your company profile, activate your account, then assign schools and routes."
+                                : "Your provider will review your request and activate your account."}
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -783,7 +791,7 @@ export default function SignupPage() {
                 onSubmit={() => void submitRegistrationForm()}
                 isReviewStep={isReviewStep}
                 continueLabel="Continue"
-                submitLabel={isProvider ? "Create Provider Account" : "Submit Registration"}
+                submitLabel={isProvider ? "Create Transportation Provider Account" : "Submit Registration"}
                 loading={isSubmitting}
                 submitDisabled={isReviewStep && !confirmedReview}
               />
@@ -884,42 +892,5 @@ function ReviewPanel({
 
       <div className="h-0.5 rounded-full opacity-40" style={{ background: accent }} />
     </div>
-  );
-}
-
-function RoleIconBus() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 16h16M6 16V8a2 2 0 012-2h8a2 2 0 012 2v8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-function RoleIconPerson() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M5 20c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-function RoleIconSchool() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 3L3 8.5 12 14l9-5.5L12 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function RoleIconFamily() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M12 11a3 3 0 100-6 3 3 0 000 6zM5 20a7 7 0 0114 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-function RoleIconContractor() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M3 20V10l6-3 6 3v10M9 20v-5h6v5M15 20V7l6 2.5V20M3 20h18" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
   );
 }

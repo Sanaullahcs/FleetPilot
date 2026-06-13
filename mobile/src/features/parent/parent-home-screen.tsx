@@ -117,7 +117,7 @@ export function ParentHomeScreen() {
                 onPress={() => openChild(item.student.id)}
               >
                 <View style={styles.childRow}>
-                  <PhotoAvatar name={name} size={52} seed={item.student.id} />
+                  <PhotoAvatar name={name} variant="student" size={52} seed={item.student.id} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.childName}>{name}</Text>
                     <Text style={styles.childMeta}>

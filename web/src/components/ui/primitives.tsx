@@ -89,18 +89,22 @@ export function PageHeader({
   description,
   action,
   eyebrow,
+  compact,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
   eyebrow?: string;
+  compact?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        {eyebrow && <p className="fp-eyebrow mb-1">{eyebrow}</p>}
-        <h2 className="fp-title">{title}</h2>
-        {description && <p className="fp-subtitle mt-1.5">{description}</p>}
+        {eyebrow && <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{eyebrow}</p>}
+        <h2 className={compact ? "text-xl font-semibold text-brand-secondary" : "fp-title"}>{title}</h2>
+        {description && (
+          <p className={compact ? "mt-1 text-xs text-slate-500" : "fp-subtitle mt-1.5"}>{description}</p>
+        )}
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}
     </div>
@@ -153,9 +157,13 @@ export function StatCard({
 
 export function EmptyState({ message, icon }: { message: string; icon?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-      {icon && <div className="mb-3 text-brand-primary opacity-60">{icon}</div>}
-      <p className="text-sm text-slate-500">{message}</p>
+    <div className="fp-panel flex flex-col items-center justify-center px-6 py-12 text-center">
+      {icon ? (
+        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary [&_svg]:h-4 [&_svg]:w-4">
+          {icon}
+        </div>
+      ) : null}
+      <p className="max-w-md text-xs leading-relaxed text-slate-500">{message}</p>
     </div>
   );
 }

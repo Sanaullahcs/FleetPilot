@@ -219,6 +219,12 @@ export function MessagesScreen() {
           subtitle: 'Pickup, dismissal, and office coordination',
           data: driverGroups!.school,
         },
+        {
+          key: 'contractor',
+          title: 'Contractor',
+          subtitle: 'Messages from your fleet contractor',
+          data: driverGroups!.contractor,
+        },
       ];
 
       const visible = sections.filter((s) => s.data.length > 0);

@@ -21,8 +21,10 @@ class DispatchController extends Controller
     public function runsToday(Request $request): JsonResponse
     {
         $this->assertOpsRole($request);
-        $orgId = $request->user()->organization_id;
-        $schoolId = $this->schoolScopeId($request->user());
+        $user = $request->user();
+        $orgId = $user->organization_id;
+        $schoolId = $this->schoolScopeId($user);
+        $contractorRouteIds = $this->contractorRouteIds($user);
         $date = Carbon::parse($request->string('date')->toString() ?: today())->startOfDay();
         $dayOfWeek = $date->dayOfWeekIso;
 
@@ -34,6 +36,17 @@ class DispatchController extends Controller
                     $q->where('school_id', $schoolId);
                 }
             })
+            // Contractors see runs on routes delegated to them OR runs that the
+            // admin delegated to them per-day via the run assignment.
+            ->when($contractorRouteIds !== null, function ($q) use ($contractorRouteIds, $date, $user) {
+                $q->where(function ($inner) use ($contractorRouteIds, $date, $user) {
+                    $inner->whereHas('route', fn ($r) => $r->whereIn('id', $contractorRouteIds ?: ['__none__']))
+                        ->orWhereHas('assignments', fn ($a) => $a
+                            ->whereDate('service_date', $date)
+                            ->where('contractor_id', $user->id)
+                            ->where('status', '!=', 'cancelled'));
+                });
+            })
             ->with([
                 'route:id,name,code,type,school_id,days_of_week',
                 'route.school:id,name,code',
@@ -42,6 +55,7 @@ class DispatchController extends Controller
                     ->with([
                         'driver:id,first_name,last_name,employee_id,status',
                         'vehicle:id,vehicle_number,type,status',
+                        'contractor:id,first_name,last_name,job_title',
                     ]),
             ])
             ->orderBy('scheduled_start_time')
@@ -68,7 +82,8 @@ class DispatchController extends Controller
         $summarySource = $items;
         $items = $this->filterDispatchItems($items, $request);
 
-        $assigned = collect($summarySource)->filter(fn ($row) => $row['assignment'] !== null)->count();
+        $assigned = collect($summarySource)->filter(fn ($row) => ($row['assignment']['driver'] ?? null) !== null)->count();
+        $delegated = collect($summarySource)->filter(fn ($row) => ($row['assignment']['awaiting_driver'] ?? false) === true)->count();
         $inProgress = collect($summarySource)->filter(fn ($row) => ($row['assignment']['status'] ?? null) === 'in_progress')->count();
 
         return response()->json([
@@ -77,7 +92,8 @@ class DispatchController extends Controller
                 'summary' => [
                     'total' => count($summarySource),
                     'assigned' => $assigned,
-                    'unassigned' => count($summarySource) - $assigned,
+                    'delegated' => $delegated,
+                    'unassigned' => count($summarySource) - $assigned - $delegated,
                     'in_progress' => $inProgress,
                 ],
                 'runs' => array_values($items),
@@ -188,30 +204,74 @@ class DispatchController extends Controller
         $this->assertOpsRole($request);
         $this->authorizeRun($request, $run);
 
+        $user = $request->user();
+        $isContractor = $user->role === 'contractor';
+
         $data = $request->validate([
             'service_date' => ['required', 'date'],
-            'driver_id' => ['required', 'uuid', 'exists:drivers,id'],
-            'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
+            'driver_id' => ['nullable', 'uuid', 'exists:drivers,id'],
+            'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,id'],
+            'contractor_id' => ['nullable', 'uuid', 'exists:users,id'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $orgId = $request->user()->organization_id;
+        $orgId = $user->organization_id;
         $serviceDate = Carbon::parse($data['service_date'])->startOfDay();
-
-        $driver = $this->assertEligibleDriver($orgId, $data['driver_id']);
-        $vehicle = $this->assertActiveVehicle($orgId, $data['vehicle_id']);
 
         $existing = RunAssignment::where('run_id', $run->id)
             ->whereDate('service_date', $serviceDate)
             ->first();
 
-        $this->assertNoConflict(
-            $serviceDate,
-            $data['driver_id'],
-            $data['vehicle_id'],
-            $run,
-            $existing?->id,
-        );
+        // A contractor always operates as themselves and must supply both a
+        // driver and a vehicle from their own fleet.
+        $contractorId = $isContractor ? $user->id : ($data['contractor_id'] ?? $existing?->contractor_id);
+
+        $hasDriver = ! empty($data['driver_id']);
+        $hasVehicle = ! empty($data['vehicle_id']);
+
+        if ($hasDriver !== $hasVehicle) {
+            throw ValidationException::withMessages([
+                'driver_id' => 'Select both a driver and a vehicle, or neither.',
+            ]);
+        }
+
+        // Admin delegating to a contractor without picking a driver yet.
+        $delegateOnly = ! $isContractor && ! $hasDriver && ! empty($data['contractor_id']);
+
+        if (! $hasDriver && ! $delegateOnly) {
+            throw ValidationException::withMessages([
+                'driver_id' => $isContractor
+                    ? 'Select one of your drivers and a vehicle to dispatch this run.'
+                    : 'Assign a driver and vehicle, or delegate the run to a contractor.',
+            ]);
+        }
+
+        if ($contractorId) {
+            $this->assertValidContractor($orgId, $contractorId);
+        }
+
+        $driver = null;
+        $vehicle = null;
+
+        if ($hasDriver) {
+            $driver = $this->assertEligibleDriver($orgId, $data['driver_id']);
+            $vehicle = $this->assertActiveVehicle($orgId, $data['vehicle_id']);
+            $this->assertContractorOwns($user, $driver, $vehicle);
+
+            // When a run is delegated, the operating driver/vehicle must belong
+            // to the contractor it was delegated to.
+            if ($contractorId) {
+                $this->assertOwnedByContractor($contractorId, $driver, $vehicle);
+            }
+
+            $this->assertNoConflict(
+                $serviceDate,
+                $driver->id,
+                $vehicle->id,
+                $run,
+                $existing?->id,
+            );
+        }
 
         $assignment = RunAssignment::updateOrCreate(
             [
@@ -219,19 +279,21 @@ class DispatchController extends Controller
                 'service_date' => $serviceDate->toDateString(),
             ],
             [
-                'driver_id' => $driver->id,
-                'vehicle_id' => $vehicle->id,
+                'contractor_id' => $contractorId,
+                'driver_id' => $driver?->id,
+                'vehicle_id' => $vehicle?->id,
                 'status' => in_array($existing?->status, ['in_progress', 'completed'], true)
                     ? $existing->status
                     : 'scheduled',
                 'notes' => $data['notes'] ?? $existing?->notes,
-                'created_by' => $existing?->created_by ?? $request->user()->id,
+                'created_by' => $existing?->created_by ?? $user->id,
             ],
         );
 
         $assignment->load([
             'driver:id,first_name,last_name,employee_id,status',
             'vehicle:id,vehicle_number,type,status',
+            'contractor:id,first_name,last_name,job_title',
         ]);
 
         $run->load([
@@ -242,6 +304,7 @@ class DispatchController extends Controller
                 ->with([
                     'driver:id,first_name,last_name,employee_id,status',
                     'vehicle:id,vehicle_number,type,status',
+                    'contractor:id,first_name,last_name,job_title',
                 ]),
         ]);
 
@@ -250,7 +313,9 @@ class DispatchController extends Controller
                 'assignment' => $this->formatAssignment($assignment),
                 'run' => $this->formatRunRow($run),
             ],
-            'message' => 'Run assigned successfully.',
+            'message' => $delegateOnly
+                ? 'Run delegated to contractor. They will assign a driver and vehicle.'
+                : 'Run assigned successfully.',
         ]);
     }
 
@@ -269,6 +334,17 @@ class DispatchController extends Controller
             abort(403, 'You can only update assignments for your school.');
         }
 
+        $user = $request->user();
+        $isContractor = $user->role === 'contractor';
+        $contractorRouteIds = $this->contractorRouteIds($user);
+        if ($contractorRouteIds !== null) {
+            $routeAssigned = in_array($assignment->run?->route?->id, $contractorRouteIds, true);
+            $delegatedToMe = $assignment->contractor_id === $user->id;
+            if (! $routeAssigned && ! $delegatedToMe) {
+                abort(403, 'You can only update assignments delegated or routed to you.');
+            }
+        }
+
         if ($assignment->status === 'completed') {
             throw ValidationException::withMessages([
                 'assignment' => 'Completed assignments cannot be changed.',
@@ -285,6 +361,13 @@ class DispatchController extends Controller
         $driver = $this->assertEligibleDriver($orgId, $data['driver_id']);
         $vehicle = $this->assertActiveVehicle($orgId, $data['vehicle_id']);
 
+        // A contractor self-assigning takes (or keeps) ownership of the run.
+        $contractorId = $isContractor ? $user->id : $assignment->contractor_id;
+        $this->assertContractorOwns($user, $driver, $vehicle);
+        if ($contractorId) {
+            $this->assertOwnedByContractor($contractorId, $driver, $vehicle);
+        }
+
         $this->assertNoConflict(
             $serviceDate,
             $data['driver_id'],
@@ -294,6 +377,7 @@ class DispatchController extends Controller
         );
 
         $assignment->update([
+            'contractor_id' => $contractorId,
             'driver_id' => $driver->id,
             'vehicle_id' => $vehicle->id,
             'notes' => $data['notes'] ?? $assignment->notes,
@@ -303,6 +387,7 @@ class DispatchController extends Controller
         $assignment->load([
             'driver:id,first_name,last_name,employee_id,status',
             'vehicle:id,vehicle_number,type,status',
+            'contractor:id,first_name,last_name,job_title',
         ]);
 
         return response()->json([
@@ -324,6 +409,15 @@ class DispatchController extends Controller
         $schoolId = $this->schoolScopeId($request->user());
         if ($schoolId && $assignment->run?->route?->school_id !== $schoolId) {
             abort(403, 'You can only cancel assignments for your school.');
+        }
+
+        $contractorRouteIds = $this->contractorRouteIds($request->user());
+        if ($contractorRouteIds !== null) {
+            $routeAssigned = in_array($assignment->run?->route?->id, $contractorRouteIds, true);
+            $delegatedToMe = $assignment->contractor_id === $request->user()->id;
+            if (! $routeAssigned && ! $delegatedToMe) {
+                abort(403, 'You can only cancel assignments delegated or routed to you.');
+            }
         }
 
         if ($assignment->status === 'in_progress') {
@@ -370,9 +464,11 @@ class DispatchController extends Controller
 
         $assignment = $request->string('assignment')->toString();
         if ($assignment === 'unassigned') {
-            $items = array_values(array_filter($items, fn (array $row) => $row['assignment'] === null));
+            $items = array_values(array_filter($items, fn (array $row) => ($row['assignment']['driver'] ?? null) === null));
         } elseif ($assignment === 'assigned') {
-            $items = array_values(array_filter($items, fn (array $row) => $row['assignment'] !== null));
+            $items = array_values(array_filter($items, fn (array $row) => ($row['assignment']['driver'] ?? null) !== null));
+        } elseif ($assignment === 'delegated') {
+            $items = array_values(array_filter($items, fn (array $row) => ($row['assignment']['is_delegated'] ?? false) === true));
         }
 
         $status = $request->string('status')->toString();
@@ -436,6 +532,13 @@ class DispatchController extends Controller
             'service_date' => $assignment->service_date?->toDateString(),
             'status' => $assignment->status,
             'notes' => $assignment->notes,
+            'is_delegated' => $assignment->contractor_id !== null,
+            'awaiting_driver' => $assignment->contractor_id !== null && $assignment->driver_id === null,
+            'contractor' => $assignment->contractor ? [
+                'id' => $assignment->contractor->id,
+                'name' => trim($assignment->contractor->first_name . ' ' . $assignment->contractor->last_name),
+                'company' => $assignment->contractor->job_title,
+            ] : null,
             'driver' => $assignment->driver ? [
                 'id' => $assignment->driver->id,
                 'first_name' => $assignment->driver->first_name,
@@ -462,6 +565,53 @@ class DispatchController extends Controller
         $schoolId = $this->schoolScopeId($request->user());
         if ($schoolId && $run->route?->school_id !== $schoolId) {
             abort(403, 'You can only manage runs for your school.');
+        }
+
+        $contractorRouteIds = $this->contractorRouteIds($request->user());
+        if ($contractorRouteIds !== null) {
+            $routeAssigned = in_array($run->route?->id, $contractorRouteIds, true);
+            $delegatedToMe = RunAssignment::where('run_id', $run->id)
+                ->where('contractor_id', $request->user()->id)
+                ->exists();
+            if (! $routeAssigned && ! $delegatedToMe) {
+                abort(403, 'You can only manage runs delegated or routed to you.');
+            }
+        }
+    }
+
+    private function assertValidContractor(string $orgId, string $contractorId): \App\Models\User
+    {
+        $contractor = \App\Models\User::where('organization_id', $orgId)
+            ->where('role', 'contractor')
+            ->find($contractorId);
+
+        if (! $contractor) {
+            throw ValidationException::withMessages([
+                'contractor_id' => 'Selected contractor was not found in your organization.',
+            ]);
+        }
+
+        if (! $contractor->is_active) {
+            throw ValidationException::withMessages([
+                'contractor_id' => 'This contractor is not active yet. Approve them before delegating runs.',
+            ]);
+        }
+
+        return $contractor;
+    }
+
+    private function assertOwnedByContractor(string $contractorId, Driver $driver, Vehicle $vehicle): void
+    {
+        if ($driver->contractor_id !== $contractorId) {
+            throw ValidationException::withMessages([
+                'driver_id' => 'This run is delegated to a contractor — only their drivers can operate it.',
+            ]);
+        }
+
+        if ($vehicle->contractor_id !== $contractorId) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => 'This run is delegated to a contractor — only their vehicles can operate it.',
+            ]);
         }
     }
 
@@ -492,6 +642,21 @@ class DispatchController extends Controller
         }
 
         return $driver;
+    }
+
+    private function assertContractorOwns(\App\Models\User $user, Driver $driver, Vehicle $vehicle): void
+    {
+        if ($user->role !== 'contractor') {
+            return;
+        }
+
+        if ($driver->contractor_id !== $user->id) {
+            throw ValidationException::withMessages(['driver_id' => 'You can only assign your own drivers.']);
+        }
+
+        if ($vehicle->contractor_id !== $user->id) {
+            throw ValidationException::withMessages(['vehicle_id' => 'You can only assign your own vehicles.']);
+        }
     }
 
     private function assertActiveVehicle(string $orgId, string $vehicleId): Vehicle

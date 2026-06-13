@@ -64,28 +64,28 @@ export function DriverStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Total drivers"
+        label="Total Drivers"
         value={loading(isLoading, stats?.total ?? 0)}
         hint={`${stats?.active ?? 0} active on roster`}
         accent={brand.primary}
         icon={<DriverIcon />}
       />
       <DashboardStatTile
-        label="Vehicle assigned"
+        label="Vehicle Assigned"
         value={loading(isLoading, stats?.with_vehicle ?? 0)}
         hint={`${stats?.vehicle_assignment_pct ?? 0}% of active drivers`}
         accent={brand.cyan}
         icon={<VehicleIcon />}
       />
       <DashboardStatTile
-        label="With students"
+        label="With Students"
         value={loading(isLoading, stats?.with_students ?? 0)}
         hint="Drivers with assigned riders"
         accent={brand.orange}
         icon={<StudentsIcon />}
       />
       <DashboardStatTile
-        label="License expiring"
+        label="License Expiring"
         value={loading(isLoading, stats?.license_expiring_soon ?? 0)}
         hint="Within next 30 days"
         accent={brand.chart[4]}
@@ -101,14 +101,14 @@ export function ParentStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Parent accounts"
+        label="Parent Accounts"
         value={loading(isLoading, stats?.total ?? 0)}
         hint={`${stats?.active ?? 0} with portal access`}
         accent={brand.primary}
         icon={<ParentIcon />}
       />
       <DashboardStatTile
-        label="Linked students"
+        label="Linked Students"
         value={loading(isLoading, stats?.student_links ?? 0)}
         hint={
           stats
@@ -119,14 +119,14 @@ export function ParentStatRow() {
         icon={<LinkIcon />}
       />
       <DashboardStatTile
-        label="With children"
+        label="With Children"
         value={loading(isLoading, stats?.with_students ?? 0)}
         hint="Parents linked to at least one student"
         accent={brand.orange}
         icon={<FamilyIcon />}
       />
       <DashboardStatTile
-        label="Awaiting links"
+        label="Awaiting Links"
         value={loading(isLoading, stats?.without_students ?? 0)}
         hint="No students assigned yet"
         accent={brand.chart[4]}
@@ -142,14 +142,14 @@ export function StudentStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Active students"
+        label="Active Students"
         value={loading(isLoading, stats?.active ?? 0)}
         hint={`${stats?.total ?? 0} total on roster`}
         accent={brand.primary}
         icon={<StudentsIcon />}
       />
       <DashboardStatTile
-        label="Driver assigned"
+        label="Driver Assigned"
         value={loading(isLoading, stats?.assigned ?? 0)}
         hint={`${stats?.assignment_pct ?? 0}% of active students`}
         accent={brand.cyan}
@@ -163,7 +163,7 @@ export function StudentStatRow() {
         icon={<UnassignedIcon />}
       />
       <DashboardStatTile
-        label="Special needs"
+        label="Special Needs"
         value={loading(isLoading, stats?.special_needs ?? 0)}
         hint={`${stats?.with_parents ?? 0} with parent links`}
         accent={brand.chart[4]}
@@ -179,14 +179,14 @@ export function VehicleStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Fleet units"
+        label="Fleet Units"
         value={loading(isLoading, stats?.total ?? 0)}
         hint={`${stats?.active ?? 0} active vehicles`}
         accent={brand.primary}
         icon={<VehicleIcon />}
       />
       <DashboardStatTile
-        label="Driver assigned"
+        label="Driver Assigned"
         value={loading(isLoading, stats?.assigned ?? 0)}
         hint={`${stats?.assignment_pct ?? 0}% of active fleet`}
         accent={brand.cyan}
@@ -200,7 +200,7 @@ export function VehicleStatRow() {
         icon={<ParkingIcon />}
       />
       <DashboardStatTile
-        label="In maintenance"
+        label="In Maintenance"
         value={loading(isLoading, stats?.maintenance ?? 0)}
         hint="Out of rotation"
         accent={brand.chart[4]}
@@ -216,21 +216,21 @@ export function RouteStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Total routes"
+        label="Total Routes"
         value={loading(isLoading, stats?.total ?? 0)}
         hint={`${stats?.active ?? 0} active runs`}
         accent={brand.primary}
         icon={<RouteIcon />}
       />
       <DashboardStatTile
-        label="Active routes"
+        label="Active Routes"
         value={loading(isLoading, stats?.active ?? 0)}
         hint="Morning, afternoon & special runs"
         accent={brand.cyan}
         icon={<ScheduleIcon />}
       />
       <DashboardStatTile
-        label="Schools served"
+        label="Schools Served"
         value={loading(isLoading, stats?.schools_served ?? 0)}
         hint="Unique campuses on routes"
         accent={brand.orange}
@@ -253,7 +253,7 @@ export function UserStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Team members"
+        label="Team Members"
         value={loading(isLoading, stats?.total ?? 0)}
         hint={`${stats?.active ?? 0} active accounts`}
         accent={brand.primary}
@@ -290,21 +290,21 @@ export function SchoolStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Schools served"
+        label="Schools Served"
         value={loading(isLoading, stats?.schools ?? 0)}
         hint={`${stats?.schools_with_students ?? 0} with enrolled students`}
         accent={brand.primary}
         icon={<SchoolIcon />}
       />
       <DashboardStatTile
-        label="Students enrolled"
+        label="Students Enrolled"
         value={loading(isLoading, stats?.students_enrolled ?? 0)}
         hint={stats ? `~${stats.avg_students_per_school} avg per school` : "Active transportation roster"}
         accent={brand.cyan}
         icon={<StudentsIcon />}
       />
       <DashboardStatTile
-        label="Active routes"
+        label="Active Routes"
         value={loading(isLoading, stats?.active_routes ?? 0)}
         hint="Morning, afternoon & special runs"
         accent={brand.orange}
@@ -331,7 +331,7 @@ export function DispatchStatRow({
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Total runs"
+        label="Total Runs"
         value={isLoading ? "—" : summary.total}
         hint="Scheduled for service date"
         accent={brand.primary}
@@ -352,7 +352,7 @@ export function DispatchStatRow({
         icon={<AlertCircleIcon />}
       />
       <DashboardStatTile
-        label="In progress"
+        label="In Progress"
         value={isLoading ? "—" : summary.in_progress}
         hint="Runs underway now"
         accent={brand.cyan}
@@ -438,14 +438,14 @@ export function RolesStatRow({
         icon={<KeyIcon />}
       />
       <DashboardStatTile
-        label="Permission groups"
+        label="Permission Groups"
         value={isLoading ? "—" : groupCount}
         hint="Resource categories"
         accent={brand.orange}
         icon={<GridIcon />}
       />
       <DashboardStatTile
-        label="Selected role"
+        label="Selected Role"
         value={isLoading ? "—" : selectedPermissionCount}
         hint="Permissions enabled"
         accent={brand.chart[4]}
@@ -461,14 +461,14 @@ export function ComplaintStatRow() {
   return (
     <div className={GRID}>
       <DashboardStatTile
-        label="Open complaints"
+        label="Open Complaints"
         value={loading(isLoading, stats?.open ?? 0)}
         hint={`${stats?.total ?? 0} total registered`}
         accent={brand.primary}
         icon={<HeadsetIcon />}
       />
       <DashboardStatTile
-        label="Urgent priority"
+        label="Urgent Priority"
         value={loading(isLoading, stats?.urgent ?? 0)}
         hint="Needs immediate attention"
         accent={brand.orange}
@@ -482,7 +482,7 @@ export function ComplaintStatRow() {
         icon={<UnassignedIcon />}
       />
       <DashboardStatTile
-        label="Resolved this week"
+        label="Resolved This Week"
         value={loading(isLoading, stats?.resolved_this_week ?? 0)}
         hint="Closed in the last 7 days"
         accent={brand.chart[4]}
@@ -518,7 +518,7 @@ export function OrganizationStatRow({
         icon={<UsersGroupIcon />}
       />
       <DashboardStatTile
-        label="Platform role"
+        label="Platform Role"
         value="Super Admin"
         hint="Full tenant management"
         accent={brand.orange}

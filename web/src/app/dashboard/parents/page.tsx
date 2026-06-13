@@ -26,8 +26,8 @@ const ACTIVE_OPTIONS = [
 ];
 
 const STUDENTS_OPTIONS = [
-  { label: "Has students", value: "with_students" },
-  { label: "No students", value: "without_students" },
+  { label: "Has Students", value: "with_students" },
+  { label: "No Students", value: "without_students" },
 ];
 
 export default function ParentsPage() {
@@ -169,11 +169,11 @@ export default function ParentsPage() {
         description={
           isSchoolContact
             ? "Add and manage parent accounts, link students, and control portal access for families at your school."
-            : "Manage parent accounts, portal access, and assign students they can view in My children and live tracking."
+            : "Manage parent accounts, portal access, and assign students they can view in My Children and live tracking."
         }
         action={
           can("students.create") && (
-            <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add parent</Button>
+            <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add Parent</Button>
           )
         }
       />
@@ -189,7 +189,7 @@ export default function ParentsPage() {
         filters={[
           {
             key: "is_active",
-            label: "Portal access",
+            label: "Portal Access",
             value: isActive,
             onChange: (v) => { setIsActive(v); setPage(1); },
             options: ACTIVE_OPTIONS,
@@ -232,7 +232,7 @@ export default function ParentsPage() {
             <RowActions
               items={[
                 {
-                  label: "Assign students",
+                  label: "Assign Students",
                   onClick: () => setAssignParent(p),
                   hidden: !can("students.update"),
                 },

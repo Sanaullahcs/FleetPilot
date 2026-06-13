@@ -24,7 +24,7 @@ export function NavAuthCta() {
         href="/login"
         className="hidden rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-brand-primary sm:block"
       >
-        Sign in
+        Sign In
       </Link>
       <Link href="/signup" className="fp-mkt-btn-primary group">
         Get started

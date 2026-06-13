@@ -28,8 +28,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const DIRECTION_OPTIONS = [
-  { label: "To school", value: "to_school" },
-  { label: "From school", value: "from_school" },
+  { label: "To School", value: "to_school" },
+  { label: "From School", value: "from_school" },
   { label: "Other / special", value: "other" },
 ];
 
@@ -211,7 +211,7 @@ export function CreateDispatchRunModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Create dispatch run"
+      title="Create Dispatch Run"
       description="Schedule a new run on an active route. Optionally assign driver and vehicle for the selected service date."
       size="lg"
       footer={
@@ -226,8 +226,8 @@ export function CreateDispatchRunModal({
             {createMutation.isPending
               ? "Creating…"
               : assignNow && driverId && vehicleId
-                ? "Create & dispatch"
-                : "Create run"}
+                ? "Create & Dispatch"
+                : "Create Run"}
           </Button>
         </div>
       }
@@ -306,7 +306,7 @@ export function CreateDispatchRunModal({
             onChange={(e) => setAssignNow(e.target.checked)}
           />
           <span>
-            <span className="block text-sm font-semibold text-slate-900">Assign driver & vehicle now</span>
+            <span className="block text-sm font-semibold text-slate-900">Assign Driver & Vehicle Now</span>
             <span className="mt-0.5 block text-xs text-slate-500">
               Dispatch immediately for {serviceDate}. Uncheck to add the run unassigned.
             </span>

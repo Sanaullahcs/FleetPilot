@@ -15,6 +15,7 @@ class Driver extends Model
         'organization_id', 'user_id', 'contractor_id', 'default_vehicle_id', 'employee_id',
         'first_name', 'last_name', 'email', 'phone', 'license_number',
         'license_class', 'license_expiry', 'license_state', 'endorsements',
+        'insurance_provider', 'insurance_policy_number', 'insurance_expiry',
         'hire_date', 'status', 'date_of_birth', 'address',
         'emergency_contact_name', 'emergency_contact_phone',
         'medical_cert_expiry', 'background_check_date', 'drug_test_date', 'notes',
@@ -25,6 +26,7 @@ class Driver extends Model
         return [
             'endorsements' => 'array',
             'license_expiry' => 'date',
+            'insurance_expiry' => 'date',
             'hire_date' => 'date',
             'date_of_birth' => 'date',
             'medical_cert_expiry' => 'date',
@@ -46,6 +48,11 @@ class Driver extends Model
     public function students(): HasMany
     {
         return $this->hasMany(Student::class, 'assigned_driver_id');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(DriverDocument::class);
     }
 
     public function getFullNameAttribute(): string

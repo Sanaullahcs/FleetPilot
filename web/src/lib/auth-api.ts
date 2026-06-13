@@ -23,6 +23,19 @@ export interface UpdateProfilePayload {
   job_title?: string | null;
   password?: string;
   password_confirmation?: string;
+  company_name?: string | null;
+  business_type?: string | null;
+  tax_id?: string | null;
+  fleet_size?: number | null;
+  driver_count?: number | null;
+  vehicle_count?: number | null;
+  years_in_business?: number | null;
+  coverage_areas?: string | null;
+  service_radius_miles?: number | null;
+  insurance_carrier?: string | null;
+  insurance_policy_number?: string | null;
+  dot_number?: string | null;
+  mc_number?: string | null;
 }
 
 export async function updateProfile(payload: UpdateProfilePayload): Promise<AuthUser> {
@@ -72,7 +85,7 @@ export async function fetchSignupSchools(organizationId: string): Promise<School
   return data.data;
 }
 
-export type SignupRole = "admin" | "driver" | "school_contact" | "parent";
+export type SignupRole = "admin" | "driver" | "school_contact" | "parent" | "contractor";
 
 export interface RegisterPayload {
   role: SignupRole;
@@ -100,8 +113,11 @@ export interface RegisterPayload {
   // Driver
   employee_id?: string;
   license_number?: string;
+  license_class?: string;
   license_state?: string;
   license_expiry?: string;
+  insurance_provider?: string;
+  insurance_expiry?: string;
   date_of_birth?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
@@ -121,9 +137,37 @@ export interface RegisterPayload {
   child_first_name?: string;
   child_last_name?: string;
   child_grade?: string;
+  // Contractor
+  business_type?: string;
+  tax_id?: string;
+  fleet_size?: number;
+  driver_count?: number;
+  vehicle_count?: number;
+  years_in_business?: number;
+  coverage_areas?: string;
+  service_radius_miles?: number;
+  insurance_carrier?: string;
+  insurance_policy_number?: string;
+  dot_number?: string;
+  mc_number?: string;
 }
 
-export async function register(payload: RegisterPayload): Promise<{ message: string }> {
+export async function register(
+  payload: RegisterPayload,
+  files?: { license_document?: File | null; insurance_document?: File | null },
+): Promise<{ message: string }> {
+  if (files?.license_document || files?.insurance_document) {
+    const form = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) form.append(key, String(value));
+    });
+    if (files.license_document) form.append("license_document", files.license_document);
+    if (files.insurance_document) form.append("insurance_document", files.insurance_document);
+    const { data } = await api.post<{ message: string }>("/auth/signup/register", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  }
   const { data } = await api.post<{ message: string }>("/auth/signup/register", payload);
   return data;
 }

@@ -83,7 +83,7 @@ export default function LoginPage() {
 
   return (
     <LoginShell>
-      <AuthFormHeading title="Sign in" description="Enter your email and password to access your account." />
+      <AuthFormHeading title="Sign In" description="Enter your email and password to access your account." />
 
       <div className="mt-7">
         <form onSubmit={handleFormSubmit} className="space-y-4" noValidate>
@@ -127,7 +127,7 @@ export default function LoginPage() {
               loading={isSubmitting || redirecting}
               loadingLabel={redirecting ? "Opening workspace…" : "Signing in…"}
             >
-              Sign in
+              Sign In
             </AuthSubmitButton>
           </div>
         </form>

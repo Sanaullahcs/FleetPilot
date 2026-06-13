@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 type ViewFocus = "all" | "fleet" | "people";
 
 const FOCUS_OPTIONS: { id: ViewFocus; label: string; hint: string }[] = [
-  { id: "all", label: "All metrics", hint: "Full picture" },
+  { id: "all", label: "All Metrics", hint: "Full picture" },
   { id: "fleet", label: "Fleet", hint: "Vehicles & service" },
   { id: "people", label: "People", hint: "Drivers & students" },
 ];
@@ -181,7 +181,7 @@ function SchoolBySchoolInsight({ data, hidden }: { data: ChartPoint[]; hidden?: 
   if (hidden) return null;
 
   return (
-    <InsightCardShell accent={accent} title="Students by school" subtitle="Enrollment across campuses">
+    <InsightCardShell accent={accent} title="Students by School" subtitle="Enrollment Across Campuses">
       {!colored.length || total === 0 ? (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 text-sm text-slate-400">
           No data for current filters
@@ -251,7 +251,7 @@ export function FleetInsightsPanel({
       {onDismiss && (
         <DismissButton
           onClick={onDismiss}
-          label="Hide composition breakdown"
+          label="Hide Composition Breakdown"
           className="absolute right-3 top-3 z-10 sm:right-4 sm:top-4"
         />
       )}
@@ -303,15 +303,15 @@ export function FleetInsightsPanel({
               <>
                 <InsightDonut
                   data={analytics.vehicles_by_type ?? []}
-                  title="Vehicles by type"
-                  subtitle="Fleet mix"
+                  title="Vehicles by Type"
+                  subtitle="Fleet Mix"
                   colorOffset={2}
                   accent={chartColor(2)}
                 />
                 <InsightDonut
                   data={analytics.vehicle_status}
-                  title="Vehicle status"
-                  subtitle="Service state"
+                  title="Vehicle Status"
+                  subtitle="Service State"
                   colorOffset={1}
                   accent={chartColor(1)}
                 />
@@ -320,8 +320,8 @@ export function FleetInsightsPanel({
             {showPeopleDonuts && (
               <InsightDonut
                 data={analytics.driver_status ?? []}
-                title="Driver status"
-                subtitle="Roster state"
+                title="Driver Status"
+                subtitle="Roster State"
                 colorOffset={3}
                 accent={chartColor(3)}
               />
@@ -333,8 +333,8 @@ export function FleetInsightsPanel({
           <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2">
             <InsightDonut
               data={analytics.student_status ?? []}
-              title="Student status"
-              subtitle="Enrollment state"
+              title="Student Status"
+              subtitle="Enrollment State"
               colorOffset={4}
               accent={chartColor(4)}
             />

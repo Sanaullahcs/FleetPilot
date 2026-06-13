@@ -161,7 +161,7 @@ export default function DashboardPage() {
   const adminExtraCards = isAdmin && data?.users
     ? [
         {
-          label: "Active users",
+          label: "Active Users",
           value: data.users.total,
           hint: "Staff with portal access",
           href: "/dashboard/users",
@@ -169,7 +169,7 @@ export default function DashboardPage() {
           icon: <UserIcon />,
         },
         {
-          label: "Fleet health",
+          label: "Fleet Health",
           value:
             analytics?.operations_radar?.length
               ? `${Math.round(
@@ -189,7 +189,7 @@ export default function DashboardPage() {
     isDispatcher && !isAdmin && analytics?.operations_radar?.length
       ? [
           {
-            label: "Fleet health",
+            label: "Fleet Health",
             value: `${Math.round(
               analytics.operations_radar.reduce((s, d) => s + d.score, 0) /
                 analytics.operations_radar.length,
@@ -246,11 +246,11 @@ export default function DashboardPage() {
           <div className="space-y-5">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <DashboardStatTile label="Organizations" value={data.organizations?.total ?? 0} accent={brand.primary} icon={<OrgIcon />} />
-              <DashboardStatTile label="Platform users" value={data.users?.total ?? 0} accent={brand.cyan} icon={<UserIcon />} />
-              <DashboardStatTile label="Org admins" value={data.admins?.total ?? 0} accent={brand.orange} icon={<CrownIcon />} />
+              <DashboardStatTile label="Platform Users" value={data.users?.total ?? 0} accent={brand.cyan} icon={<UserIcon />} />
+              <DashboardStatTile label="Org Admins" value={data.admins?.total ?? 0} accent={brand.orange} icon={<CrownIcon />} />
             </div>
             <div className="fp-card p-6">
-              <h3 className="text-sm font-bold text-brand-secondary">Platform control</h3>
+              <h3 className="text-sm font-bold text-brand-secondary">Platform Control</h3>
               <p className="mt-1 text-sm text-slate-600">
                 As super admin you manage all transportation tenants and their administrator accounts.
               </p>
@@ -270,14 +270,14 @@ export default function DashboardPage() {
           <DismissibleSection
             visible
             onDismiss={adminBanner.dismiss}
-            dismissLabel="Hide organization control center"
+            dismissLabel="Hide Organization Control Center"
           >
             <div className="fp-card overflow-hidden pr-12">
               <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">Administrator</p>
-                    <h3 className="mt-0.5 text-lg font-bold text-brand-secondary">Organization control center</h3>
+                    <h3 className="mt-0.5 text-lg font-bold text-brand-secondary">Organization Control Center</h3>
                     <p className="mt-1 text-sm text-slate-600">
                       Manage users, roles, fleet data, and analytics for {user?.organization?.name ?? "your organization"}.
                     </p>
@@ -375,14 +375,14 @@ export default function DashboardPage() {
           <DismissibleSection
             visible
             onDismiss={quickActions.dismiss}
-            dismissLabel="Hide quick actions"
+            dismissLabel="Hide Quick Actions"
           >
             <div className="pr-10">
-              <QuickActionsPanel title="Quick actions" description="Common administration and fleet tasks">
-                <QuickActionTile href="/dashboard/dispatch" label="Today's dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
-                <QuickActionTile href="/dashboard/users" label="Users & access" description="Accounts, roles, passwords" accent={brand.orange} />
-                <QuickActionTile href="/dashboard/roles" label="Roles & permissions" description="RBAC and access control" accent={brand.cyan} />
-                <QuickActionTile href="/dashboard/routes" label="Manage routes" description="Routes and scheduled runs" accent={brand.accent} />
+              <QuickActionsPanel title="Quick Actions" description="Common administration and fleet tasks">
+                <QuickActionTile href="/dashboard/dispatch" label="Today's Dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
+                <QuickActionTile href="/dashboard/users" label="Users & Access" description="Accounts, roles, passwords" accent={brand.orange} />
+                <QuickActionTile href="/dashboard/roles" label="Roles & Permissions" description="RBAC and access control" accent={brand.cyan} />
+                <QuickActionTile href="/dashboard/routes" label="Manage Routes" description="Routes and scheduled runs" accent={brand.accent} />
               </QuickActionsPanel>
             </div>
           </DismissibleSection>
@@ -392,14 +392,14 @@ export default function DashboardPage() {
           <DismissibleSection
             visible
             onDismiss={quickActions.dismiss}
-            dismissLabel="Hide quick actions"
+            dismissLabel="Hide Quick Actions"
           >
             <div className="pr-10">
-              <QuickActionsPanel title="Quick actions" description="Jump to common dispatch tasks">
-                <QuickActionTile href="/dashboard/dispatch" label="Today's dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
-                <QuickActionTile href="/dashboard/radar" label="Live radar" description="Track fleet GPS in real time" accent={brand.cyan} />
-                <QuickActionTile href="/dashboard/routes" label="Manage routes" description="View and edit daily runs" accent={brand.orange} />
-                <QuickActionTile href="/dashboard/drivers" label="Driver roster" description="Licenses and compliance" accent={brand.accent} />
+              <QuickActionsPanel title="Quick Actions" description="Jump to common dispatch tasks">
+                <QuickActionTile href="/dashboard/dispatch" label="Today's Dispatch" description="Assign drivers & vehicles to runs" accent={brand.primary} />
+                <QuickActionTile href="/dashboard/radar" label="Live Radar" description="Track fleet GPS in real time" accent={brand.cyan} />
+                <QuickActionTile href="/dashboard/routes" label="Manage Routes" description="View and edit daily runs" accent={brand.orange} />
+                <QuickActionTile href="/dashboard/drivers" label="Driver Roster" description="Licenses and compliance" accent={brand.accent} />
               </QuickActionsPanel>
             </div>
           </DismissibleSection>

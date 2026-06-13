@@ -9,14 +9,14 @@ export interface StatusOption {
 export const DRIVER_STATUS_OPTIONS: StatusOption[] = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
-  { value: "on_leave", label: "On leave" },
+  { value: "on_leave", label: "On Leave" },
   { value: "terminated", label: "Terminated" },
 ];
 
 export const VEHICLE_STATUS_OPTIONS: StatusOption[] = [
   { value: "active", label: "Active" },
   { value: "maintenance", label: "Maintenance" },
-  { value: "out_of_service", label: "Out of service" },
+  { value: "out_of_service", label: "Out of Service" },
   { value: "retired", label: "Retired" },
 ];
 

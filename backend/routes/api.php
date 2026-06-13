@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\ComplaintController;
 use App\Http\Controllers\Api\ComplaintPortalController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ContractorController;
+use App\Http\Controllers\Api\ContractorPortalController;
 use App\Http\Controllers\Api\DispatchController;
 use App\Http\Controllers\Api\DashboardChatController;
 use App\Http\Controllers\Api\DashboardController;
@@ -77,9 +79,9 @@ Route::middleware('auth:api')->group(function () {
 
     Route::get('/dispatch/runs', [DispatchController::class, 'runsToday'])->middleware('permission:routes.view');
     Route::post('/dispatch/runs', [DispatchController::class, 'storeRun'])->middleware('permission:routes.update');
-    Route::post('/dispatch/runs/{run}/assign', [DispatchController::class, 'assign'])->middleware('permission:routes.update');
-    Route::patch('/dispatch/assignments/{assignment}', [DispatchController::class, 'updateAssignment'])->middleware('permission:routes.update');
-    Route::patch('/dispatch/assignments/{assignment}/cancel', [DispatchController::class, 'cancelAssignment'])->middleware('permission:routes.update');
+    Route::post('/dispatch/runs/{run}/assign', [DispatchController::class, 'assign'])->middleware('permission:runs.update');
+    Route::patch('/dispatch/assignments/{assignment}', [DispatchController::class, 'updateAssignment'])->middleware('permission:runs.update');
+    Route::patch('/dispatch/assignments/{assignment}/cancel', [DispatchController::class, 'cancelAssignment'])->middleware('permission:runs.update');
 
     Route::get('/parent/children', [ParentPortalController::class, 'children']);
     Route::get('/parent/profile', [ParentPortalController::class, 'profile']);
@@ -87,6 +89,8 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/parent/tracking', [ParentPortalController::class, 'tracking']);
 
     Route::get('/school/portal', [SchoolPortalController::class, 'portal']);
+
+    Route::get('/contractor/portal', [ContractorPortalController::class, 'summary']);
 
     Route::get('/driver/runs/today', [DriverPortalController::class, 'runsToday']);
     Route::get('/driver/schedule', [DriverPortalController::class, 'schedule']);
@@ -200,6 +204,17 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/roles', [RoleController::class, 'index'])->middleware('permission:users.view');
     Route::get('/permissions', [RoleController::class, 'permissions'])->middleware('permission:users.view');
     Route::put('/roles/{role}/permissions', [RoleController::class, 'updatePermissions'])->middleware('permission:users.update');
+
+    // Contractors (admin manages & delegates schools/routes)
+    Route::get('/contractors/stats', [ContractorController::class, 'stats'])->middleware('permission:contractors.view');
+    Route::get('/contractors', [ContractorController::class, 'index'])->middleware('permission:contractors.view');
+    Route::post('/contractors', [ContractorController::class, 'store'])->middleware('permission:contractors.create');
+    Route::get('/contractors/{contractor}', [ContractorController::class, 'show'])->middleware('permission:contractors.view');
+    Route::put('/contractors/{contractor}', [ContractorController::class, 'update'])->middleware('permission:contractors.update');
+    Route::delete('/contractors/{contractor}', [ContractorController::class, 'destroy'])->middleware('permission:contractors.delete');
+    Route::get('/contractors/{contractor}/options', [ContractorController::class, 'options'])->middleware('permission:contractors.update');
+    Route::post('/contractors/{contractor}/assignments', [ContractorController::class, 'assign'])->middleware('permission:contractors.update');
+    Route::delete('/contractor-assignments/{assignment}', [ContractorController::class, 'removeAssignment'])->middleware('permission:contractors.update');
 
     // Platform super admin
     Route::middleware('super_admin')->prefix('organizations')->group(function () {

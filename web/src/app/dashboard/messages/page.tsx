@@ -46,26 +46,96 @@ function formatListTime(iso: string) {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function typeLabel(type: DashboardChatConversation["type"]) {
+function participantHasRole(conversation: DashboardChatConversation, role: string): boolean {
+  return (conversation.participants ?? []).some((p) => p.role === role);
+}
+
+const STAFF_VIEWER_ROLES = new Set(["admin", "dispatcher", "super_admin"]);
+
+function isStaffViewer(role?: string) {
+  return !!role && STAFF_VIEWER_ROLES.has(role);
+}
+
+function otherParticipant(conversation: DashboardChatConversation) {
+  return (conversation.participants ?? []).find((p) => !STAFF_VIEWER_ROLES.has(p.role));
+}
+
+function conversationBadge(conversation: DashboardChatConversation, viewerRole?: string) {
+  const { type } = conversation;
+  if (isStaffViewer(viewerRole)) {
+    if (type === "driver_support") return "FleetPilot ↔ Driver";
+    if (type === "parent_support") return "FleetPilot ↔ Parent";
+    if (type === "staff_direct") {
+      const other = otherParticipant(conversation);
+      if (other?.role === "school_contact") return "FleetPilot ↔ School";
+      if (other?.role === "contractor") return "FleetPilot ↔ Contractor";
+      if (other?.role === "parent") return "FleetPilot ↔ Parent";
+    }
+    if (type === "parent_driver") return "Parent ↔ Driver";
+    if (type === "parent_school") return "Parent ↔ School";
+    if (type === "driver_school") return "Driver ↔ School";
+    if (type === "contractor_driver") return "Contractor ↔ Driver";
+  }
   if (type === "parent_driver") return "Parent ↔ Driver";
   if (type === "parent_school") return "Parent ↔ School";
   if (type === "driver_school") return "Driver ↔ School";
-  if (type === "parent_support") return "Transportation";
-  if (type === "staff_direct") return "Direct";
-  return "Driver support";
+  if (type === "parent_support") return "FleetPilot ↔ Parent";
+  if (type === "driver_support") return "FleetPilot ↔ Driver";
+  if (type === "contractor_driver") return "Contractor ↔ Driver";
+  if (type === "staff_direct") return "FleetPilot ↔ Transportation";
+  return "Message";
+}
+
+function conversationTitle(conversation: DashboardChatConversation, viewerRole?: string) {
+  if (isStaffViewer(viewerRole)) {
+    const other = otherParticipant(conversation);
+    if (
+      other &&
+      (conversation.type === "driver_support" ||
+        conversation.type === "parent_support" ||
+        conversation.type === "staff_direct")
+    ) {
+      return other.name;
+    }
+  }
+  return conversation.title;
+}
+
+function conversationSubtitle(conversation: DashboardChatConversation, viewerRole?: string) {
+  if (isStaffViewer(viewerRole)) {
+    if (conversation.type === "driver_support") {
+      return "FleetPilot dispatch, admin & app support";
+    }
+    if (conversation.type === "parent_support") {
+      return "FleetPilot dispatch & route support";
+    }
+    if (conversation.type === "staff_direct") {
+      const other = otherParticipant(conversation);
+      if (other?.role === "school_contact") {
+        return conversation.subtitle ?? "School contact";
+      }
+      if (other?.role === "contractor") {
+        return conversation.subtitle ?? "Contractor";
+      }
+      return conversation.subtitle ?? "";
+    }
+    if (conversation.type === "parent_driver") return "Pickup, routes & rider updates";
+    if (conversation.type === "parent_school") return "Enrollment, attendance & dismissals";
+    if (conversation.type === "driver_school") return "Route times & school coordination";
+    if (conversation.type === "contractor_driver") return "Contractor fleet thread";
+  }
+
+  const names = (conversation.participants ?? []).map((p) => p.name).filter(Boolean);
+  if (names.length) return names.join(" · ");
+  return conversation.subtitle ?? "";
 }
 
 function typeBadgeClass(type: DashboardChatConversation["type"]) {
   if (type === "parent_driver") return "bg-cyan-50 text-cyan-700";
   if (type === "parent_school" || type === "driver_school") return "bg-violet-50 text-violet-700";
   if (type === "parent_support") return "bg-amber-50 text-amber-700";
+  if (type === "contractor_driver") return "bg-indigo-50 text-indigo-700";
   return "bg-slate-100 text-slate-600";
-}
-
-function participantLine(conversation: DashboardChatConversation): string {
-  const names = (conversation.participants ?? []).map((p) => p.name).filter(Boolean);
-  if (names.length) return names.join(" · ");
-  return conversation.subtitle ?? "";
 }
 
 function initials(title: string) {
@@ -82,15 +152,22 @@ function visibleTabsForRole(role: string | undefined): MessageCategoryTab[] {
     return ["parent_support", "parent_driver", "parent_school"];
   }
   if (role === "driver") {
-    return ["driver_support", "parent_driver", "driver_school"];
+    return ["driver_support", "parent_driver", "driver_school", "contractor_driver"];
   }
-  return ["all", "parent_driver", "parent_school", "driver_school", "parent_support", "driver_support"];
+  if (role === "contractor") {
+    return ["staff_direct", "contractor_driver"];
+  }
+  return ["all", "direct_school", "direct_driver", "direct_contractor", "direct_parent", "driver_school", "parent_driver", "parent_school", "contractor_driver"];
 }
 
 export default function MessagesPage() {
   const queryClient = useQueryClient();
   const userRole = useAuthStore((s) => s.user?.role);
-  const canStartChat = userRole === "admin" || userRole === "dispatcher" || userRole === "school_contact";
+  const canStartChat =
+    userRole === "admin" ||
+    userRole === "dispatcher" ||
+    userRole === "school_contact" ||
+    userRole === "contractor";
   const visibleTabs = useMemo(() => visibleTabsForRole(userRole), [userRole]);
   const defaultTab = visibleTabs[0] ?? "all";
 
@@ -132,11 +209,11 @@ export default function MessagesPage() {
       return (
         participantText.includes(q) ||
         lastBody.includes(q) ||
-        c.title.toLowerCase().includes(q) ||
-        typeLabel(c.type).toLowerCase().includes(q)
+        conversationTitle(c, userRole).toLowerCase().includes(q) ||
+        conversationBadge(c, userRole).toLowerCase().includes(q)
       );
     });
-  }, [conversations, activeTab, search]);
+  }, [conversations, activeTab, search, userRole]);
 
   const activeTabConfig = tabDisplayForRole(activeTab, userRole);
 
@@ -316,11 +393,13 @@ export default function MessagesPage() {
                         active ? "bg-brand-primary text-white" : "bg-slate-100 text-slate-600",
                       )}
                     >
-                      {initials(item.title)}
+                      {initials(conversationTitle(item, userRole))}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-[13px] font-semibold text-slate-900">{item.title}</span>
+                        <span className="truncate text-[13px] font-semibold text-slate-900">
+                          {conversationTitle(item, userRole)}
+                        </span>
                         {item.last_message ? (
                           <span className="shrink-0 text-[10px] text-slate-400">
                             {formatListTime(item.last_message.time)}
@@ -328,8 +407,8 @@ export default function MessagesPage() {
                         ) : null}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5">
-                        <span className={cn("rounded px-1 py-0.5 text-[9px] font-semibold uppercase", typeBadgeClass(item.type))}>
-                          {typeLabel(item.type)}
+                        <span className={cn("rounded px-1 py-0.5 text-[9px] font-semibold", typeBadgeClass(item.type))}>
+                          {conversationBadge(item, userRole)}
                         </span>
                         {item.unread_count > 0 ? (
                           <span className="rounded-full bg-brand-primary px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -360,16 +439,18 @@ export default function MessagesPage() {
             <>
               <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-2.5">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-[10px] font-bold text-white">
-                  {initials(activeConversation.title)}
+                  {initials(conversationTitle(activeConversation, userRole))}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">{activeConversation.title}</p>
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {conversationTitle(activeConversation, userRole)}
+                  </p>
                   <p className="truncate text-[11px] text-slate-500">
-                    {participantLine(activeConversation)}
+                    {conversationSubtitle(activeConversation, userRole)}
                   </p>
                 </div>
                 <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold", typeBadgeClass(activeConversation.type))}>
-                  {typeLabel(activeConversation.type)}
+                  {conversationBadge(activeConversation, userRole)}
                 </span>
               </div>
 
@@ -457,16 +538,46 @@ export default function MessagesPage() {
         description={
           userRole === "school_contact"
             ? "Message parents, drivers, or transportation staff connected to your school."
-            : "Start a conversation with anyone in your organization."
+            : userRole === "contractor"
+              ? "Message transportation administrators or drivers on your fleet."
+              : "Start a conversation with anyone in your organization."
         }
         onStarted={(conversationId) => {
           setSelectedId(conversationId);
           const started = conversations.find((c) => c.id === conversationId);
-          if (started?.type === "parent_school") setActiveTab("parent_school");
-          else if (started?.type === "driver_school") setActiveTab("driver_school");
-          else if (started?.type === "staff_direct") setActiveTab("staff_direct");
-          else if (userRole === "school_contact") setActiveTab(defaultTab);
-          else setActiveTab("all");
+          if (!started) {
+            setActiveTab(defaultTab);
+            return;
+          }
+          if (started.type === "driver_support") {
+            setActiveTab(userRole === "driver" ? "driver_support" : "direct_driver");
+          } else if (started.type === "parent_support") {
+            setActiveTab(userRole === "parent" ? "parent_support" : "direct_parent");
+          } else if (started.type === "staff_direct") {
+            if (userRole === "school_contact" || userRole === "contractor") {
+              setActiveTab("staff_direct");
+            } else if (participantHasRole(started, "school_contact")) {
+              setActiveTab("direct_school");
+            } else if (participantHasRole(started, "contractor")) {
+              setActiveTab("direct_contractor");
+            } else if (participantHasRole(started, "parent")) {
+              setActiveTab("direct_parent");
+            } else {
+              setActiveTab("all");
+            }
+          } else if (started.type === "parent_school") {
+            setActiveTab("parent_school");
+          } else if (started.type === "driver_school") {
+            setActiveTab("driver_school");
+          } else if (started.type === "parent_driver") {
+            setActiveTab("parent_driver");
+          } else if (started.type === "contractor_driver") {
+            setActiveTab("contractor_driver");
+          } else if (userRole === "school_contact") {
+            setActiveTab(defaultTab);
+          } else {
+            setActiveTab("all");
+          }
         }}
       />
     </div>

@@ -47,6 +47,33 @@ export function QuickActionTile({
   );
 }
 
+export function CompactQuickActions({
+  items,
+  flat,
+}: {
+  items: { href: string; label: string; accent: string }[];
+  flat?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Quick</span>
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50",
+            !flat && "shadow-sm",
+          )}
+        >
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: item.accent }} aria-hidden />
+          {item.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function QuickActionsPanel({
   title,
   description,

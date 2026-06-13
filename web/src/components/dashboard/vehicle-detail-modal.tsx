@@ -56,15 +56,15 @@ export function VehicleDetailModal({
         <div className="space-y-6">
           <DetailStats>
             <DetailStat label="Capacity" value={v.capacity ?? "—"} accent />
-            <DetailStat label="WC seats" value={v.wheelchair_capacity} />
+            <DetailStat label="WC Seats" value={v.wheelchair_capacity} />
             <DetailStat label="Year" value={v.year ?? "—"} />
             <DetailStat label="Odometer" value={v.current_odometer != null ? `${v.current_odometer.toLocaleString()} mi` : "—"} />
           </DetailStats>
 
           <DetailSection title="Identification">
             <DetailGrid>
-              <DetailItem label="Vehicle number" value={v.vehicle_number} mono />
-              <DetailItem label="License plate" value={v.license_plate} mono />
+              <DetailItem label="Vehicle Number" value={v.vehicle_number} mono />
+              <DetailItem label="License Plate" value={v.license_plate} mono />
               <DetailItem label="VIN" value={v.vin} className="sm:col-span-2" mono />
               <DetailItem label="Type" value={titleCase(v.type.replace(/_/g, " "))} />
               <DetailItem label="Status" value={<StatusBadge status={v.status} />} />
@@ -73,21 +73,21 @@ export function VehicleDetailModal({
 
           <DetailSection title="Compliance & expiry">
             <DetailGrid>
-              <DetailItem label="Registration expires" value={formatDate(v.registration_expiry)} />
-              <DetailItem label="Insurance expires" value={formatDate(v.insurance_expiry)} />
-              <DetailItem label="Inspection expires" value={formatDate(v.inspection_expiry)} />
-              <DetailItem label="Fuel type" value={v.fuel_type ? titleCase(v.fuel_type) : "—"} />
+              <DetailItem label="Registration Expires" value={formatDate(v.registration_expiry)} />
+              <DetailItem label="Insurance Expires" value={formatDate(v.insurance_expiry)} />
+              <DetailItem label="Inspection Expires" value={formatDate(v.inspection_expiry)} />
+              <DetailItem label="Fuel Type" value={v.fuel_type ? titleCase(v.fuel_type) : "—"} />
             </DetailGrid>
           </DetailSection>
 
           <DetailSection title="Operations">
             <DetailGrid>
-              <DetailItem label="Garage location" value={v.garage_location} className="sm:col-span-2" />
-              <DetailItem label="Cost per mile" value={v.cost_per_mile != null ? `$${v.cost_per_mile.toFixed(2)}` : "—"} />
+              <DetailItem label="Garage Location" value={v.garage_location} className="sm:col-span-2" />
+              <DetailItem label="Cost Per Mile" value={v.cost_per_mile != null ? `$${v.cost_per_mile.toFixed(2)}` : "—"} />
             </DetailGrid>
           </DetailSection>
 
-          <DetailSection title="Assigned driver">
+          <DetailSection title="Assigned Driver">
             <DetailGrid>
               {v.assigned_driver ? (
                 <>

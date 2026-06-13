@@ -60,20 +60,20 @@ export function RouteDetailModal({
       {route && (
         <div className="space-y-6">
           <DetailStats>
-            <DetailStat label="Scheduled runs" value={route.runs_count ?? route.runs?.length ?? 0} accent />
+            <DetailStat label="Scheduled Runs" value={route.runs_count ?? route.runs?.length ?? 0} accent />
             <DetailStat label="Type" value={TYPE_LABELS[route.type] ?? titleCase(route.type)} />
             <DetailStat label="Status" value={titleCase(route.status)} />
             <DetailStat label="School" value={route.school?.code ?? "—"} />
           </DetailStats>
 
-          <DetailSection title="Route configuration">
+          <DetailSection title="Route Configuration">
             <DetailGrid>
-              <DetailItem label="Route code" value={route.code} mono />
-              <DetailItem label="Service type" value={TYPE_LABELS[route.type] ?? titleCase(route.type)} />
-              <DetailItem label="Assigned school" value={route.school?.name} />
+              <DetailItem label="Route Code" value={route.code} mono />
+              <DetailItem label="Service Type" value={TYPE_LABELS[route.type] ?? titleCase(route.type)} />
+              <DetailItem label="Assigned School" value={route.school?.name} />
               <DetailItem label="Status" value={<StatusBadge status={route.status} />} />
               <DetailItem
-                label="Days of week"
+                label="Days of Week"
                 value={
                   route.days_of_week?.length
                     ? route.days_of_week.map((d: number) => DAY_LABELS[d] ?? d).join(", ")
@@ -88,7 +88,7 @@ export function RouteDetailModal({
           </DetailSection>
 
           {route.runs && route.runs.length > 0 && (
-            <DetailSection title="Scheduled runs" description="Active and planned services on this route.">
+            <DetailSection title="Scheduled Runs" description="Active and planned services on this route.">
               <div className="space-y-2">
                 {route.runs.map((run) => (
                   <div

@@ -26,7 +26,7 @@ const TYPE_OPTIONS = [
   { label: "Afternoon (PM)", value: "pm" },
   { label: "Midday", value: "midday" },
   { label: "Activity", value: "activity" },
-  { label: "Special education", value: "sped" },
+  { label: "Special Education", value: "sped" },
   { label: "Charter / field trip", value: "charter" },
 ];
 
@@ -141,7 +141,7 @@ export default function RoutesPage() {
         title="Routes"
         description="Transportation routes and their scheduled runs."
         action={can("routes.create") && (
-          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add route</Button>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add Route</Button>
         )}
       />
 
@@ -156,7 +156,7 @@ export default function RoutesPage() {
         filters={[
           {
             key: "type",
-            label: "Route type",
+            label: "Route Type",
             value: type,
             onChange: (v) => { setType(v); setPage(1); },
             options: TYPE_OPTIONS,
@@ -202,9 +202,9 @@ export default function RoutesPage() {
           actions={(r) => (
             <RowActions
               items={[
-                { label: "View details", onClick: () => { setViewingId(r.id); setViewingName(r.name); } },
+                { label: "View Details", onClick: () => { setViewingId(r.id); setViewingName(r.name); } },
                 { label: "Edit", onClick: () => { setEditing(r); setModalOpen(true); }, hidden: !can("routes.update") },
-                { label: "Change status", onClick: () => handleStatusChange(r), hidden: !can("routes.update") },
+                { label: "Change Status", onClick: () => handleStatusChange(r), hidden: !can("routes.update") },
                 { label: "Delete", variant: "danger", onClick: () => handleDelete(r), hidden: !can("routes.delete") },
               ]}
             />

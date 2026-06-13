@@ -52,6 +52,7 @@ class DatabaseSeeder extends Seeder
         $resources = [
             'students', 'routes', 'runs', 'drivers', 'vehicles',
             'schools', 'stops', 'billing', 'reports', 'users', 'roles', 'settings', 'complaints',
+            'contractors',
         ];
         $actions = ['view', 'create', 'update', 'delete'];
 
@@ -106,7 +107,23 @@ class DatabaseSeeder extends Seeder
                     'drivers.view',
                     'vehicles.view',
                     'schools.view',
-                    'complaints.view',
+                    'complaints.create',
+                ],
+            ],
+            'contractor' => [
+                'name' => 'Contractor',
+                'permissions' => [
+                    'routes.view',
+                    'runs.view',
+                    'runs.update',
+                    'drivers.view',
+                    'drivers.create',
+                    'drivers.update',
+                    'vehicles.view',
+                    'vehicles.create',
+                    'vehicles.update',
+                    'schools.view',
+                    'students.view',
                     'complaints.create',
                 ],
             ],
@@ -140,6 +157,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'dispatch@fleetpilot.test', 'first_name' => 'Dana', 'last_name' => 'Dispatcher', 'role' => 'dispatcher'],
             ['email' => 'driver@fleetpilot.test', 'first_name' => 'Drew', 'last_name' => 'Driver', 'role' => 'driver'],
             ['email' => 'parent@fleetpilot.test', 'first_name' => 'Pat', 'last_name' => 'Parent', 'role' => 'parent'],
+            ['email' => 'contractor@fleetpilot.test', 'first_name' => 'Cory', 'last_name' => 'Contractor', 'role' => 'contractor'],
         ];
 
         foreach ($users as $data) {

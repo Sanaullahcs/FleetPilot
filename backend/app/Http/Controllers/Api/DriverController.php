@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Http\Controllers\Concerns\SortsQueries;
+use App\Http\Controllers\Concerns\StoresDriverCredentials;
 use App\Models\Driver;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ class DriverController extends Controller
 {
     use ResolvesAccessScope;
     use SortsQueries;
+    use StoresDriverCredentials;
 
     public function index(Request $request): JsonResponse
     {
@@ -24,6 +26,7 @@ class DriverController extends Controller
 
         $drivers = Driver::forOrganization($orgId);
         $drivers = $this->applySchoolDriverScope($request->user(), $drivers);
+        $drivers = $this->applyContractorOwnedScope($request->user(), $drivers);
         $drivers = $drivers
             ->with('defaultVehicle:id,vehicle_number,type,status')
             ->when(
@@ -64,6 +67,7 @@ class DriverController extends Controller
         $orgId = $request->user()->organization_id;
         $drivers = Driver::forOrganization($orgId);
         $drivers = $this->applySchoolDriverScope($request->user(), $drivers);
+        $drivers = $this->applyContractorOwnedScope($request->user(), $drivers);
 
         $total = (clone $drivers)->count();
         $active = (clone $drivers)->where('status', 'active')->count();
@@ -92,8 +96,19 @@ class DriverController extends Controller
         $this->authorizeOrg($request, $driver);
         $this->authorizeDriverInSchoolScope($request->user(), $driver);
 
+        $driver->load([
+            'defaultVehicle:id,vehicle_number,type,status,make,model,year,capacity,wheelchair_capacity,license_plate,fuel_type',
+            'documents:id,driver_id,document_type,original_filename,expiry_date,status,created_at',
+            'students' => fn ($q) => $q->where('status', 'active')
+                ->with('school:id,name,code')
+                ->orderBy('last_name')
+                ->orderBy('first_name')
+                ->limit(25)
+                ->select(['id', 'student_number', 'first_name', 'last_name', 'grade', 'school_id', 'assigned_driver_id']),
+        ])->loadCount('students');
+
         return response()->json([
-            'data' => $driver->load('defaultVehicle:id,vehicle_number,type,status,make,model'),
+            'data' => $driver,
         ]);
     }
 
@@ -104,12 +119,18 @@ class DriverController extends Controller
         $vehiclePayload = $data['vehicle'] ?? null;
         unset($data['vehicle']);
 
-        $driver = DB::transaction(function () use ($orgId, $data, $vehiclePayload) {
+        $contractorId = $request->user()->role === 'contractor' ? $request->user()->id : null;
+
+        $driver = DB::transaction(function () use ($orgId, $data, $vehiclePayload, $contractorId, $request) {
             $data['organization_id'] = $orgId;
+            if ($contractorId) {
+                $data['contractor_id'] = $contractorId;
+            }
 
             if ($vehiclePayload) {
                 $vehicle = Vehicle::create([
                     'organization_id' => $orgId,
+                    'contractor_id' => $contractorId,
                     'vehicle_number' => $vehiclePayload['vehicle_number'],
                     'type' => $vehiclePayload['type'],
                     'capacity' => $vehiclePayload['capacity'] ?? null,
@@ -126,7 +147,17 @@ class DriverController extends Controller
                 $this->releaseVehicleFromOtherDrivers($orgId, $data['default_vehicle_id']);
             }
 
-            return Driver::create($data);
+            $driver = Driver::create($data);
+
+            $this->storeDriverCredentialDocuments(
+                $request,
+                $driver,
+                $request->user()->id,
+                $request->hasFile('license_document'),
+                $request->hasFile('insurance_document'),
+            );
+
+            return $driver->fresh(['defaultVehicle:id,vehicle_number,type,status']);
         });
 
         return response()->json([
@@ -143,7 +174,7 @@ class DriverController extends Controller
         $vehiclePayload = $data['vehicle'] ?? null;
         unset($data['vehicle']);
 
-        DB::transaction(function () use ($orgId, $driver, $data, $vehiclePayload) {
+        DB::transaction(function () use ($orgId, $driver, $data, $vehiclePayload, $request) {
             if ($vehiclePayload) {
                 $vehicle = Vehicle::create([
                     'organization_id' => $orgId,
@@ -164,10 +195,21 @@ class DriverController extends Controller
             }
 
             $driver->update($data);
+
+            $this->storeDriverCredentialDocuments(
+                $request,
+                $driver->fresh(),
+                $request->user()->id,
+                false,
+                false,
+            );
         });
 
         return response()->json([
-            'data' => $driver->fresh()->load('defaultVehicle:id,vehicle_number,type,status'),
+            'data' => $driver->fresh()->load([
+                'defaultVehicle:id,vehicle_number,type,status',
+                'documents:id,driver_id,document_type,original_filename,expiry_date,status,created_at',
+            ]),
         ]);
     }
 
@@ -228,6 +270,7 @@ class DriverController extends Controller
 
         $drivers = Driver::forOrganization($orgId);
         $drivers = $this->applySchoolDriverScope($request->user(), $drivers);
+        $drivers = $this->applyContractorOwnedScope($request->user(), $drivers);
         $drivers = $drivers
             ->with([
                 'defaultVehicle:id,vehicle_number,type,status',
@@ -285,16 +328,12 @@ class DriverController extends Controller
      */
     private function validateData(Request $request): array
     {
-        return $request->validate([
+        return $request->validate(array_merge([
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'employee_id' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'license_number' => ['nullable', 'string', 'max:50'],
-            'license_class' => ['nullable', 'string', 'max:20'],
-            'license_expiry' => ['nullable', 'date'],
-            'license_state' => ['nullable', 'string', 'max:2'],
             'endorsements' => ['nullable', 'array'],
             'endorsements.*' => ['string', 'max:5'],
             'hire_date' => ['nullable', 'date'],
@@ -315,7 +354,16 @@ class DriverController extends Controller
             'vehicle.wheelchair_capacity' => ['nullable', 'integer', 'min:0'],
             'vehicle.make' => ['nullable', 'string', 'max:100'],
             'vehicle.model' => ['nullable', 'string', 'max:100'],
-        ]);
+            'license_number' => ['required', 'string', 'max:50'],
+            'license_class' => ['required', 'string', 'max:20'],
+            'license_state' => ['required', 'string', 'max:2'],
+            'license_expiry' => ['required', 'date'],
+            'insurance_provider' => ['required', 'string', 'max:150'],
+            'insurance_policy_number' => ['required', 'string', 'max:80'],
+            'insurance_expiry' => ['required', 'date'],
+            'license_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+            'insurance_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+        ]));
     }
 
     private function assertVehicleInOrg(string $orgId, string $vehicleId): void
@@ -339,5 +387,9 @@ class DriverController extends Controller
     private function authorizeOrg(Request $request, Driver $driver): void
     {
         abort_unless($driver->organization_id === $request->user()->organization_id, 404);
+
+        if ($request->user()->role === 'contractor' && $driver->contractor_id !== $request->user()->id) {
+            abort(403, 'You can only manage your own drivers.');
+        }
     }
 }

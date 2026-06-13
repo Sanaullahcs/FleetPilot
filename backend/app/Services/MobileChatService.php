@@ -73,6 +73,21 @@ class MobileChatService
     /**
      * @return Collection<int, array<string, mixed>>
      */
+    public function listForContractor(User $contractor): Collection
+    {
+        return MobileChatConversation::query()
+            ->where('organization_id', $contractor->organization_id)
+            ->whereIn('type', ['staff_direct', 'contractor_driver'])
+            ->whereJsonContains('participant_user_ids', $contractor->id)
+            ->orderByDesc('last_message_at')
+            ->get()
+            ->map(fn (MobileChatConversation $c) => $this->staffConversationPayload($c, $contractor))
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
     public function listForSchoolContact(User $staff): Collection
     {
         if (! $staff->school_id) {
@@ -124,6 +139,17 @@ class MobileChatService
                 abort(403);
             }
             if (($conversation->metadata['school_id'] ?? null) !== $user->school_id) {
+                abort(403);
+            }
+
+            return;
+        }
+
+        if ($user->role === 'contractor') {
+            if (! in_array($user->id, $conversation->participant_user_ids ?? [], true)) {
+                abort(403, 'You are not a participant in this conversation.');
+            }
+            if (! in_array($conversation->type, ['staff_direct', 'contractor_driver'], true)) {
                 abort(403);
             }
 
@@ -679,7 +705,7 @@ class MobileChatService
             if ($legacy) {
                 $legacy->update([
                     'type' => 'parent_support',
-                    'title' => 'Transportation office',
+                    'title' => 'Transportation Office',
                     'metadata' => array_merge($legacy->metadata ?? [], [
                         'subtitle' => 'Dispatch & route help',
                         'avatar_type' => 'support',
@@ -691,7 +717,7 @@ class MobileChatService
                 $conversation = MobileChatConversation::create([
                     'organization_id' => $organizationId,
                     'type' => 'parent_support',
-                    'title' => 'Transportation office',
+                    'title' => 'Transportation Office',
                     'participant_user_ids' => array_values(array_filter([$user->id, $dispatch?->id])),
                     'metadata' => [
                         'subtitle' => 'Dispatch & route help',
@@ -838,6 +864,21 @@ class MobileChatService
 
         User::query()
             ->where('organization_id', $orgId)
+            ->where('role', 'contractor')
+            ->where('is_active', true)
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'role', 'is_active', 'job_title'])
+            ->each(function (User $user) use ($append) {
+                $company = $user->job_title ?: 'Contractor company';
+                $append(
+                    $user,
+                    "Contractor · {$company}",
+                    $this->existingStaffConversationId($user, 'staff_direct'),
+                );
+            });
+
+        User::query()
+            ->where('organization_id', $orgId)
             ->whereIn('role', ['admin', 'dispatcher'])
             ->where('is_active', true)
             ->orderBy('last_name')
@@ -956,6 +997,152 @@ class MobileChatService
             ->sortBy([['role', 'asc'], ['name', 'asc']])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listMessageableContactsForContractor(User $contractor): array
+    {
+        if ($contractor->role !== 'contractor') {
+            abort(403);
+        }
+
+        $orgId = $contractor->organization_id;
+        $contacts = [];
+
+        $append = function (User $user, string $subtitle, ?string $conversationId = null) use (&$contacts, $contractor): void {
+            if ($user->id === $contractor->id || ! $user->is_active) {
+                return;
+            }
+
+            $contacts[$user->id] = [
+                'user_id' => $user->id,
+                'name' => trim("{$user->first_name} {$user->last_name}"),
+                'role' => $user->role,
+                'subtitle' => $subtitle,
+                'conversation_id' => $conversationId,
+            ];
+        };
+
+        User::query()
+            ->where('organization_id', $orgId)
+            ->whereIn('role', ['admin', 'dispatcher'])
+            ->where('is_active', true)
+            ->orderByRaw("CASE WHEN role = 'admin' THEN 0 ELSE 1 END")
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'role', 'is_active'])
+            ->each(function (User $user) use ($append) {
+                $append(
+                    $user,
+                    $user->role === 'dispatcher' ? 'Transportation · Dispatch' : 'Transportation · Admin',
+                    $this->existingStaffConversationId($user, 'staff_direct'),
+                );
+            });
+
+        Driver::forOrganization($orgId)
+            ->where('contractor_id', $contractor->id)
+            ->with('user:id,first_name,last_name,role,is_active,email')
+            ->whereNotNull('user_id')
+            ->orderBy('last_name')
+            ->get()
+            ->each(function (Driver $driver) use ($append, $contractor) {
+                if (! $driver->user) {
+                    return;
+                }
+
+                $append(
+                    $driver->user,
+                    trim(($driver->employee_id ? "Driver · {$driver->employee_id}" : 'Driver').($driver->status !== 'active' ? ' · inactive' : '')),
+                    $this->existingContractorDriverConversationId($contractor->id, $driver->user->id),
+                );
+            });
+
+        return collect($contacts)
+            ->sortBy([['role', 'asc'], ['name', 'asc']])
+            ->values()
+            ->all();
+    }
+
+    public function findOrCreateContractorConversation(User $contractor, string $targetUserId): MobileChatConversation
+    {
+        if ($contractor->role !== 'contractor') {
+            abort(403);
+        }
+
+        $target = User::query()->findOrFail($targetUserId);
+
+        if ($target->organization_id !== $contractor->organization_id || $target->id === $contractor->id) {
+            abort(403);
+        }
+
+        if (in_array($target->role, ['admin', 'dispatcher'], true)) {
+            return $this->findOrCreateStaffConversation($contractor, $target->id);
+        }
+
+        if ($target->role === 'driver') {
+            return $this->findOrCreateContractorDriverConversation($contractor, $target);
+        }
+
+        abort(422, 'You cannot start a conversation with this contact.');
+    }
+
+    private function findOrCreateContractorDriverConversation(User $contractor, User $driverUser): MobileChatConversation
+    {
+        $driver = Driver::query()
+            ->where('user_id', $driverUser->id)
+            ->where('organization_id', $contractor->organization_id)
+            ->where('contractor_id', $contractor->id)
+            ->first();
+
+        if (! $driver) {
+            abort(403, 'You can only message drivers assigned to your company.');
+        }
+
+        $existing = MobileChatConversation::query()
+            ->where('organization_id', $contractor->organization_id)
+            ->where('type', 'contractor_driver')
+            ->whereJsonContains('participant_user_ids', $contractor->id)
+            ->whereJsonContains('participant_user_ids', $driverUser->id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $company = $contractor->job_title ?: trim("{$contractor->first_name} {$contractor->last_name}");
+
+        $conversation = MobileChatConversation::create([
+            'organization_id' => $contractor->organization_id,
+            'type' => 'contractor_driver',
+            'title' => trim("{$driver->first_name} {$driver->last_name}"),
+            'participant_user_ids' => [$contractor->id, $driverUser->id],
+            'metadata' => [
+                'subtitle' => "Contractor · {$company}",
+                'driver_subtitle' => "Your contractor · {$company}",
+                'contractor_id' => $contractor->id,
+                'driver_id' => $driver->id,
+                'avatar_type' => 'driver',
+            ],
+            'last_message_at' => now(),
+        ]);
+
+        $this->seedWelcome(
+            $conversation,
+            $contractor,
+            'Hi — message me here about schedules, routes, or fleet updates.',
+        );
+
+        return $conversation;
+    }
+
+    private function existingContractorDriverConversationId(string $contractorUserId, string $driverUserId): ?string
+    {
+        return MobileChatConversation::query()
+            ->where('type', 'contractor_driver')
+            ->whereJsonContains('participant_user_ids', $contractorUserId)
+            ->whereJsonContains('participant_user_ids', $driverUserId)
+            ->value('id');
     }
 
     public function findOrCreateSchoolContactConversation(User $staff, string $targetUserId): MobileChatConversation
@@ -1106,6 +1293,10 @@ class MobileChatService
             return $this->findOrCreateDriverSupportForStaff($staff, $target);
         }
 
+        if ($target->role === 'parent') {
+            return $this->findOrCreateParentSupportForStaff($staff, $target);
+        }
+
         $existing = MobileChatConversation::query()
             ->where('organization_id', $staff->organization_id)
             ->where('type', 'staff_direct')
@@ -1123,7 +1314,9 @@ class MobileChatService
             'title' => trim("{$target->first_name} {$target->last_name}"),
             'participant_user_ids' => [$staff->id, $target->id],
             'metadata' => [
-                'subtitle' => ucfirst(str_replace('_', ' ', $target->role)),
+                'subtitle' => $target->role === 'contractor'
+                    ? 'Contractor · '.($target->job_title ?: 'Company')
+                    : ucfirst(str_replace('_', ' ', $target->role)),
                 'target_user_id' => $target->id,
                 'avatar_type' => $target->role,
             ],
@@ -1162,6 +1355,41 @@ class MobileChatService
         ]);
 
         $this->seedWelcome($conversation, $staff, 'Hi — dispatch is here if you need route or schedule help.');
+
+        return $conversation;
+    }
+
+    private function findOrCreateParentSupportForStaff(User $staff, User $parentUser): MobileChatConversation
+    {
+        $existing = MobileChatConversation::query()
+            ->where('organization_id', $staff->organization_id)
+            ->where('type', 'parent_support')
+            ->whereJsonContains('participant_user_ids', $parentUser->id)
+            ->first();
+
+        if ($existing) {
+            $participants = $existing->participant_user_ids ?? [];
+            if (! in_array($staff->id, $participants, true)) {
+                $participants[] = $staff->id;
+                $existing->update(['participant_user_ids' => array_values(array_unique($participants))]);
+            }
+
+            return $existing->fresh();
+        }
+
+        $conversation = MobileChatConversation::create([
+            'organization_id' => $staff->organization_id,
+            'type' => 'parent_support',
+            'title' => 'Transportation Office',
+            'participant_user_ids' => array_values(array_unique([$parentUser->id, $staff->id])),
+            'metadata' => [
+                'subtitle' => 'Dispatch & route help',
+                'avatar_type' => 'support',
+            ],
+            'last_message_at' => now(),
+        ]);
+
+        $this->seedWelcome($conversation, $staff, 'How can transportation help you today?');
 
         return $conversation;
     }
@@ -1261,6 +1489,25 @@ class MobileChatService
             ];
         }
 
+        if ($conversation->type === 'contractor_driver' && $user->role === 'driver') {
+            $contractor = $this->otherParticipantUser($conversation, $user);
+            $company = $contractor?->job_title;
+
+            return [
+                $contractor ? trim("{$contractor->first_name} {$contractor->last_name}") : 'Contractor',
+                $company ? "Contractor · {$company}" : ($metadata['driver_subtitle'] ?? 'Your contractor'),
+                'support',
+            ];
+        }
+
+        if ($conversation->type === 'contractor_driver' && $user->role === 'contractor') {
+            return [
+                $conversation->title,
+                $metadata['subtitle'] ?? 'Driver on your fleet',
+                'driver',
+            ];
+        }
+
         return [
             $conversation->title,
             $metadata['subtitle'] ?? null,
@@ -1283,17 +1530,17 @@ class MobileChatService
         if ($conversation->type === 'driver_support') {
             $driver = collect($this->participantSummaries($conversation))->firstWhere('role', 'driver');
             if ($driver) {
-                return "{$driver['name']} · Driver support";
+                return $staff ? $driver['name'] : 'Dispatch & Support';
             }
         }
 
         if ($conversation->type === 'parent_support') {
             $parent = collect($this->participantSummaries($conversation))->firstWhere('role', 'parent');
             if ($parent) {
-                return "{$parent['name']} · Transportation";
+                return $staff ? $parent['name'] : 'Transportation Office';
             }
 
-            return 'Parent · Transportation office';
+            return 'Transportation Office';
         }
 
         if ($conversation->type === 'driver_school') {
@@ -1325,6 +1572,17 @@ class MobileChatService
             }
 
             return collect($participants)->pluck('name')->join(' · ') ?: $conversation->title;
+        }
+
+        if ($conversation->type === 'contractor_driver') {
+            $metadata = $conversation->metadata ?? [];
+            $driver = collect($this->participantSummaries($conversation))->firstWhere('role', 'driver');
+            $contractor = collect($this->participantSummaries($conversation))->firstWhere('role', 'contractor');
+            if ($driver && $contractor) {
+                return "{$contractor['name']} ↔ {$driver['name']}";
+            }
+
+            return $driver['name'] ?? $conversation->title;
         }
 
         return $conversation->title;

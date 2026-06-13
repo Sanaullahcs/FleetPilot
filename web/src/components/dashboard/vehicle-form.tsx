@@ -37,13 +37,13 @@ const TYPE_OPTIONS = [
   { label: "Van", value: "van" },
   { label: "Minivan", value: "minivan" },
   { label: "Sedan", value: "sedan" },
-  { label: "Wheelchair van", value: "wheelchair_van" },
+  { label: "Wheelchair Van", value: "wheelchair_van" },
 ];
 
 const STATUS_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Maintenance", value: "maintenance" },
-  { label: "Out of service", value: "out_of_service" },
+  { label: "Out of Service", value: "out_of_service" },
   { label: "Retired", value: "retired" },
 ];
 
@@ -125,12 +125,12 @@ export function VehicleFormModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={isEdit ? "Edit vehicle" : "Add vehicle"}
+      title={isEdit ? "Edit Vehicle" : "Add Vehicle"}
       description="Fleet unit details, capacity, and service status."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={isEdit ? "Save changes" : "Create vehicle"}
+          submitLabel={isEdit ? "Save Changes" : "Create Vehicle"}
           submitForm={FORM_ID}
           pending={isSubmitting || mutation.isPending}
         />
@@ -145,7 +145,7 @@ export function VehicleFormModal({
 
         <FormSection title="Identification">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Vehicle number" error={errors.vehicle_number?.message} required>
+            <Field label="Vehicle Number" error={errors.vehicle_number?.message} required>
               <input className={fieldClass} {...register("vehicle_number")} placeholder="BUS-101" />
             </Field>
             <Field label="Type" error={errors.type?.message} required>
@@ -156,7 +156,7 @@ export function VehicleFormModal({
                 placeholder="Select type"
               />
             </Field>
-            <Field label="License plate" error={errors.license_plate?.message}>
+            <Field label="License Plate" error={errors.license_plate?.message}>
               <input className={fieldClass} {...register("license_plate")} />
             </Field>
             <Field label="VIN" error={errors.vin?.message}>
@@ -176,7 +176,7 @@ export function VehicleFormModal({
             <Field label="Year" error={errors.year?.message}>
               <input className={fieldClass} type="number" {...register("year")} />
             </Field>
-            <Field label="Fuel type" error={errors.fuel_type?.message}>
+            <Field label="Fuel Type" error={errors.fuel_type?.message}>
               <SearchableSelect
                 value={watch("fuel_type") ?? ""}
                 onChange={(v) => setValue("fuel_type", v as FormValues["fuel_type"])}
@@ -184,10 +184,10 @@ export function VehicleFormModal({
                 placeholder="Select fuel"
               />
             </Field>
-            <Field label="Passenger capacity" error={errors.capacity?.message}>
+            <Field label="Passenger Capacity" error={errors.capacity?.message}>
               <input className={fieldClass} type="number" {...register("capacity")} />
             </Field>
-            <Field label="Wheelchair capacity" error={errors.wheelchair_capacity?.message}>
+            <Field label="Wheelchair Capacity" error={errors.wheelchair_capacity?.message}>
               <input className={fieldClass} type="number" {...register("wheelchair_capacity")} />
             </Field>
           </div>
@@ -203,7 +203,7 @@ export function VehicleFormModal({
                 placeholder="Select status"
               />
             </Field>
-            <Field label="Cost per mile ($)" error={errors.cost_per_mile?.message}>
+            <Field label="Cost Per Mile ($)" error={errors.cost_per_mile?.message}>
               <input className={fieldClass} type="number" step="0.01" {...register("cost_per_mile")} />
             </Field>
           </div>

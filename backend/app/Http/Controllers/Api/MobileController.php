@@ -196,13 +196,30 @@ class MobileController extends Controller
     public function markNotificationRead(Request $request, string $notificationId): JsonResponse
     {
         $user = $request->user();
+        $notificationId = urldecode($notificationId);
 
         if ($this->chat->markChatNotificationRead($user, $notificationId)) {
-            return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+            $user->refresh();
+
+            return response()->json([
+                'data' => [
+                    'id' => $notificationId,
+                    'read' => true,
+                    'unread' => $this->countUnreadNotifications($user),
+                ],
+            ]);
         }
 
         if ($this->complaints->markMobileNotificationRead($user, $notificationId)) {
-            return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+            $user->refresh();
+
+            return response()->json([
+                'data' => [
+                    'id' => $notificationId,
+                    'read' => true,
+                    'unread' => $this->countUnreadNotifications($user),
+                ],
+            ]);
         }
 
         $meta = $user->profile_meta ?? [];
@@ -214,8 +231,15 @@ class MobileController extends Controller
 
         $meta['read_notification_ids'] = array_values($readIds);
         $user->update(['profile_meta' => $meta]);
+        $user->refresh();
 
-        return response()->json(['data' => ['id' => $notificationId, 'read' => true]]);
+        return response()->json([
+            'data' => [
+                'id' => $notificationId,
+                'read' => true,
+                'unread' => $this->countUnreadNotifications($user),
+            ],
+        ]);
     }
 
     public function markAllNotificationsRead(Request $request): JsonResponse
@@ -235,14 +259,45 @@ class MobileController extends Controller
             $items = array_merge($items, $this->chat->notificationItemsForUser($user, true));
         }
 
+        $items = array_merge($items, $this->complaints->mobileNotificationItems($user));
+
         $this->chat->markAllConversationsRead($user);
+        $this->complaints->markAllMobileNotificationsRead($user);
 
         $ids = collect($items)->pluck('id')->all();
         $meta = $user->profile_meta ?? [];
         $meta['read_notification_ids'] = array_values(array_unique(array_merge($meta['read_notification_ids'] ?? [], $ids)));
         $user->update(['profile_meta' => $meta]);
+        $user->refresh();
 
-        return response()->json(['data' => ['marked' => count($ids)]]);
+        return response()->json([
+            'data' => [
+                'marked' => count($ids),
+                'unread' => $this->countUnreadNotifications($user),
+            ],
+        ]);
+    }
+
+    private function countUnreadNotifications($user): int
+    {
+        $items = [];
+
+        if ($user->role === 'driver') {
+            $items = array_merge($items, $this->driverNotifications($user));
+        }
+
+        if ($user->role === 'parent') {
+            $items = array_merge($items, $this->parentNotifications($user));
+        }
+
+        if (in_array($user->role, ['driver', 'parent'], true)) {
+            $items = array_merge($items, $this->chat->notificationItemsForUser($user, true));
+        }
+
+        $items = array_merge($items, $this->complaints->mobileNotificationItems($user));
+        $items = $this->applyReadState($user, $items);
+
+        return collect($items)->where('read', false)->count();
     }
 
     /**
@@ -252,9 +307,12 @@ class MobileController extends Controller
     private function applyReadState($user, array $items): array
     {
         $readIds = $user->profile_meta['read_notification_ids'] ?? [];
+        $readComplaintIds = $user->profile_meta['read_complaint_ids'] ?? [];
 
-        return array_map(function (array $item) use ($readIds) {
-            $item['read'] = in_array($item['id'], $readIds, true) || ($item['read'] ?? false);
+        return array_map(function (array $item) use ($readIds, $readComplaintIds) {
+            $markedRead = in_array($item['id'], $readIds, true)
+                || in_array($item['id'], $readComplaintIds, true);
+            $item['read'] = $markedRead || ($item['read'] ?? false);
 
             return $item;
         }, $items);

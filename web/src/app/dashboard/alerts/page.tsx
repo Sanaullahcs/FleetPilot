@@ -10,6 +10,11 @@ import {
   markAllMobileNotificationsRead,
   markMobileNotificationRead,
 } from "@/lib/resources";
+import {
+  invalidateMobileNotifications,
+  patchAllMobileNotificationsRead,
+  patchMobileNotificationRead,
+} from "@/lib/mobile-notifications-cache";
 import type { MobileNotification, MobileNotificationSeverity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -39,26 +44,41 @@ function notificationHref(item: MobileNotification): string | null {
 function AlertRow({
   item,
   onMarkRead,
+  markingId,
 }: {
   item: MobileNotification;
   onMarkRead: (id: string) => void;
+  markingId: string | null;
 }) {
   const href = notificationHref(item);
+  const isMarking = markingId === item.id;
 
   const content = (
     <div
       className={cn(
-        "flex gap-3 rounded-xl border px-4 py-3.5 transition",
+        "flex gap-3 rounded-xl border px-4 py-3 transition",
         item.read ? "border-slate-100 bg-white" : "border-brand-primary/20 bg-brand-light/20",
       )}
     >
-      <div className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-xs font-bold", severityStyles(item.severity))}>
+      <div
+        className={cn(
+          "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-xs font-bold",
+          severityStyles(item.severity),
+        )}
+      >
         !
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-          <span className="shrink-0 text-[11px] text-slate-400">{formatTime(item.time)}</span>
+          <p className={cn("text-sm font-semibold", item.read ? "text-slate-700" : "text-slate-900")}>{item.title}</p>
+          <div className="flex shrink-0 items-center gap-2">
+            {item.read ? (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Read
+              </span>
+            ) : null}
+            <span className="text-[11px] text-slate-400">{formatTime(item.time)}</span>
+          </div>
         </div>
         <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.message}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -70,16 +90,13 @@ function AlertRow({
                 e.stopPropagation();
                 onMarkRead(item.id);
               }}
-              className="text-xs font-semibold text-brand-primary hover:underline"
+              disabled={isMarking}
+              className="text-xs font-semibold text-brand-primary hover:underline disabled:opacity-60"
             >
-              Mark read
+              {isMarking ? "Marking…" : "Mark as read"}
             </button>
-          ) : (
-            <span className="text-xs text-slate-400">Read</span>
-          )}
-          {href ? (
-            <span className="text-xs font-semibold text-brand-primary">Open →</span>
           ) : null}
+          {href ? <span className="text-xs font-semibold text-brand-primary">Open →</span> : null}
         </div>
       </div>
     </div>
@@ -87,7 +104,12 @@ function AlertRow({
 
   if (href) {
     return (
-      <Link href={href} onClick={() => !item.read && onMarkRead(item.id)}>
+      <Link
+        href={href}
+        onClick={() => {
+          if (!item.read) onMarkRead(item.id);
+        }}
+      >
         {content}
       </Link>
     );
@@ -101,30 +123,57 @@ export default function AlertsPage() {
   const notificationsQuery = useQuery({
     queryKey: ["mobile-notifications"],
     queryFn: () => listMobileNotifications(true),
-    refetchInterval: 8_000,
+    refetchInterval: 15_000,
   });
 
   const markReadMutation = useMutation({
     mutationFn: markMobileNotificationRead,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["mobile-notifications"] }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["mobile-notifications"] });
+      patchMobileNotificationRead(queryClient, id);
+    },
+    onSuccess: (result) => {
+      if (typeof result.unread === "number") {
+        queryClient.setQueriesData(
+          { queryKey: ["mobile-notifications"] },
+          (previous: { items: MobileNotification[]; total: number; unread: number } | undefined) =>
+            previous ? { ...previous, unread: result.unread! } : previous,
+        );
+      }
+    },
+    onSettled: () => invalidateMobileNotifications(queryClient),
   });
 
   const markAllMutation = useMutation({
     mutationFn: markAllMobileNotificationsRead,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["mobile-notifications"] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["mobile-notifications"] });
+      patchAllMobileNotificationsRead(queryClient);
+    },
+    onSuccess: (result) => {
+      if (typeof result.unread === "number") {
+        queryClient.setQueriesData(
+          { queryKey: ["mobile-notifications"] },
+          (previous: { items: MobileNotification[]; total: number; unread: number } | undefined) =>
+            previous ? { ...previous, unread: result.unread! } : previous,
+        );
+      }
+    },
+    onSettled: () => invalidateMobileNotifications(queryClient),
   });
 
   const items = notificationsQuery.data?.items ?? [];
   const unread = notificationsQuery.data?.unread ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
+        compact
         title="Alerts"
         description="Route updates, messages, complaints, and transportation notices — synced with your mobile app."
         action={
           unread > 0 ? (
-            <Button variant="secondary" onClick={() => markAllMutation.mutate()} disabled={markAllMutation.isPending}>
+            <Button variant="secondary" size="sm" onClick={() => markAllMutation.mutate()} disabled={markAllMutation.isPending}>
               Mark all read
             </Button>
           ) : undefined
@@ -133,9 +182,7 @@ export default function AlertsPage() {
 
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <LiveIndicator />
-        <span>
-          {unread > 0 ? `${unread} unread alert${unread === 1 ? "" : "s"}` : "All caught up"}
-        </span>
+        <span>{unread > 0 ? `${unread} unread alert${unread === 1 ? "" : "s"}` : "All caught up"}</span>
       </div>
 
       <PageState
@@ -147,7 +194,12 @@ export default function AlertsPage() {
       >
         <div className="space-y-2">
           {items.map((item) => (
-            <AlertRow key={item.id} item={item} onMarkRead={(id) => markReadMutation.mutate(id)} />
+            <AlertRow
+              key={item.id}
+              item={item}
+              markingId={markReadMutation.isPending ? (markReadMutation.variables ?? null) : null}
+              onMarkRead={(id) => markReadMutation.mutate(id)}
+            />
           ))}
         </div>
       </PageState>

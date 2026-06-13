@@ -7,12 +7,25 @@ import { BusRouteIcon, DriverIcon, MessageIcon, SchoolIcon } from "@/components/
 
 export type MessageCategoryTab =
   | "all"
+  | "direct_school"
+  | "direct_driver"
+  | "direct_contractor"
+  | "direct_parent"
   | "parent_driver"
   | "parent_school"
   | "driver_school"
   | "parent_support"
   | "driver_support"
-  | "staff_direct";
+  | "staff_direct"
+  | "contractor_driver";
+
+function hasParticipantRole(c: DashboardChatConversation, role: string): boolean {
+  return (c.participants ?? []).some((p) => p.role === role);
+}
+
+function isDirectStaffWithRole(c: DashboardChatConversation, role: string): boolean {
+  return c.type === "staff_direct" && hasParticipantRole(c, role);
+}
 
 export const MESSAGE_CATEGORY_TABS: {
   id: MessageCategoryTab;
@@ -25,34 +38,52 @@ export const MESSAGE_CATEGORY_TABS: {
 }[] = [
   {
     id: "all",
-    label: "All threads",
+    label: "All Threads",
     shortLabel: "All",
-    description: "Every conversation across parents, drivers, and schools.",
+    description: "Every conversation across parents, drivers, schools, and contractors.",
     emptyMessage: "No conversations yet.",
     icon: <MessageIcon />,
     match: () => true,
   },
   {
-    id: "parent_driver",
-    label: "Parents & drivers",
-    shortLabel: "Drivers",
-    description: "Pickup, route, and rider threads between parents and drivers.",
-    emptyMessage: "No parent ↔ driver conversations yet.",
-    icon: <BusRouteIcon />,
-    match: (c) => c.type === "parent_driver",
+    id: "direct_school",
+    label: "Schools",
+    shortLabel: "Schools",
+    description: "Direct threads between transportation staff and school contacts.",
+    emptyMessage: "No school conversations yet.",
+    icon: <SchoolIcon />,
+    match: (c) => isDirectStaffWithRole(c, "school_contact"),
   },
   {
-    id: "parent_school",
-    label: "Parents & schools",
-    shortLabel: "Schools",
-    description: "Enrollment, attendance, and office threads with school contacts.",
-    emptyMessage: "No parent ↔ school conversations yet.",
-    icon: <SchoolIcon />,
-    match: (c) => c.type === "parent_school",
+    id: "direct_driver",
+    label: "Drivers",
+    shortLabel: "Drivers",
+    description: "Dispatch and operations threads with drivers.",
+    emptyMessage: "No driver conversations yet.",
+    icon: <DriverIcon />,
+    match: (c) => c.type === "driver_support",
+  },
+  {
+    id: "direct_contractor",
+    label: "Contractors",
+    shortLabel: "Contractors",
+    description: "Direct threads with contractors and fleet operators.",
+    emptyMessage: "No contractor conversations yet.",
+    icon: <MessageIcon />,
+    match: (c) => isDirectStaffWithRole(c, "contractor"),
+  },
+  {
+    id: "direct_parent",
+    label: "Parents",
+    shortLabel: "Parents",
+    description: "Transportation office threads with parents about routes and dispatch.",
+    emptyMessage: "No parent conversations yet.",
+    icon: <MessageIcon />,
+    match: (c) => c.type === "parent_support" || isDirectStaffWithRole(c, "parent"),
   },
   {
     id: "driver_school",
-    label: "Drivers & schools",
+    label: "Drivers & Schools",
     shortLabel: "Driver ↔ school",
     description: "Route coordination threads between drivers and school offices.",
     emptyMessage: "No driver ↔ school conversations yet.",
@@ -60,20 +91,47 @@ export const MESSAGE_CATEGORY_TABS: {
     match: (c) => c.type === "driver_school",
   },
   {
+    id: "parent_driver",
+    label: "Parents & Drivers",
+    shortLabel: "Parent ↔ driver",
+    description: "Pickup, route, and rider threads between parents and drivers.",
+    emptyMessage: "No parent ↔ driver conversations yet.",
+    icon: <BusRouteIcon />,
+    match: (c) => c.type === "parent_driver",
+  },
+  {
+    id: "parent_school",
+    label: "Parents & Schools",
+    shortLabel: "Parent ↔ school",
+    description: "Enrollment and attendance threads between parents and schools.",
+    emptyMessage: "No parent ↔ school conversations yet.",
+    icon: <SchoolIcon />,
+    match: (c) => c.type === "parent_school",
+  },
+  {
+    id: "contractor_driver",
+    label: "Contractor Drivers",
+    shortLabel: "Contractor drivers",
+    description: "Threads between contractors and their assigned drivers.",
+    emptyMessage: "No contractor ↔ driver conversations yet.",
+    icon: <DriverIcon />,
+    match: (c) => c.type === "contractor_driver",
+  },
+  {
     id: "parent_support",
-    label: "Parent support",
-    shortLabel: "Parent help",
-    description: "Transportation office threads with parents about routes and dispatch.",
-    emptyMessage: "No parent support conversations yet.",
+    label: "Transportation Office",
+    shortLabel: "Transportation Office",
+    description: "Transportation office support for parents.",
+    emptyMessage: "No office conversations yet.",
     icon: <MessageIcon />,
     match: (c) => c.type === "parent_support",
   },
   {
     id: "driver_support",
-    label: "Driver support",
-    shortLabel: "Driver help",
-    description: "Dispatch and operations support threads with drivers.",
-    emptyMessage: "No driver support conversations yet.",
+    label: "Dispatch & Support",
+    shortLabel: "Dispatch",
+    description: "Dispatch and operations support for drivers.",
+    emptyMessage: "No dispatch conversations yet.",
     icon: <DriverIcon />,
     match: (c) => c.type === "driver_support",
   },
@@ -81,7 +139,7 @@ export const MESSAGE_CATEGORY_TABS: {
     id: "staff_direct",
     label: "Transportation",
     shortLabel: "Transportation",
-    description: "Direct threads with dispatch and transportation administrators.",
+    description: "Direct threads with transportation administrators.",
     emptyMessage: "No transportation conversations yet.",
     icon: <MessageIcon />,
     match: (c) => c.type === "staff_direct",
@@ -92,19 +150,24 @@ const PORTAL_TAB_LABELS: Partial<
   Record<UserRole, Partial<Record<MessageCategoryTab, { label: string; shortLabel: string }>>>
 > = {
   parent: {
-    parent_support: { label: "Transportation office", shortLabel: "Office" },
+    parent_support: { label: "Transportation Office", shortLabel: "Transportation Office" },
     parent_driver: { label: "Drivers", shortLabel: "Drivers" },
     parent_school: { label: "Schools", shortLabel: "Schools" },
   },
   driver: {
-    driver_support: { label: "Dispatch & support", shortLabel: "Dispatch" },
+    driver_support: { label: "Dispatch & Support", shortLabel: "Dispatch" },
     parent_driver: { label: "Parents", shortLabel: "Parents" },
     driver_school: { label: "Schools", shortLabel: "Schools" },
+    contractor_driver: { label: "Contractor", shortLabel: "Contractor" },
   },
   school_contact: {
     parent_school: { label: "Parents", shortLabel: "Parents" },
     driver_school: { label: "Drivers", shortLabel: "Drivers" },
     staff_direct: { label: "Transportation", shortLabel: "Transportation" },
+  },
+  contractor: {
+    staff_direct: { label: "Transportation Office", shortLabel: "Admin" },
+    contractor_driver: { label: "My Drivers", shortLabel: "Drivers" },
   },
 };
 
@@ -131,37 +194,19 @@ export function filterConversationsByTab(
 }
 
 export function countConversationsByTab(conversations: DashboardChatConversation[]) {
-  const out: Record<MessageCategoryTab, { total: number; unread: number }> = {
-    all: { total: 0, unread: 0 },
-    parent_driver: { total: 0, unread: 0 },
-    parent_school: { total: 0, unread: 0 },
-    driver_school: { total: 0, unread: 0 },
-    parent_support: { total: 0, unread: 0 },
-    driver_support: { total: 0, unread: 0 },
-    staff_direct: { total: 0, unread: 0 },
-  };
+  const out = Object.fromEntries(
+    MESSAGE_CATEGORY_TABS.map((tab) => [tab.id, { total: 0, unread: 0 }]),
+  ) as Record<MessageCategoryTab, { total: number; unread: number }>;
 
   for (const c of conversations) {
     out.all.total += 1;
     out.all.unread += c.unread_count;
-    if (c.type === "parent_driver") {
-      out.parent_driver.total += 1;
-      out.parent_driver.unread += c.unread_count;
-    } else if (c.type === "parent_school") {
-      out.parent_school.total += 1;
-      out.parent_school.unread += c.unread_count;
-    } else if (c.type === "driver_school") {
-      out.driver_school.total += 1;
-      out.driver_school.unread += c.unread_count;
-    } else if (c.type === "parent_support") {
-      out.parent_support.total += 1;
-      out.parent_support.unread += c.unread_count;
-    } else if (c.type === "driver_support") {
-      out.driver_support.total += 1;
-      out.driver_support.unread += c.unread_count;
-    } else if (c.type === "staff_direct") {
-      out.staff_direct.total += 1;
-      out.staff_direct.unread += c.unread_count;
+    for (const tab of MESSAGE_CATEGORY_TABS) {
+      if (tab.id === "all") continue;
+      if (tab.match(c)) {
+        out[tab.id].total += 1;
+        out[tab.id].unread += c.unread_count;
+      }
     }
   }
 
@@ -187,9 +232,11 @@ export function MessageCategoryTabs({
   searchPlaceholder?: string;
   role?: UserRole;
 }) {
-  const tabs = MESSAGE_CATEGORY_TABS.filter(
-    (t) => !visibleTabs || visibleTabs.includes(t.id),
-  );
+  const tabs = visibleTabs
+    ? visibleTabs
+        .map((id) => MESSAGE_CATEGORY_TABS.find((t) => t.id === id))
+        .filter((t): t is (typeof MESSAGE_CATEGORY_TABS)[number] => !!t)
+    : MESSAGE_CATEGORY_TABS;
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

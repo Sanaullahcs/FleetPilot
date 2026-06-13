@@ -52,6 +52,8 @@ export type UserRole =
   | "school_contact"
   | "parent";
 
+export type UserGender = "male" | "female" | "other";
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -59,6 +61,8 @@ export interface AuthUser {
   last_name: string;
   full_name: string;
   phone?: string | null;
+  gender?: UserGender | null;
+  profile_photo_url?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
@@ -74,6 +78,7 @@ export interface AuthUser {
     state?: string | null;
   } | null;
   organization: OrganizationSummary | null;
+  profile_meta?: Record<string, unknown> | null;
   roles: string[];
   permissions: string[];
 }
@@ -222,6 +227,15 @@ export interface FleetLiveFilters {
   school_id?: string;
 }
 
+export interface StudentSummary {
+  id: string;
+  student_number: string | null;
+  first_name: string;
+  last_name: string;
+  grade: string | null;
+  school?: { id: string; name: string; code?: string | null } | null;
+}
+
 export interface Student {
   id: string;
   student_number: string | null;
@@ -232,9 +246,35 @@ export interface Student {
   has_iep: boolean;
   requires_wheelchair: boolean;
   requires_aide: boolean;
-  school?: { id: string; name: string; code?: string | null } | null;
-  assigned_driver?: { id: string; first_name: string; last_name: string; employee_id?: string | null; status?: string; email?: string | null; phone?: string | null } | null;
+  school?: { id: string; name: string; code?: string | null; city?: string | null; state?: string | null } | null;
+  assigned_driver?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    employee_id?: string | null;
+    status?: string;
+    email?: string | null;
+    phone?: string | null;
+    default_vehicle?: {
+      id: string;
+      vehicle_number: string;
+      type: string;
+      status?: string;
+      capacity?: number | null;
+      make?: string | null;
+      model?: string | null;
+      year?: number | null;
+      license_plate?: string | null;
+      wheelchair_capacity?: number | null;
+      fuel_type?: string | null;
+    } | null;
+  } | null;
+  emergency_contact_name?: string | null;
   emergency_contact_phone: string | null;
+  date_of_birth?: string | null;
+  home_address?: string | null;
+  medical_notes?: string | null;
+  parents?: ParentStudentLink[];
 }
 
 export interface Driver {
@@ -248,6 +288,9 @@ export interface Driver {
   license_class: string | null;
   license_expiry: string | null;
   license_state: string | null;
+  insurance_provider: string | null;
+  insurance_policy_number: string | null;
+  insurance_expiry: string | null;
   endorsements: string[] | null;
   hire_date: string | null;
   date_of_birth: string | null;
@@ -260,8 +303,23 @@ export interface Driver {
   notes: string | null;
   status: string;
   default_vehicle_id?: string | null;
-  default_vehicle?: { id: string; vehicle_number: string; type: string; status: string; capacity?: number | null; make?: string | null; model?: string | null } | null;
+  default_vehicle?: {
+    id: string;
+    vehicle_number: string;
+    type: string;
+    status: string;
+    capacity?: number | null;
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+    license_plate?: string | null;
+    wheelchair_capacity?: number | null;
+    fuel_type?: string | null;
+  } | null;
   students_count?: number;
+  students?: StudentSummary[];
+  assigned_students?: StudentSummary[];
+  documents?: { id: string; document_type: string; original_filename: string | null; expiry_date: string | null; status: string }[];
 }
 
 export interface NewVehiclePayload {
@@ -320,6 +378,8 @@ export interface School {
   active_students_count?: number;
   routes_count?: number;
   active_routes_count?: number;
+  status?: string;
+  enrollment_count?: number;
 }
 
 export interface RouteRun {
@@ -371,11 +431,20 @@ export interface DispatchAssignmentVehicle {
   status: string;
 }
 
+export interface DispatchAssignmentContractor {
+  id: string;
+  name: string;
+  company: string | null;
+}
+
 export interface DispatchAssignment {
   id: string;
   service_date: string;
   status: string;
   notes: string | null;
+  is_delegated?: boolean;
+  awaiting_driver?: boolean;
+  contractor?: DispatchAssignmentContractor | null;
   driver: DispatchAssignmentDriver | null;
   vehicle: DispatchAssignmentVehicle | null;
 }
@@ -403,6 +472,7 @@ export interface DispatchBoard {
   summary: {
     total: number;
     assigned: number;
+    delegated?: number;
     unassigned: number;
     in_progress: number;
   };
@@ -421,6 +491,7 @@ export interface ParentStudentLink {
     email: string;
     first_name: string;
     last_name: string;
+    phone?: string | null;
     is_active: boolean;
   } | null;
   student?: {
@@ -446,6 +517,7 @@ export interface ParentRecord {
     first_name: string;
     last_name: string;
     phone: string | null;
+    gender?: UserGender | null;
     is_active: boolean;
     last_login_at?: string | null;
   } | null;
@@ -678,9 +750,102 @@ export interface PermissionGroup {
   permissions: { id: string; name: string; slug: string; resource: string; action: string }[];
 }
 
+export interface Contractor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  job_title: string | null;
+  is_active: boolean;
+  created_at?: string;
+  contractor_assignments_count?: number;
+  schools_count?: number;
+  routes_count?: number;
+  owned_drivers_count?: number;
+  owned_vehicles_count?: number;
+  contractor_assignments?: ContractorAssignment[];
+}
+
+export interface ContractorAssignment {
+  id: string;
+  contractor_id: string;
+  school_id: string | null;
+  route_id: string | null;
+  notes: string | null;
+  created_at?: string;
+  school?: { id: string; name: string; code: string | null; city?: string | null } | null;
+  route?: {
+    id: string;
+    name: string;
+    code: string | null;
+    type?: string;
+    school_id?: string | null;
+    school?: { id: string; name: string; code: string | null } | null;
+  } | null;
+  assigned_by?: { id: string; first_name: string; last_name: string } | null;
+}
+
+export interface ContractorStats {
+  total: number;
+  active: number;
+  pending: number;
+  assigned_schools: number;
+  assigned_routes: number;
+}
+
+export interface ContractorAssignOption {
+  id: string;
+  name: string;
+  code: string | null;
+  city?: string | null;
+  type?: string;
+  school?: { id: string; name: string; code: string | null } | null;
+  assigned: boolean;
+}
+
+export interface ContractorOptions {
+  schools: ContractorAssignOption[];
+  routes: ContractorAssignOption[];
+}
+
+export interface ContractorPortalAnalytics {
+  fleet_overview: { name: string; value: number; fill?: string }[];
+  routes_by_type: { name: string; value: number; active?: number; fill?: string }[];
+  driver_status: { name: string; value: number; fill?: string }[];
+  vehicle_status: { name: string; value: number; fill?: string }[];
+  today_dispatch: { name: string; value: number; fill?: string }[];
+}
+
+export interface ContractorPortalSummary {
+  contractor: { id: string; name: string; company_name: string | null; email: string };
+  summary: {
+    schools: number;
+    routes: number;
+    runs_today: number;
+    assigned_today: number;
+    unassigned_today: number;
+    in_progress_today: number;
+    drivers: number;
+    active_drivers: number;
+    vehicles: number;
+    active_vehicles: number;
+  };
+  analytics: ContractorPortalAnalytics;
+  assignments: ContractorAssignment[];
+  routes: {
+    id: string;
+    name: string;
+    code: string | null;
+    type: string;
+    runs_count?: number;
+    school?: { id: string; name: string; code: string | null } | null;
+  }[];
+}
+
 export interface DashboardChatConversation {
   id: string;
-  type: "driver_support" | "driver_school" | "parent_driver" | "parent_school" | "parent_support" | "staff_direct";
+  type: "driver_support" | "driver_school" | "parent_driver" | "parent_school" | "parent_support" | "staff_direct" | "contractor_driver";
   title: string;
   subtitle?: string | null;
   participants?: { name: string; role: string }[];
@@ -798,6 +963,14 @@ export interface SchoolPortalAssignment {
   } | null;
 }
 
+export interface SchoolPortalAnalytics {
+  fleet_overview: { name: string; value: number; fill?: string }[];
+  routes_by_type: { name: string; value: number; active?: number; fill?: string }[];
+  student_status: { name: string; value: number; fill?: string }[];
+  students_by_grade: { name: string; value: number; fill?: string }[];
+  today_service: { name: string; value: number; fill?: string }[];
+}
+
 export interface SchoolPortalPayload {
   school: {
     id: string;
@@ -821,7 +994,12 @@ export interface SchoolPortalPayload {
     students_active: number;
     routes_active: number;
     runs_today: number;
+    parents_count?: number;
+    drivers_count?: number;
+    assigned_today?: number;
+    in_progress_today?: number;
   };
+  analytics?: SchoolPortalAnalytics;
   routes: SchoolPortalRoute[];
   today_assignments: SchoolPortalAssignment[];
   alerts: SchoolPortalAlert[];

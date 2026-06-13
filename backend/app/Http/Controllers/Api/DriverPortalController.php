@@ -244,7 +244,7 @@ class DriverPortalController extends Controller
         $driver = Driver::query()
             ->where('organization_id', $user->organization_id)
             ->where('user_id', $user->id)
-            ->with(['defaultVehicle:id,vehicle_number,type,license_plate'])
+            ->with(['defaultVehicle:id,vehicle_number,type,license_plate,make,model,capacity'])
             ->first();
 
         if (! $driver) {
@@ -269,9 +269,16 @@ class DriverPortalController extends Controller
                     'status' => $driver->status,
                     'license_number' => $driver->license_number,
                     'license_class' => $driver->license_class,
+                    'license_state' => $driver->license_state,
                     'license_expiry' => $driver->license_expiry?->toDateString(),
+                    'insurance_provider' => $driver->insurance_provider,
+                    'insurance_policy_number' => $driver->insurance_policy_number,
+                    'insurance_expiry' => $driver->insurance_expiry?->toDateString(),
                     'medical_cert_expiry' => $driver->medical_cert_expiry?->toDateString(),
+                    'background_check_date' => $driver->background_check_date?->toDateString(),
+                    'drug_test_date' => $driver->drug_test_date?->toDateString(),
                     'hire_date' => $driver->hire_date?->toDateString(),
+                    'date_of_birth' => $driver->date_of_birth?->toDateString(),
                     'address' => $driver->address,
                     'emergency_contact_name' => $driver->emergency_contact_name,
                     'emergency_contact_phone' => $driver->emergency_contact_phone,

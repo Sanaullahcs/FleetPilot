@@ -22,11 +22,11 @@ import { cn, titleCase } from "@/lib/utils";
 const STATUS_OPTIONS = [
   { value: "submitted", label: "Submitted" },
   { value: "acknowledged", label: "Acknowledged" },
-  { value: "in_progress", label: "In progress" },
-  { value: "waiting_on_submitter", label: "Waiting on submitter" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "waiting_on_submitter", label: "Waiting on Submitter" },
   { value: "resolved", label: "Resolved" },
   { value: "closed", label: "Closed" },
-  { value: "rejected", label: "Not accepted" },
+  { value: "rejected", label: "Not Accepted" },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -175,7 +175,7 @@ export function ComplaintDetailModal({ open, complaintId, onClose, canManage }: 
                   Mark resolved
                 </Button>
                 <Button disabled={updateMutation.isPending} onClick={saveFields}>
-                  Save changes
+                  Save Changes
                 </Button>
               </>
             ) : null}
@@ -196,8 +196,8 @@ export function ComplaintDetailModal({ open, complaintId, onClose, canManage }: 
               <Meta label="Submitter" value={detail.submitter?.name ?? "—"} />
               <Meta label="Role" value={titleCase(detail.submitter_role.replace(/_/g, " "))} />
               <Meta label="Category" value={detail.category_label} />
-              <Meta label="Preferred contact" value={titleCase(detail.preferred_contact)} />
-              {detail.incident_date ? <Meta label="Incident date" value={detail.incident_date} /> : null}
+              <Meta label="Preferred Contact" value={titleCase(detail.preferred_contact)} />
+              {detail.incident_date ? <Meta label="Incident Date" value={detail.incident_date} /> : null}
               {detail.student ? <Meta label="Student" value={detail.student.name} /> : null}
               {detail.route ? <Meta label="Route" value={detail.route.name} /> : null}
               {detail.school ? <Meta label="School" value={detail.school.name} /> : null}
@@ -236,7 +236,7 @@ export function ComplaintDetailModal({ open, complaintId, onClose, canManage }: 
                   />
                 </div>
                 <div className="sm:col-span-3">
-                  <FormLabel>Resolution summary</FormLabel>
+                  <FormLabel>Resolution Summary</FormLabel>
                   <textarea
                     value={resolution}
                     onChange={(e) => setResolution(e.target.value)}
@@ -255,7 +255,7 @@ export function ComplaintDetailModal({ open, complaintId, onClose, canManage }: 
             )}
 
             <div>
-              <FormLabel>Activity log</FormLabel>
+              <FormLabel>Activity Log</FormLabel>
               <div className="mt-2 overflow-hidden rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -285,7 +285,7 @@ export function ComplaintDetailModal({ open, complaintId, onClose, canManage }: 
 
             {(canManage || !["closed", "rejected", "resolved"].includes(detail.status)) && (
               <div className="rounded-xl border border-slate-200 p-4">
-                <FormLabel>Add comment</FormLabel>
+                <FormLabel>Add Comment</FormLabel>
                 {canManage ? (
                   <div className="mb-2 mt-2 flex gap-2">
                     <button
@@ -323,7 +323,7 @@ export function ComplaintDetailModal({ open, complaintId, onClose, canManage }: 
                     disabled={!comment.trim() || updateMutation.isPending || commentMutation.isPending}
                     onClick={addComment}
                   >
-                    Add comment
+                    Add Comment
                   </Button>
                 </div>
               </div>

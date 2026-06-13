@@ -158,7 +158,7 @@ export function ParentFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? "Edit parent" : "Add parent"}
+      title={isEdit ? "Edit Parent" : "Add Parent"}
       description={
         isEdit
           ? "Update contact details and portal access for this parent account."
@@ -168,7 +168,7 @@ export function ParentFormModal({
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={saveMutation.isPending ? "Saving…" : isEdit ? "Save changes" : "Create parent"}
+          submitLabel={saveMutation.isPending ? "Saving…" : isEdit ? "Save Changes" : "Create Parent"}
           submitForm={FORM_ID}
           pending={saveMutation.isPending}
         />
@@ -187,10 +187,10 @@ export function ParentFormModal({
 
         <FormSection title="Contact">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="First name" error={form.formState.errors.first_name?.message}>
+            <Field label="First Name" error={form.formState.errors.first_name?.message}>
               <input className={fieldClass} {...form.register("first_name")} />
             </Field>
-            <Field label="Last name" error={form.formState.errors.last_name?.message}>
+            <Field label="Last Name" error={form.formState.errors.last_name?.message}>
               <input className={fieldClass} {...form.register("last_name")} />
             </Field>
           </div>
@@ -210,13 +210,13 @@ export function ParentFormModal({
           </Field>
         </FormSection>
 
-        <FormSection title={isEdit ? "Portal access" : "Login credentials"}>
+        <FormSection title={isEdit ? "Portal Access" : "Login Credentials"}>
           {!isEdit && (
             <>
               <Field label="Password" error={form.formState.errors.password?.message}>
                 <input type="password" className={fieldClass} autoComplete="new-password" {...form.register("password")} />
               </Field>
-              <Field label="Confirm password" error={form.formState.errors.password_confirmation?.message}>
+              <Field label="Confirm Password" error={form.formState.errors.password_confirmation?.message}>
                 <input
                   type="password"
                   className={fieldClass}
@@ -228,10 +228,10 @@ export function ParentFormModal({
           )}
           {isEdit && (
             <>
-              <Field label="New password (optional)" error={form.formState.errors.password?.message}>
+              <Field label="New Password (optional)" error={form.formState.errors.password?.message}>
                 <input type="password" className={fieldClass} autoComplete="new-password" {...form.register("password")} />
               </Field>
-              <Field label="Confirm new password" error={form.formState.errors.password_confirmation?.message}>
+              <Field label="Confirm New Password" error={form.formState.errors.password_confirmation?.message}>
                 <input
                   type="password"
                   className={fieldClass}

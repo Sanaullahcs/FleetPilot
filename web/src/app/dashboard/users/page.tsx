@@ -210,7 +210,7 @@ function UsersPageContent() {
             ? "Manage administrator and staff accounts across all organizations."
             : "Manage accounts, passwords, and block or activate users across your organization."
         }
-        action={<Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add user</Button>}
+        action={<Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add User</Button>}
       />
 
       <UserStatRow />
@@ -231,7 +231,7 @@ function UsersPageContent() {
           },
           {
             key: "active",
-            label: "Account status",
+            label: "Account Status",
             value: activeFilter,
             onChange: (v) => { setActiveFilter(v); setPage(1); },
             options: [
@@ -272,7 +272,7 @@ function UsersPageContent() {
             <RowActions
               items={[
                 { label: "Edit", onClick: () => { setEditing(u); setModalOpen(true); } },
-                { label: "Reset password", onClick: () => handleResetPassword(u) },
+                { label: "Reset Password", onClick: () => handleResetPassword(u) },
                 {
                   label: u.is_active ? "Block user" : "Activate user",
                   variant: u.is_active ? "warning" : "default",

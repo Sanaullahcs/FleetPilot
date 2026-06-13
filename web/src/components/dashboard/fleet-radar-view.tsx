@@ -27,12 +27,12 @@ const TYPE_OPTIONS = [
   { label: "Van", value: "van" },
   { label: "Minivan", value: "minivan" },
   { label: "Sedan", value: "sedan" },
-  { label: "Wheelchair van", value: "wheelchair_van" },
+  { label: "Wheelchair Van", value: "wheelchair_van" },
 ];
 
 const ASSIGNMENT_OPTIONS = [
-  { label: "Has driver", value: "assigned" },
-  { label: "No driver", value: "unassigned" },
+  { label: "Has Driver", value: "assigned" },
+  { label: "No Driver", value: "unassigned" },
 ];
 
 const MOVEMENT_OPTIONS = [
@@ -56,8 +56,8 @@ function formatTime(time: string | null | undefined) {
 }
 
 function directionLabel(direction: string | null | undefined) {
-  if (direction === "to_school") return "To school";
-  if (direction === "from_school") return "From school";
+  if (direction === "to_school") return "To School";
+  if (direction === "from_school") return "From School";
   return direction ?? "—";
 }
 
@@ -532,23 +532,23 @@ export function FleetRadarView() {
       {/* Map controls — top right under search HUD; zoom stays center-right on map */}
       <div className="pointer-events-none absolute right-3 top-[7.5rem] z-20 flex flex-col gap-2 sm:right-4 sm:top-32">
         <div className="pointer-events-auto flex flex-col gap-2">
-          <IconButton label="Fit all units" onClick={() => setFitKey((k) => k + 1)}>
+          <IconButton label="Fit All Units" onClick={() => setFitKey((k) => k + 1)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </IconButton>
-          <IconButton label="Toggle sweep" active={showSweep} onClick={() => setShowSweep((s) => !s)}>
+          <IconButton label="Toggle Sweep" active={showSweep} onClick={() => setShowSweep((s) => !s)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
               <path d="M12 12V4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </IconButton>
-          <IconButton label="More filters" active={panel === "filters"} badge={activeFilterCount} onClick={() => setPanel((p) => (p === "filters" ? "none" : "filters"))}>
+          <IconButton label="More Filters" active={panel === "filters"} badge={activeFilterCount} onClick={() => setPanel((p) => (p === "filters" ? "none" : "filters"))}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </IconButton>
-          <IconButton label="Fleet list" active={panel === "fleet" || panel === "detail"} badge={vehicles.length} onClick={() => setPanel((p) => (p === "fleet" || p === "detail" ? "none" : "fleet"))}>
+          <IconButton label="Fleet List" active={panel === "fleet" || panel === "detail"} badge={vehicles.length} onClick={() => setPanel((p) => (p === "fleet" || p === "detail" ? "none" : "fleet"))}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>

@@ -165,12 +165,12 @@ export function StudentFormModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={isEdit ? "Edit student enrollment" : "Enroll student"}
+      title={isEdit ? "Edit Student Enrollment" : "Enroll Student"}
       description="Register a student for school transportation — link them to their school, route driver, and special needs."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={isEdit ? "Save changes" : "Enroll student"}
+          submitLabel={isEdit ? "Save Changes" : "Enroll Student"}
           submitForm={FORM_ID}
           pending={isSubmitting || mutation.isPending}
           disabled={schoolsEmpty}
@@ -185,7 +185,7 @@ export function StudentFormModal({
       >
         {/* School first — core to transportation workflow */}
         <FormSection
-          title="Serving school"
+          title="Serving School"
           description="Which school does this student attend? Routes and bell times are organized by school."
         >
           {schoolsQuery.isError && (
@@ -243,12 +243,12 @@ export function StudentFormModal({
           </Field>
         </FormSection>
 
-        <FormSection title="Student profile" description="Identity and grade level for routing and manifests.">
+        <FormSection title="Student Profile" description="Identity and grade level for routing and manifests.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="First name" required error={errors.first_name?.message}>
+            <Field label="First Name" required error={errors.first_name?.message}>
               <input className={fieldClass} autoComplete="given-name" {...register("first_name")} />
             </Field>
-            <Field label="Last name" required error={errors.last_name?.message}>
+            <Field label="Last Name" required error={errors.last_name?.message}>
               <input className={fieldClass} autoComplete="family-name" {...register("last_name")} />
             </Field>
             <Field label="Student ID #" hint="District or internal student number">
@@ -257,7 +257,7 @@ export function StudentFormModal({
             <Field label="Grade">
               <input className={fieldClass} placeholder="K, 1, 2…" {...register("grade")} />
             </Field>
-            <Field label="Transportation status">
+            <Field label="Transportation Status">
               <SearchableSelect
                 value={watch("status")}
                 onChange={(v) => setValue("status", v as FormValues["status"])}
@@ -267,18 +267,18 @@ export function StudentFormModal({
                 searchPlaceholder="Search status…"
               />
             </Field>
-            <Field label="Emergency contact phone" className="sm:col-span-2">
+            <Field label="Emergency Contact phone" className="sm:col-span-2">
               <input type="tel" className={fieldClass} {...register("emergency_contact_phone")} />
             </Field>
           </div>
         </FormSection>
 
         <FormSection
-          title="Route driver"
+          title="Route Driver"
           description="Assign the driver who will transport this student. You can change this when routes are updated."
         >
           <Field
-            label="Assigned driver"
+            label="Assigned Driver"
             hint={selectedSchoolId ? "Optional — assign now or later from the driver roster" : "Select a school first"}
             error={errors.assigned_driver_id?.message}
           >
@@ -302,11 +302,11 @@ export function StudentFormModal({
           </Field>
         </FormSection>
 
-        <FormSection title="Special transportation needs" description="Accommodations for routing and vehicle assignment.">
+        <FormSection title="Special Transportation Needs" description="Accommodations for routing and vehicle assignment.">
           <div className="flex flex-wrap gap-3">
             {[
-              { key: "has_iep" as const, label: "IEP on file" },
-              { key: "requires_wheelchair" as const, label: "Wheelchair lift required" },
+              { key: "has_iep" as const, label: "IEP on File" },
+              { key: "requires_wheelchair" as const, label: "Wheelchair Lift Required" },
               { key: "requires_aide" as const, label: "Monitor / aide required" },
             ].map((item) => (
               <label

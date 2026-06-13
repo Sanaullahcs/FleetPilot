@@ -27,7 +27,7 @@ import type { Vehicle } from "@/lib/types";
 const STATUS_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Maintenance", value: "maintenance" },
-  { label: "Out of service", value: "out_of_service" },
+  { label: "Out of Service", value: "out_of_service" },
   { label: "Retired", value: "retired" },
 ];
 
@@ -36,12 +36,12 @@ const TYPE_OPTIONS = [
   { label: "Van", value: "van" },
   { label: "Minivan", value: "minivan" },
   { label: "Sedan", value: "sedan" },
-  { label: "Wheelchair van", value: "wheelchair_van" },
+  { label: "Wheelchair Van", value: "wheelchair_van" },
 ];
 
 const ASSIGNMENT_OPTIONS = [
-  { label: "Has driver", value: "assigned" },
-  { label: "No driver", value: "unassigned" },
+  { label: "Has Driver", value: "assigned" },
+  { label: "No Driver", value: "unassigned" },
 ];
 
 export default function VehiclesPage() {
@@ -198,7 +198,7 @@ export default function VehiclesPage() {
         title="Vehicles"
         description="Fleet inventory, capacity, driver assignments, and service status."
         action={can("vehicles.create") && (
-          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add vehicle</Button>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add Vehicle</Button>
         )}
       />
 
@@ -250,9 +250,9 @@ export default function VehiclesPage() {
           actions={(v) => (
             <RowActions
               items={[
-                { label: "View details", onClick: () => { setViewingId(v.id); setViewingName(v.vehicle_number); } },
-                { label: "Assign driver", onClick: () => handleAssignDriver(v), hidden: !canAssign },
-                { label: "Change status", onClick: () => handleStatusChange(v), hidden: !can("vehicles.update") },
+                { label: "View Details", onClick: () => { setViewingId(v.id); setViewingName(v.vehicle_number); } },
+                { label: "Assign Driver", onClick: () => handleAssignDriver(v), hidden: !canAssign },
+                { label: "Change Status", onClick: () => handleStatusChange(v), hidden: !can("vehicles.update") },
                 { label: "Edit", onClick: () => { setEditing(v); setModalOpen(true); }, hidden: !can("vehicles.update") },
                 { label: "Delete", variant: "danger", onClick: () => handleDelete(v), hidden: !can("vehicles.delete") },
               ]}

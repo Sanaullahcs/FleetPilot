@@ -10,14 +10,15 @@ import { PageState } from "@/components/ui/page-state";
 import { RowActions } from "@/components/ui/row-actions";
 import { StudentFormModal } from "@/components/dashboard/student-form";
 import { ParentLinksModal } from "@/components/dashboard/parent-links-modal";
-import { ParentLinkingGuide } from "@/components/dashboard/parent-linking-guide";
 import { StatusChip } from "@/components/dashboard/status-chip";
 import { ContactCell } from "@/components/ui/contact-cell";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
 import { promptChangeStatus } from "@/lib/status-alerts";
 import { STUDENT_STATUS_OPTIONS } from "@/lib/status-options";
 import { getApiErrorMessage } from "@/lib/api";
-import { deleteStudent, listSchools, listStudents, updateStudentStatus } from "@/lib/resources";
+import { downloadProfilePdf, safePdfFilename } from "@/lib/pdf/download-profile-pdf";
+import { StudentProfilePdf } from "@/lib/pdf/student-profile-pdf";
+import { deleteStudent, getStudent, listSchools, listStudents, updateStudentStatus } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
 import { useAuthStore } from "@/store/auth";
 import { titleCase } from "@/lib/utils";
@@ -37,8 +38,8 @@ const GRADE_OPTIONS = ["PK", "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "
 }));
 
 const DRIVER_ASSIGNMENT_OPTIONS = [
-  { label: "Has driver", value: "assigned" },
-  { label: "No driver", value: "unassigned" },
+  { label: "Has Driver", value: "assigned" },
+  { label: "No Driver", value: "unassigned" },
 ];
 
 export default function StudentsPage() {
@@ -125,6 +126,20 @@ export default function StudentsPage() {
     if (ok) removeMutation.mutate(student.id);
   };
 
+  const handleDownloadPdf = async (student: Student) => {
+    try {
+      toastSuccess("Generating PDF…");
+      const full = await getStudent(student.id);
+      await downloadProfilePdf(
+        <StudentProfilePdf student={full} parents={full.parents ?? []} />,
+        safePdfFilename(`${student.first_name}-${student.last_name}-student-profile`),
+      );
+      toastSuccess("PDF downloaded");
+    } catch (e) {
+      toastError("PDF failed", getApiErrorMessage(e, "Could not generate profile PDF."));
+    }
+  };
+
   const handleStatusChange = async (student: Student) => {
     if (!can("students.update")) return;
     const label = `${student.first_name} ${student.last_name}`;
@@ -204,14 +219,12 @@ export default function StudentsPage() {
         }
         action={
           can("students.create") && (
-            <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add student</Button>
+            <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add Student</Button>
           )
         }
       />
 
       <StudentStatRow />
-
-      <ParentLinkingGuide />
 
       <FilterBar
         search={search}
@@ -281,9 +294,10 @@ export default function StudentsPage() {
           actions={(s) => (
             <RowActions
               items={[
-                { label: "Manage parents", onClick: () => setParentLinksStudent(s), hidden: !can("students.update") },
+                { label: "Download Profile PDF", onClick: () => void handleDownloadPdf(s) },
+                { label: "Manage Parents", onClick: () => setParentLinksStudent(s), hidden: !can("students.update") },
                 { label: "Edit", onClick: () => { setEditing(s); setModalOpen(true); }, hidden: !can("students.update") },
-                { label: "Change status", onClick: () => handleStatusChange(s), hidden: !can("students.update") },
+                { label: "Change Status", onClick: () => handleStatusChange(s), hidden: !can("students.update") },
                 { label: "Delete", variant: "danger", onClick: () => handleDelete(s), hidden: !can("students.delete") },
               ]}
             />

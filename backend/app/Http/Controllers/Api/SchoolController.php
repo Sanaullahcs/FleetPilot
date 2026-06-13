@@ -20,9 +20,11 @@ class SchoolController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $schoolId = $this->schoolScopeId($request->user());
+        $contractorSchoolIds = $this->contractorSchoolIds($request->user());
 
         $schools = $this->baseQuery($orgId)
             ->when($schoolId, fn ($q) => $q->where('id', $schoolId))
+            ->when($contractorSchoolIds !== null, fn ($q) => $q->whereIn('id', $contractorSchoolIds ?: ['__none__']))
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -178,6 +180,11 @@ class SchoolController extends Controller
         $schoolId = $this->schoolScopeId($request->user());
         if ($schoolId && $school->id !== $schoolId) {
             abort(403, 'You can only access your assigned school.');
+        }
+
+        $contractorSchoolIds = $this->contractorSchoolIds($request->user());
+        if ($contractorSchoolIds !== null && ! in_array($school->id, $contractorSchoolIds, true)) {
+            abort(403, 'You can only access schools assigned to you.');
         }
     }
 }

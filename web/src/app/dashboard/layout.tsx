@@ -6,7 +6,7 @@ import { useRequireAuth } from "@/hooks/use-require-auth";
 import { useAuthStore } from "@/store/auth";
 import { logout as logoutApi } from "@/lib/auth-api";
 import { confirmLogout, toastSuccess } from "@/lib/alerts";
-import { getPageHeaderTitle, isDriverPortalPath, isParentPortalPath, isSchoolPortalPath } from "@/lib/portal";
+import { getPageHeaderTitle, isContractorPortalPath, isDriverPortalPath, isParentPortalPath, isSchoolPortalPath } from "@/lib/portal";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardTopBar } from "@/components/dashboard/dashboard-top-bar";
 import { AssignmentPickerHost } from "@/components/dashboard/assignment-picker-host";
@@ -51,6 +51,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!user || user.role !== "school_contact") return;
     if (!isSchoolPortalPath(pathname)) {
       router.replace("/dashboard/my-school");
+    }
+  }, [user, pathname, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== "contractor") return;
+    if (!isContractorPortalPath(pathname)) {
+      router.replace("/dashboard/my-contracts");
     }
   }, [user, pathname, router]);
 

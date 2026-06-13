@@ -24,8 +24,12 @@ class FleetRadarController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $schoolScopeId = $this->schoolScopeId($request->user());
+        $contractorRouteIds = $this->contractorRouteIds($request->user());
+        $isContractor = $contractorRouteIds !== null;
+        $contractorId = $request->user()->id;
 
         $vehicles = Vehicle::forOrganization($orgId)
+            ->when($isContractor, fn ($q) => $q->where('contractor_id', $contractorId))
             ->when($schoolScopeId, function ($q) use ($orgId, $schoolScopeId) {
                 $schoolDriverIds = Driver::forOrganization($orgId)
                     ->whereHas('students', fn ($s) => $s->where('school_id', $schoolScopeId))
@@ -84,6 +88,7 @@ class FleetRadarController extends Controller
             ->with('school:id,name,code')
             ->where('status', 'active')
             ->when($schoolScopeId, fn ($q) => $q->where('school_id', $schoolScopeId))
+            ->when($isContractor, fn ($q) => $q->whereIn('id', $contractorRouteIds ?: ['__none__']))
             ->get()
             ->groupBy('school_id');
 
@@ -91,6 +96,7 @@ class FleetRadarController extends Controller
             ->with('school:id,name,code')
             ->where('status', 'active')
             ->when($schoolScopeId, fn ($q) => $q->where('school_id', $schoolScopeId))
+            ->when($isContractor, fn ($q) => $q->whereIn('id', $contractorRouteIds ?: ['__none__']))
             ->orderBy('name')
             ->get();
 
@@ -101,10 +107,13 @@ class FleetRadarController extends Controller
 
         $todayAssignments = RunAssignment::where('service_date', Carbon::today())
             ->whereIn('status', ['scheduled', 'in_progress'])
-            ->whereHas('run.route', function ($q) use ($orgId, $schoolScopeId) {
+            ->whereHas('run.route', function ($q) use ($orgId, $schoolScopeId, $isContractor, $contractorRouteIds) {
                 $q->where('organization_id', $orgId);
                 if ($schoolScopeId) {
                     $q->where('school_id', $schoolScopeId);
+                }
+                if ($isContractor) {
+                    $q->whereIn('id', $contractorRouteIds ?: ['__none__']);
                 }
             })
             ->with(['run.route.school'])
@@ -154,6 +163,10 @@ class FleetRadarController extends Controller
             }
 
             if ($schoolScopeId && ($routeContext['school_id'] ?? null) !== $schoolScopeId) {
+                continue;
+            }
+
+            if ($isContractor && ! in_array($routeContext['id'] ?? null, $contractorRouteIds, true)) {
                 continue;
             }
 

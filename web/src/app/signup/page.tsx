@@ -25,12 +25,15 @@ import {
   AuthSuccessBanner,
   AuthGlassCard,
   AuthRoleGrid,
+  AuthDemoPills,
 } from "@/components/auth/auth-shell";
 import { AddressFields } from "@/components/auth/address-fields";
 import { AuthStepper, AuthWizardNav, type AuthStep } from "@/components/auth/auth-stepper";
 import { SearchableSelect } from "@/components/ui/dropdown-menu";
+import { FileUploadField } from "@/components/ui/file-upload-field";
 import { brand } from "@/lib/brand";
-import { US_STATES } from "@/lib/us-states";
+import { WEB_DEMO_ACCOUNTS } from "@/lib/demo-accounts";
+import { LICENSE_CLASSES, US_STATES } from "@/lib/us-states";
 
 const addressFields = {
   address: z.string().min(1, "Street address is required.").max(500),
@@ -41,8 +44,20 @@ const addressFields = {
 
 const signupSchema = z
   .object({
-    role: z.enum(["admin", "driver", "school_contact", "parent"]),
+    role: z.enum(["admin", "driver", "school_contact", "parent", "contractor"]),
     company_name: z.string().max(255),
+    business_type: z.string().max(100).optional().or(z.literal("")),
+    tax_id: z.string().max(50).optional().or(z.literal("")),
+    fleet_size: z.string().max(10).optional().or(z.literal("")),
+    driver_count: z.string().max(10).optional().or(z.literal("")),
+    vehicle_count: z.string().max(10).optional().or(z.literal("")),
+    years_in_business: z.string().max(10).optional().or(z.literal("")),
+    coverage_areas: z.string().max(2000).optional().or(z.literal("")),
+    service_radius_miles: z.string().max(10).optional().or(z.literal("")),
+    insurance_carrier: z.string().max(150).optional().or(z.literal("")),
+    contractor_insurance_policy: z.string().max(80).optional().or(z.literal("")),
+    dot_number: z.string().max(50).optional().or(z.literal("")),
+    mc_number: z.string().max(50).optional().or(z.literal("")),
     company_phone: z.string().max(20).optional().or(z.literal("")),
     company_email: z.string().email().optional().or(z.literal("")),
     website: z.string().max(255).optional().or(z.literal("")),
@@ -60,8 +75,12 @@ const signupSchema = z
     principal_name: z.string().max(100).optional().or(z.literal("")),
     employee_id: z.string().max(50).optional().or(z.literal("")),
     license_number: z.string().max(50).optional().or(z.literal("")),
+    license_class: z.string().max(20).optional().or(z.literal("")),
     license_state: z.string().max(2).optional().or(z.literal("")),
     license_expiry: z.string().optional().or(z.literal("")),
+    insurance_provider: z.string().max(150).optional().or(z.literal("")),
+    insurance_policy_number: z.string().max(80).optional().or(z.literal("")),
+    insurance_expiry: z.string().optional().or(z.literal("")),
     date_of_birth: z.string().optional().or(z.literal("")),
     emergency_contact_name: z.string().max(100).optional().or(z.literal("")),
     emergency_contact_phone: z.string().max(20).optional().or(z.literal("")),
@@ -101,6 +120,18 @@ const signupSchema = z
       }
       return;
     }
+    if (data.role === "contractor" && (!data.company_name?.trim() || data.company_name.trim().length < 2)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Company name is required.", path: ["company_name"] });
+    }
+    if (data.role === "driver") {
+      if (!data.license_number?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "License number is required.", path: ["license_number"] });
+      if (!data.license_class?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "License class is required.", path: ["license_class"] });
+      if (!data.license_state?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "License state is required.", path: ["license_state"] });
+      if (!data.license_expiry?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "License expiry is required.", path: ["license_expiry"] });
+      if (!data.insurance_provider?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Insurance provider is required.", path: ["insurance_provider"] });
+      if (!data.insurance_policy_number?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Policy number is required.", path: ["insurance_policy_number"] });
+      if (!data.insurance_expiry?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Insurance expiry is required.", path: ["insurance_expiry"] });
+    }
     if (!data.admin_user_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select an administrator.", path: ["admin_user_id"] });
     }
@@ -116,32 +147,39 @@ const ROLES: { id: SignupRole; label: string; short: string; description: string
   { id: "driver", label: "Driver", short: "Driver", description: "Join your employer and access your route schedule", accent: brand.cyan, Icon: RoleIconPerson },
   { id: "school_contact", label: "School", short: "School", description: "Connect your campus with district transportation", accent: brand.orange, Icon: RoleIconSchool },
   { id: "parent", label: "Parent", short: "Parent", description: "Track buses and stay connected with your child's school", accent: brand.accent, Icon: RoleIconFamily },
+  { id: "contractor", label: "Contractor", short: "Contractor", description: "Operate routes a provider delegates to your fleet", accent: "#8B5CF6", Icon: RoleIconContractor },
 ];
 
 const STEPS: Record<SignupRole, AuthStep[]> = {
   admin: [
-    { id: "company", title: "Company", subtitle: "Business details" },
-    { id: "account", title: "Account", subtitle: "Your credentials" },
-    { id: "address", title: "Address", subtitle: "Business location" },
+    { id: "company", title: "Company", subtitle: "Business Details" },
+    { id: "account", title: "Account", subtitle: "Your Credentials" },
+    { id: "address", title: "Address", subtitle: "Business Location" },
     { id: "review", title: "Review", subtitle: "Confirm & create" },
   ],
   school_contact: [
-    { id: "provider", title: "Provider", subtitle: "Your transportation company" },
+    { id: "provider", title: "Provider", subtitle: "Your Transportation Company" },
     { id: "school", title: "School", subtitle: "Campus & enrollment" },
-    { id: "account", title: "Contact", subtitle: "Your account" },
-    { id: "review", title: "Review", subtitle: "Submit request" },
+    { id: "account", title: "Contact", subtitle: "Your Account" },
+    { id: "review", title: "Review", subtitle: "Submit Request" },
   ],
   driver: [
-    { id: "provider", title: "Employer", subtitle: "Link to provider" },
-    { id: "account", title: "Account", subtitle: "Your credentials" },
+    { id: "provider", title: "Employer", subtitle: "Link to Provider" },
+    { id: "account", title: "Account", subtitle: "Your Credentials" },
     { id: "profile", title: "Profile", subtitle: "Address & license" },
-    { id: "review", title: "Review", subtitle: "Submit request" },
+    { id: "review", title: "Review", subtitle: "Submit Request" },
   ],
   parent: [
     { id: "provider", title: "District", subtitle: "Provider & school" },
-    { id: "account", title: "Account", subtitle: "Your credentials" },
+    { id: "account", title: "Account", subtitle: "Your Credentials" },
     { id: "family", title: "Family", subtitle: "Child & home address" },
-    { id: "review", title: "Review", subtitle: "Submit request" },
+    { id: "review", title: "Review", subtitle: "Submit Request" },
+  ],
+  contractor: [
+    { id: "provider", title: "Provider", subtitle: "Who You Contract With" },
+    { id: "company", title: "Company", subtitle: "Your Business" },
+    { id: "account", title: "Account", subtitle: "Your Credentials" },
+    { id: "review", title: "Review", subtitle: "Submit Request" },
   ],
 };
 
@@ -159,12 +197,17 @@ const STEP_FIELDS: Record<SignupRole, Record<string, (keyof SignupFormValues)[]>
   driver: {
     provider: ["organization_id", "admin_user_id"],
     account: ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
-    profile: ["address", "city", "state", "zip"],
+    profile: ["address", "city", "state", "zip", "license_number", "license_class", "license_state", "license_expiry", "insurance_provider", "insurance_policy_number", "insurance_expiry"],
   },
   parent: {
     provider: ["organization_id", "admin_user_id", "school_id"],
     account: ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
     family: ["address", "city", "state", "zip"],
+  },
+  contractor: {
+    provider: ["organization_id", "admin_user_id"],
+    company: ["company_name", "business_type", "tax_id", "fleet_size", "driver_count", "vehicle_count", "years_in_business", "coverage_areas", "service_radius_miles", "insurance_carrier", "contractor_insurance_policy", "dot_number", "mc_number", "address", "city", "state", "zip"],
+    account: ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
   },
 };
 
@@ -194,6 +237,18 @@ const RELATIONSHIP_OPTIONS = [
 const EMPTY_FORM: SignupFormValues = {
   role: "admin",
   company_name: "",
+  business_type: "",
+  tax_id: "",
+  fleet_size: "",
+  driver_count: "",
+  vehicle_count: "",
+  years_in_business: "",
+  coverage_areas: "",
+  service_radius_miles: "",
+  insurance_carrier: "",
+  contractor_insurance_policy: "",
+  dot_number: "",
+  mc_number: "",
   company_phone: "",
   company_email: "",
   website: "",
@@ -211,8 +266,12 @@ const EMPTY_FORM: SignupFormValues = {
   principal_name: "",
   employee_id: "",
   license_number: "",
+  license_class: "",
   license_state: "",
   license_expiry: "",
+  insurance_provider: "",
+  insurance_policy_number: "",
+  insurance_expiry: "",
   date_of_birth: "",
   emergency_contact_name: "",
   emergency_contact_phone: "",
@@ -242,10 +301,14 @@ export default function SignupPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmedReview, setConfirmedReview] = useState(false);
+  const [licenseDocument, setLicenseDocument] = useState<File | null>(null);
+  const [insuranceDocument, setInsuranceDocument] = useState<File | null>(null);
+  const [docErrors, setDocErrors] = useState<{ license?: string; insurance?: string }>({});
 
   const isProvider = role === "admin";
   const isDriver = role === "driver";
   const isSchool = role === "school_contact";
+  const isContractor = role === "contractor";
   const needsSchoolSelect = role === "parent";
   const activeRole = ROLES.find((r) => r.id === role)!;
   const steps = STEPS[role];
@@ -353,7 +416,23 @@ export default function SignupPage() {
 
   const buildPayload = (v: SignupFormValues) => ({
     role: v.role,
-    company_name: isProvider ? v.company_name : undefined,
+    company_name: isProvider || isContractor ? v.company_name : undefined,
+    business_type: isContractor ? v.business_type || undefined : undefined,
+    tax_id: isContractor ? v.tax_id || undefined : undefined,
+    fleet_size: isContractor && v.fleet_size ? Number(v.fleet_size) : undefined,
+    driver_count: isContractor && v.driver_count ? Number(v.driver_count) : undefined,
+    vehicle_count: isContractor && v.vehicle_count ? Number(v.vehicle_count) : undefined,
+    years_in_business: isContractor && v.years_in_business ? Number(v.years_in_business) : undefined,
+    coverage_areas: isContractor ? v.coverage_areas || undefined : undefined,
+    service_radius_miles: isContractor && v.service_radius_miles ? Number(v.service_radius_miles) : undefined,
+    insurance_carrier: isContractor ? v.insurance_carrier || undefined : undefined,
+    insurance_policy_number: isDriver
+      ? v.insurance_policy_number || undefined
+      : isContractor
+        ? v.contractor_insurance_policy || undefined
+        : undefined,
+    dot_number: isContractor ? v.dot_number || undefined : undefined,
+    mc_number: isContractor ? v.mc_number || undefined : undefined,
     company_phone: isProvider ? v.company_phone || undefined : undefined,
     company_email: isProvider ? v.company_email || undefined : undefined,
     website: isProvider ? v.website || undefined : undefined,
@@ -381,8 +460,11 @@ export default function SignupPage() {
     zip: v.zip,
     employee_id: isDriver ? v.employee_id || undefined : undefined,
     license_number: isDriver ? v.license_number || undefined : undefined,
+    license_class: isDriver ? v.license_class || undefined : undefined,
     license_state: isDriver ? v.license_state || undefined : undefined,
     license_expiry: isDriver ? v.license_expiry || undefined : undefined,
+    insurance_provider: isDriver ? v.insurance_provider || undefined : undefined,
+    insurance_expiry: isDriver ? v.insurance_expiry || undefined : undefined,
     date_of_birth: isDriver ? v.date_of_birth || undefined : undefined,
     emergency_contact_name: isDriver ? v.emergency_contact_name || undefined : undefined,
     emergency_contact_phone: isDriver ? v.emergency_contact_phone || undefined : undefined,
@@ -396,8 +478,18 @@ export default function SignupPage() {
 
   const onSubmit = async (v: SignupFormValues) => {
     setServerError(null);
+    if (v.role === "driver") {
+      const nextDocErrors: { license?: string; insurance?: string } = {};
+      if (!licenseDocument) nextDocErrors.license = "Upload a copy of your driver license.";
+      if (!insuranceDocument) nextDocErrors.insurance = "Upload your insurance certificate.";
+      setDocErrors(nextDocErrors);
+      if (Object.keys(nextDocErrors).length > 0) return;
+    }
     try {
-      const res = await submitRegistration(buildPayload(v));
+      const res = await submitRegistration(buildPayload(v), {
+        license_document: licenseDocument,
+        insurance_document: insuranceDocument,
+      });
       setSuccessMessage(res.message);
       toastSuccess("Registration complete", res.message);
       if (v.role === "admin") setTimeout(() => router.push("/login"), 2000);
@@ -421,7 +513,7 @@ export default function SignupPage() {
             {role === "admin" ? (
               <p className="text-center text-sm text-slate-500">Redirecting to sign in…</p>
             ) : (
-              <Link href="/login" className="fp-auth-btn block text-center">Go to sign in</Link>
+              <Link href="/login" className="fp-auth-btn block text-center">Go to Sign In</Link>
             )}
           </div>
         </AuthGlassCard>
@@ -433,7 +525,7 @@ export default function SignupPage() {
         >
           <input type="hidden" {...register("role")} value={role} />
 
-          <AuthFormHeading title="Create your account" description="Pick a role and complete the steps below" />
+          <AuthFormHeading title="Create Your Account" description="Pick a role and complete the steps below" />
 
           <div className="mt-6">
             <AuthRoleGrid compact roles={ROLES} selected={role} onSelect={(id) => selectRole(id as SignupRole)} />
@@ -446,13 +538,13 @@ export default function SignupPage() {
               <div key={`${role}-${currentStep.id}`} className="animate-auth-step-in">
                 {currentStep.id === "company" && (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <AuthField label="Company name *" error={errors.company_name?.message}>
+                    <AuthField label="Company Name *" error={errors.company_name?.message}>
                       <input className="fp-input" placeholder="Metro K-12 Transportation" {...register("company_name")} />
                     </AuthField>
-                    <AuthField label="Company phone" error={errors.company_phone?.message}>
+                    <AuthField label="Company Phone" error={errors.company_phone?.message}>
                       <input type="tel" className="fp-input" {...register("company_phone")} />
                     </AuthField>
-                    <AuthField label="Company email" hint="Billing & operations" error={errors.company_email?.message}>
+                    <AuthField label="Company Email" hint="Billing & operations" error={errors.company_email?.message}>
                       <input type="email" className="fp-input" {...register("company_email")} />
                     </AuthField>
                     <AuthField label="Website" error={errors.website?.message}>
@@ -470,7 +562,7 @@ export default function SignupPage() {
                   <div className="space-y-4">
                     {isSchool ? (
                       <>
-                        <AuthField label="Transportation provider *" error={errors.organization_id?.message} hint="Select the company that handles your district's bus routes">
+                        <AuthField label="Transportation Provider *" error={errors.organization_id?.message} hint="Select the company that handles your district's bus routes">
                           <SearchableSelect value={organizationId} onChange={onOrgChange} options={orgOptions} placeholder="Select provider" showAllOption={false} />
                         </AuthField>
                         <div className="rounded-xl border border-brand-orange/20 bg-brand-orange/5 px-4 py-3 text-sm text-slate-600">
@@ -480,7 +572,7 @@ export default function SignupPage() {
                       </>
                     ) : (
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <AuthField label="Transportation provider *" error={errors.organization_id?.message}>
+                        <AuthField label="Transportation Provider *" error={errors.organization_id?.message}>
                           <SearchableSelect value={organizationId} onChange={onOrgChange} options={orgOptions} placeholder="Select provider" showAllOption={false} />
                         </AuthField>
                         <AuthField label="Administrator *" error={errors.admin_user_id?.message}>
@@ -501,41 +593,41 @@ export default function SignupPage() {
                 {currentStep.id === "school" && (
                   <div className="space-y-5">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <AuthField label="School name *" error={errors.school_name?.message}>
+                      <AuthField label="School Name *" error={errors.school_name?.message}>
                         <input className="fp-input" placeholder="Lincoln Elementary" {...register("school_name")} />
                       </AuthField>
-                      <AuthField label="School code / NCES ID" error={errors.school_code?.message}>
+                      <AuthField label="School Code / NCES ID" error={errors.school_code?.message}>
                         <input className="fp-input" placeholder="Optional" {...register("school_code")} />
                       </AuthField>
-                      <AuthField label="School district" error={errors.district?.message}>
+                      <AuthField label="School District" error={errors.district?.message}>
                         <input className="fp-input" placeholder="Springfield USD" {...register("district")} />
                       </AuthField>
-                      <AuthField label="Grade levels served">
+                      <AuthField label="Grade Levels served">
                         <SearchableSelect value={watch("grade_levels") ?? ""} onChange={(v) => setValue("grade_levels", v)} options={GRADE_OPTIONS} allLabel="— Select —" placeholder="Grade range" />
                       </AuthField>
-                      <AuthField label="Estimated students *" error={errors.estimated_student_count?.message as string | undefined} hint="Approximate enrollment for route planning">
+                      <AuthField label="Estimated Students *" error={errors.estimated_student_count?.message as string | undefined} hint="Approximate enrollment for route planning">
                         <input type="number" min={1} className="fp-input" placeholder="450" {...register("estimated_student_count")} />
                       </AuthField>
-                      <AuthField label="School phone" error={errors.school_phone?.message}>
+                      <AuthField label="School Phone" error={errors.school_phone?.message}>
                         <input type="tel" className="fp-input" {...register("school_phone")} />
                       </AuthField>
-                      <AuthField label="Principal name" error={errors.principal_name?.message}>
+                      <AuthField label="Principal Name" error={errors.principal_name?.message}>
                         <input className="fp-input" {...register("principal_name")} />
                       </AuthField>
-                      <AuthField label="School website" error={errors.school_website?.message}>
+                      <AuthField label="School Website" error={errors.school_website?.message}>
                         <input className="fp-input" placeholder="https://" {...register("school_website")} />
                       </AuthField>
                     </div>
-                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="School campus address" />
+                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="School Campus Address" />
                   </div>
                 )}
 
                 {currentStep.id === "account" && (
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <AuthField label="First name *" error={errors.first_name?.message}>
+                    <AuthField label="First Name *" error={errors.first_name?.message}>
                       <input className="fp-input" autoComplete="given-name" {...register("first_name")} />
                     </AuthField>
-                    <AuthField label="Last name *" error={errors.last_name?.message}>
+                    <AuthField label="Last Name *" error={errors.last_name?.message}>
                       <input className="fp-input" autoComplete="family-name" {...register("last_name")} />
                     </AuthField>
                     <AuthField label="Email *" error={errors.email?.message}>
@@ -546,7 +638,7 @@ export default function SignupPage() {
                     </AuthField>
                     {isSchool && (
                       <>
-                        <AuthField label="Your job title" error={errors.job_title?.message}>
+                        <AuthField label="Your Job Title" error={errors.job_title?.message}>
                           <input className="fp-input" placeholder="Transportation coordinator" {...register("job_title")} />
                         </AuthField>
                         <AuthField label="Department" error={errors.department?.message}>
@@ -557,29 +649,94 @@ export default function SignupPage() {
                     <AuthField label="Password *" error={errors.password?.message}>
                       <input type="password" className="fp-input" autoComplete="new-password" {...register("password")} />
                     </AuthField>
-                    <AuthField label="Confirm password *" error={errors.password_confirmation?.message}>
+                    <AuthField label="Confirm Password *" error={errors.password_confirmation?.message}>
                       <input type="password" className="fp-input" autoComplete="new-password" {...register("password_confirmation")} />
                     </AuthField>
                   </div>
                 )}
 
                 {currentStep.id === "address" && (
-                  <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Business address" />
+                  <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Business Address" />
+                )}
+
+                {currentStep.id === "company" && (
+                  <div className="space-y-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <AuthField label="Company Name *" error={errors.company_name?.message}>
+                        <input className="fp-input" placeholder="Owens Transit LLC" {...register("company_name")} />
+                      </AuthField>
+                      <AuthField label="Business Type" error={errors.business_type?.message}>
+                        <input className="fp-input" placeholder="LLC, sole proprietor…" {...register("business_type")} />
+                      </AuthField>
+                      <AuthField label="Tax ID / EIN" error={errors.tax_id?.message}>
+                        <input className="fp-input" placeholder="Optional" {...register("tax_id")} />
+                      </AuthField>
+                      <AuthField label="Fleet Size" hint="Total vehicles operated" error={errors.fleet_size?.message}>
+                        <input type="number" min={0} className="fp-input" placeholder="8" {...register("fleet_size")} />
+                      </AuthField>
+                      <AuthField label="Number of Drivers" error={errors.driver_count?.message}>
+                        <input type="number" min={0} className="fp-input" placeholder="12" {...register("driver_count")} />
+                      </AuthField>
+                      <AuthField label="Number of Vehicles" error={errors.vehicle_count?.message}>
+                        <input type="number" min={0} className="fp-input" placeholder="10" {...register("vehicle_count")} />
+                      </AuthField>
+                      <AuthField label="Years in Business" error={errors.years_in_business?.message}>
+                        <input type="number" min={0} className="fp-input" placeholder="5" {...register("years_in_business")} />
+                      </AuthField>
+                      <AuthField label="Service Radius (Miles)" error={errors.service_radius_miles?.message}>
+                        <input type="number" min={0} className="fp-input" placeholder="50" {...register("service_radius_miles")} />
+                      </AuthField>
+                      <AuthField label="Insurance Carrier" error={errors.insurance_carrier?.message}>
+                        <input className="fp-input" placeholder="Commercial carrier name" {...register("insurance_carrier")} />
+                      </AuthField>
+                      <AuthField label="Insurance Policy #" error={errors.contractor_insurance_policy?.message}>
+                        <input className="fp-input" placeholder="Policy number" {...register("contractor_insurance_policy")} />
+                      </AuthField>
+                      <AuthField label="DOT Number" error={errors.dot_number?.message}>
+                        <input className="fp-input" placeholder="Optional" {...register("dot_number")} />
+                      </AuthField>
+                      <AuthField label="MC Number" error={errors.mc_number?.message}>
+                        <input className="fp-input" placeholder="Optional" {...register("mc_number")} />
+                      </AuthField>
+                      <AuthField label="Coverage Areas" hint="Counties, cities, or regions you serve" error={errors.coverage_areas?.message}>
+                        <textarea className="fp-input min-h-[4.5rem] resize-y sm:col-span-2" placeholder="Springfield County, Metro North, District 12…" {...register("coverage_areas")} />
+                      </AuthField>
+                    </div>
+                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Business Address" />
+                    <div className="rounded-xl border border-violet-200/60 bg-violet-50/70 px-4 py-3 text-xs leading-relaxed text-slate-600">
+                      <p className="font-semibold text-violet-700">How contractors work</p>
+                      <p className="mt-1">Your provider&apos;s admin reviews your request, activates your account, then assigns the specific schools and routes you&apos;ll operate. Schools never assign work directly &mdash; everything flows through your provider.</p>
+                    </div>
+                  </div>
                 )}
 
                 {currentStep.id === "profile" && (
                   <div className="space-y-5">
-                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Home address" />
+                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Home Address" />
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-600">
+                      <p className="font-semibold text-slate-800">Credentialing required</p>
+                      <p className="mt-1">Your employer reviews license and insurance documents before activating your account.</p>
+                    </div>
                     <div className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
                       <AuthField label="Employee ID"><input className="fp-input" {...register("employee_id")} /></AuthField>
-                      <AuthField label="Date of birth"><input type="date" className="fp-input" {...register("date_of_birth")} /></AuthField>
-                      <AuthField label="Driver license #"><input className="fp-input" {...register("license_number")} /></AuthField>
-                      <AuthField label="License state">
-                        <SearchableSelect value={watch("license_state") ?? ""} onChange={(v) => setValue("license_state", v)} options={US_STATES} showAllOption={false} placeholder="State" />
+                      <AuthField label="Date of Birth"><input type="date" className="fp-input" {...register("date_of_birth")} /></AuthField>
+                      <AuthField label="Driver License # *" error={errors.license_number?.message}><input className="fp-input" {...register("license_number")} /></AuthField>
+                      <AuthField label="License Class *" error={errors.license_class?.message}>
+                        <SearchableSelect value={watch("license_class") ?? ""} onChange={(v) => setValue("license_class", v, { shouldValidate: true })} options={LICENSE_CLASSES} showAllOption={false} placeholder="Class" />
                       </AuthField>
-                      <AuthField label="License expiry"><input type="date" className="fp-input" {...register("license_expiry")} /></AuthField>
-                      <AuthField label="Emergency contact"><input className="fp-input" {...register("emergency_contact_name")} /></AuthField>
-                      <AuthField label="Emergency phone"><input type="tel" className="fp-input" {...register("emergency_contact_phone")} /></AuthField>
+                      <AuthField label="License State *" error={errors.license_state?.message}>
+                        <SearchableSelect value={watch("license_state") ?? ""} onChange={(v) => setValue("license_state", v, { shouldValidate: true })} options={US_STATES} showAllOption={false} placeholder="State" />
+                      </AuthField>
+                      <AuthField label="License Expiry *" error={errors.license_expiry?.message}><input type="date" className="fp-input" {...register("license_expiry")} /></AuthField>
+                      <div className="sm:col-span-2">
+                        <FileUploadField label="License Copy" hint="PDF or photo" value={licenseDocument} onChange={setLicenseDocument} error={docErrors.license} required />
+                      </div>
+                      <AuthField label="Insurance Provider *" error={errors.insurance_provider?.message}><input className="fp-input" {...register("insurance_provider")} /></AuthField>
+                      <AuthField label="Policy Number *" error={errors.insurance_policy_number?.message}><input className="fp-input" {...register("insurance_policy_number")} /></AuthField>
+                      <AuthField label="Insurance Expiry *" error={errors.insurance_expiry?.message}><input type="date" className="fp-input" {...register("insurance_expiry")} /></AuthField>
+                      <FileUploadField label="Insurance Certificate" value={insuranceDocument} onChange={setInsuranceDocument} error={docErrors.insurance} required />
+                      <AuthField label="Emergency Contact"><input className="fp-input" {...register("emergency_contact_name")} /></AuthField>
+                      <AuthField label="Emergency Phone"><input type="tel" className="fp-input" {...register("emergency_contact_phone")} /></AuthField>
                     </div>
                   </div>
                 )}
@@ -587,14 +744,14 @@ export default function SignupPage() {
                 {currentStep.id === "family" && (
                   <div className="space-y-5">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <AuthField label="Relationship to student">
+                      <AuthField label="Relationship to Student">
                         <SearchableSelect value={watch("relationship") ?? ""} onChange={(v) => setValue("relationship", v)} options={RELATIONSHIP_OPTIONS} allLabel="— Select —" placeholder="Relationship" />
                       </AuthField>
                       <AuthField label="Child's grade"><input className="fp-input" placeholder="K, 1, 2…" {...register("child_grade")} /></AuthField>
                       <AuthField label="Child's first name"><input className="fp-input" {...register("child_first_name")} /></AuthField>
                       <AuthField label="Child's last name"><input className="fp-input" {...register("child_last_name")} /></AuthField>
                     </div>
-                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Home address" />
+                    <AddressFields register={register} watch={watch} setValue={setValue} errors={errors} label="Home Address" />
                   </div>
                 )}
 
@@ -626,16 +783,20 @@ export default function SignupPage() {
                 onSubmit={() => void submitRegistrationForm()}
                 isReviewStep={isReviewStep}
                 continueLabel="Continue"
-                submitLabel={isProvider ? "Create provider account" : "Submit registration"}
+                submitLabel={isProvider ? "Create Provider Account" : "Submit Registration"}
                 loading={isSubmitting}
                 submitDisabled={isReviewStep && !confirmedReview}
               />
             </div>
           </AuthGlassCard>
 
+          <AuthDemoPills
+            accounts={[...WEB_DEMO_ACCOUNTS]}
+            onSelect={() => router.push("/login")}
+          />
           <p className="mt-4 text-center text-[13px] text-slate-500">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-brand-primary hover:text-brand-dark">Sign in</Link>
+            <Link href="/login" className="font-semibold text-brand-primary hover:text-brand-dark">Sign In</Link>
           </p>
         </form>
       )}
@@ -668,6 +829,12 @@ function ReviewPanel({
     rows.unshift({ label: "Company", value: values.company_name });
   } else {
     rows.unshift({ label: "Provider", value: orgLabel ?? "—" });
+  }
+  if (role === "contractor") {
+    rows.push(
+      { label: "Company", value: values.company_name || "—" },
+      { label: "Fleet Size", value: values.fleet_size ? String(values.fleet_size) : "—" },
+    );
   }
   if (role === "school_contact") {
     rows.push(
@@ -746,6 +913,13 @@ function RoleIconFamily() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M12 11a3 3 0 100-6 3 3 0 000 6zM5 20a7 7 0 0114 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+function RoleIconContractor() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M3 20V10l6-3 6 3v10M9 20v-5h6v5M15 20V7l6 2.5V20M3 20h18" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }

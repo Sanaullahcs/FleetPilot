@@ -87,7 +87,7 @@ export function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Card style={styles.hero}>
           <View style={styles.heroRow}>
-            <PhotoAvatar name={displayUser?.full_name ?? 'User'} size={56} seed={displayUser?.id} />
+            <PhotoAvatar name={displayUser?.full_name ?? 'User'} size={56} seed={displayUser?.id} gender={displayUser?.gender} photoUrl={displayUser?.profile_photo_url} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{displayUser?.full_name}</Text>
               <Text style={styles.email}>{displayUser?.email}</Text>

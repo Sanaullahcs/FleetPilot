@@ -91,8 +91,38 @@ class AuthController extends Controller
             unset($data['job_title']);
         }
 
-        DB::transaction(function () use ($user, $data) {
+        $profileMeta = null;
+        if ($user->role === 'contractor') {
+            $profileMeta = $request->validate([
+                'company_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+                'business_type' => ['sometimes', 'nullable', 'string', 'max:100'],
+                'tax_id' => ['sometimes', 'nullable', 'string', 'max:50'],
+                'fleet_size' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
+                'driver_count' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
+                'vehicle_count' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
+                'years_in_business' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:200'],
+                'coverage_areas' => ['sometimes', 'nullable', 'string', 'max:2000'],
+                'service_radius_miles' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:5000'],
+                'insurance_carrier' => ['sometimes', 'nullable', 'string', 'max:150'],
+                'insurance_policy_number' => ['sometimes', 'nullable', 'string', 'max:80'],
+                'dot_number' => ['sometimes', 'nullable', 'string', 'max:50'],
+                'mc_number' => ['sometimes', 'nullable', 'string', 'max:50'],
+            ]);
+        }
+
+        DB::transaction(function () use ($user, $data, $profileMeta) {
             $user->update($data);
+
+            if ($profileMeta !== null && $profileMeta !== []) {
+                $meta = array_merge($user->profile_meta ?? [], $profileMeta);
+                if (array_key_exists('company_name', $profileMeta)) {
+                    $user->job_title = $profileMeta['company_name'] ?: $user->job_title;
+                }
+                $user->update([
+                    'profile_meta' => $meta,
+                    'job_title' => $user->job_title,
+                ]);
+            }
 
             if ($user->role === 'driver') {
                 $driver = Driver::query()
@@ -256,6 +286,9 @@ class AuthController extends Controller
                 'name' => $user->organization->name,
                 'slug' => $user->organization->slug,
             ] : null,
+            'profile_meta' => in_array($user->role, ['contractor', 'school_contact'], true)
+                ? ($user->profile_meta ?? null)
+                : null,
             'roles' => $user->roles->pluck('slug'),
             'permissions' => $user->allPermissions()->pluck('slug'),
         ];

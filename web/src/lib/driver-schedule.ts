@@ -41,7 +41,7 @@ export const SCHEDULE_STATUS_FILTERS: Array<{
   { id: "all", label: "All statuses", summaryKey: "total" },
   { id: "incoming", label: "Incoming", summaryKey: "incoming" },
   { id: "scheduled", label: "Due today", summaryKey: "scheduled" },
-  { id: "in_progress", label: "In progress", summaryKey: "in_progress" },
+  { id: "in_progress", label: "In Progress", summaryKey: "in_progress" },
   { id: "completed", label: "Completed", summaryKey: "completed" },
   { id: "missed", label: "Missed", summaryKey: "missed" },
   { id: "cancelled", label: "Cancelled", summaryKey: "cancelled" },

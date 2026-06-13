@@ -23,46 +23,20 @@ export function PortalActionCard({
     <Link
       href={href}
       className={cn(
-        "group relative flex min-h-[7.25rem] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/40",
-        "transition duration-200 hover:-translate-y-0.5 hover:border-slate-300/90 hover:shadow-md hover:shadow-brand-primary/10",
+        "group relative flex min-h-[4.5rem] items-center gap-3 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 transition hover:border-slate-300",
         className,
       )}
     >
-      <div className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} />
+      <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: accent }} />
       <div
-        className="pointer-events-none absolute -right-3 -top-3 h-20 w-20 rounded-full opacity-[0.07] blur-2xl"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white [&_svg]:h-3.5 [&_svg]:w-3.5"
         style={{ background: accent }}
-        aria-hidden
-      />
-
-      <div className="relative flex items-start justify-between gap-3">
-        <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm [&_svg]:h-[18px] [&_svg]:w-[18px]"
-          style={{ background: accent }}
-        >
-          {icon}
-        </div>
-        <span
-          className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-400 transition group-hover:border-brand-primary/20 group-hover:bg-brand-light/40 group-hover:text-brand-primary"
-          aria-hidden
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </div>
-
-      <div className="relative mt-3 min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">{description}</p>
-      </div>
-
-      <div
-        className="pointer-events-none absolute bottom-2 right-2 opacity-[0.06] transition group-hover:opacity-[0.09] [&_svg]:h-14 [&_svg]:w-14"
-        style={{ color: accent }}
-        aria-hidden
       >
         {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-brand-primary">{title}</p>
+        <p className="truncate text-xs text-slate-500">{description}</p>
       </div>
     </Link>
   );
@@ -80,9 +54,9 @@ export function PortalSectionCard({
   className?: string;
 }) {
   return (
-    <section className={cn("fp-card overflow-hidden", className)}>
-      <div className="border-b border-slate-100 bg-gradient-to-r from-brand-primary/[0.07] via-brand-light/30 to-white px-5 py-4 sm:px-6">
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+    <section className={cn("fp-panel overflow-hidden", className)}>
+      <div className="border-b border-slate-100 px-4 py-3 sm:px-5">
+        <h3 className="text-sm font-semibold text-brand-secondary">{title}</h3>
         {description ? <p className="mt-0.5 text-xs text-slate-500">{description}</p> : null}
       </div>
       {children}
@@ -105,10 +79,74 @@ export function PortalAvatar({
 
   return (
     <span
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold text-white shadow-sm"
-      style={{ background: accent ?? "var(--brand-primary, #4f5ba9)" }}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white"
+      style={{ background: accent ?? brandFallback }}
     >
       {initials}
     </span>
+  );
+}
+
+const brandFallback = "#4F5BA9";
+
+export function PortalStatTile({
+  label,
+  value,
+  hint,
+  accent,
+  icon,
+  className,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  accent: string;
+  icon: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative flex h-[4.25rem] items-center gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 pl-3",
+        className,
+      )}
+    >
+      <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: accent }} />
+      <div
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white [&_svg]:h-3 [&_svg]:w-3"
+        style={{ background: accent }}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11px] font-medium text-slate-500">{label}</p>
+        <p className="truncate text-base font-semibold tabular-nums leading-tight text-slate-900">{value}</p>
+        {hint ? <p className="truncate text-[10px] leading-tight text-slate-400">{hint}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+export function PortalEmptyState({
+  title,
+  message,
+  icon,
+  className,
+}: {
+  title?: string;
+  message: string;
+  icon?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("fp-panel flex flex-col items-center justify-center px-6 py-10 text-center", className)}>
+      {icon ? (
+        <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary [&_svg]:h-4 [&_svg]:w-4">
+          {icon}
+        </span>
+      ) : null}
+      {title ? <p className="text-sm font-semibold text-brand-secondary">{title}</p> : null}
+      <p className={cn("max-w-md text-xs leading-relaxed text-slate-500", title && "mt-1")}>{message}</p>
+    </div>
   );
 }

@@ -19,10 +19,13 @@ import { promptAssignStudentDriver, promptAssignVehicle } from "@/lib/assignment
 import { promptChangeStatus } from "@/lib/status-alerts";
 import { DRIVER_STATUS_OPTIONS, STUDENT_STATUS_OPTIONS } from "@/lib/status-options";
 import { getApiErrorMessage } from "@/lib/api";
+import { downloadProfilePdf, safePdfFilename } from "@/lib/pdf/download-profile-pdf";
+import { DriverProfilePdf } from "@/lib/pdf/driver-profile-pdf";
 import {
   assignDriverVehicle,
   assignStudentDriver,
   deleteDriver,
+  getDriver,
   getStudent,
   listDriverStudentAssignments,
   listDrivers,
@@ -42,7 +45,7 @@ import type { DriverStudentAssignment } from "@/lib/resources";
 const STATUS_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Inactive", value: "inactive" },
-  { label: "On leave", value: "on_leave" },
+  { label: "On Leave", value: "on_leave" },
   { label: "Terminated", value: "terminated" },
 ];
 
@@ -54,13 +57,13 @@ const LICENSE_CLASS_OPTIONS = [
 ];
 
 const VEHICLE_ASSIGNMENT_OPTIONS = [
-  { label: "Has vehicle", value: "assigned" },
-  { label: "No vehicle", value: "unassigned" },
+  { label: "Has Vehicle", value: "assigned" },
+  { label: "No Vehicle", value: "unassigned" },
 ];
 
 const STUDENTS_ASSIGNMENT_OPTIONS = [
-  { label: "Has students", value: "with_students" },
-  { label: "No students", value: "without_students" },
+  { label: "Has Students", value: "with_students" },
+  { label: "No Students", value: "without_students" },
 ];
 
 const GRADE_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
@@ -262,6 +265,20 @@ export default function DriversPage() {
     if (ok) removeMutation.mutate(driver.id);
   };
 
+  const handleDownloadPdf = async (driver: Driver) => {
+    try {
+      toastSuccess("Generating PDF…");
+      const full = await getDriver(driver.id);
+      await downloadProfilePdf(
+        <DriverProfilePdf driver={full} orgName={user?.organization?.name} />,
+        safePdfFilename(`${driver.first_name}-${driver.last_name}-driver-profile`),
+      );
+      toastSuccess("PDF downloaded");
+    } catch (e) {
+      toastError("PDF failed", getApiErrorMessage(e, "Could not generate profile PDF."));
+    }
+  };
+
   const handleAssignVehicle = async (driver: Driver) => {
     if (!canAssign) return;
     const choice = await promptAssignVehicle(
@@ -457,9 +474,9 @@ export default function DriversPage() {
     ...(isSchoolContact
       ? []
       : [{ key: "school_id", label: "School", value: schoolFilter, onChange: setSchoolFilter, options: schoolOptions }]),
-    { key: "student_status", label: "Student status", value: studentStatus, onChange: setStudentStatus, options: STUDENT_STATUS_OPTIONS },
+    { key: "student_status", label: "Student Status", value: studentStatus, onChange: setStudentStatus, options: STUDENT_STATUS_OPTIONS },
     { key: "grade", label: "Grade", value: gradeFilter, onChange: setGradeFilter, options: GRADE_OPTIONS },
-    { key: "status", label: "Driver status", value: status, onChange: setStatus, options: STATUS_OPTIONS },
+    { key: "status", label: "Driver Status", value: status, onChange: setStatus, options: STATUS_OPTIONS },
     { key: "vehicle_assignment", label: "Vehicle", value: vehicleAssignment, onChange: setVehicleAssignment, options: VEHICLE_ASSIGNMENT_OPTIONS },
     { key: "students_assignment", label: "Students", value: studentsAssignment, onChange: setStudentsAssignment, options: STUDENTS_ASSIGNMENT_OPTIONS },
     { key: "license_class", label: "License", value: licenseClass, onChange: setLicenseClass, options: LICENSE_CLASS_OPTIONS },
@@ -474,15 +491,15 @@ export default function DriversPage() {
             ? "Drivers assigned to your students and today's school runs — contact and license details."
             : "Manage drivers, vehicle assignments, student routes, licensing, and compliance."
         }
-        action={can("drivers.create") && <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add driver</Button>}
+        action={can("drivers.create") && <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add Driver</Button>}
       />
 
       <DriverStatRow />
 
       <PageTabs
         tabs={[
-          { id: "roster", label: "Driver roster", count: data?.total },
-          { id: "students", label: "Assigned students", count: studentTabCount },
+          { id: "roster", label: "Driver Roster", count: data?.total },
+          { id: "students", label: "Assigned Students", count: studentTabCount },
         ]}
         active={tab}
         onChange={(id) => setTab(id as TabId)}
@@ -542,12 +559,13 @@ export default function DriversPage() {
               actions={(d) => (
                 <RowActions
                   items={[
-                    { label: "Assign vehicle", onClick: () => handleAssignVehicle(d), hidden: !canAssign },
-                    { label: "Change status", onClick: () => handleDriverStatusChange(d), hidden: !can("drivers.update") },
-                    { label: "View students", onClick: () => { setTab("students"); setDriverFilter(d.id); } },
+                    { label: "Download Profile PDF", onClick: () => void handleDownloadPdf(d) },
+                    { label: "Assign Vehicle", onClick: () => handleAssignVehicle(d), hidden: !canAssign },
+                    { label: "Change Status", onClick: () => handleDriverStatusChange(d), hidden: !can("drivers.update") },
+                    { label: "View Students", onClick: () => { setTab("students"); setDriverFilter(d.id); } },
                     { label: "Edit", onClick: () => { setEditing(d); setModalOpen(true); }, hidden: !can("drivers.update") },
                     { label: "Delete", variant: "danger" as const, onClick: () => handleDelete(d), hidden: !can("drivers.delete") },
-                  ].filter((item) => !isSchoolContact || item.label === "View students")}
+                  ].filter((item) => !isSchoolContact || item.label === "View students" || item.label === "Download profile PDF")}
                 />
               )}
             />
@@ -574,9 +592,9 @@ export default function DriversPage() {
             actions={(r) => (
               <RowActions
                 items={[
-                  { label: "Change driver", onClick: () => handleReassignStudent(r), hidden: !canAssignStudents },
-                  { label: "Change status", onClick: () => handleStudentStatusChange(r), hidden: !can("students.update") },
-                  { label: "View student", onClick: () => handleViewStudent(r.id), hidden: !can("students.view") },
+                  { label: "Change Driver", onClick: () => handleReassignStudent(r), hidden: !canAssignStudents },
+                  { label: "Change Status", onClick: () => handleStudentStatusChange(r), hidden: !can("students.update") },
+                  { label: "View Student", onClick: () => handleViewStudent(r.id), hidden: !can("students.view") },
                 ]}
               />
             )}

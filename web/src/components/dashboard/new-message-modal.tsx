@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
   driver: "Drivers",
   parent: "Parents",
   school_contact: "School contacts",
+  contractor: "Contractors",
   admin: "Transportation",
   dispatcher: "Transportation",
 };
@@ -75,7 +76,7 @@ export function NewMessageModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="New message"
+      title="New Message"
       description={description}
       size="md"
     >
@@ -124,7 +125,7 @@ export function NewMessageModal({
                           <span className="block truncate text-xs text-slate-500">{contact.subtitle}</span>
                         </span>
                         {contact.conversation_id ? (
-                          <span className="shrink-0 text-[10px] font-semibold text-brand-primary">Open thread</span>
+                          <span className="shrink-0 text-[10px] font-semibold text-brand-primary">Open Thread</span>
                         ) : (
                           <span className="shrink-0 text-[10px] text-slate-400">New</span>
                         )}

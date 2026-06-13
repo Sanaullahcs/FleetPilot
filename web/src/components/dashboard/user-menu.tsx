@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AuthUser } from "@/lib/types";
+import { ProfilePhotoAvatar, roleAccent } from "@/components/dashboard/profile-photo-avatar";
 import { cn, titleCase } from "@/lib/utils";
 
 function ChevronDown({ open }: { open: boolean }) {
@@ -51,10 +52,9 @@ export function UserMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const accent = roleAccent(user.role);
   const width = 260;
   const [pos, setPos] = useState({ top: 0, left: 0 });
-
-  const initials = `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
@@ -99,13 +99,14 @@ export function UserMenu({
           >
             <div className="border-b border-slate-100 bg-gradient-to-br from-brand-primary/8 via-brand-accent/5 to-transparent px-4 py-3.5">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-accent text-sm font-bold text-white shadow-sm shadow-brand-accent/30">
-                  {initials}
-                </div>
+                <ProfilePhotoAvatar name={user.full_name} seed={user.id} role={user.role} gender={user.gender} photoUrl={user.profile_photo_url} size="md" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-slate-900">{user.full_name}</p>
                   <p className="truncate text-xs text-slate-500">{user.email}</p>
-                  <span className="mt-1 inline-block rounded-full bg-brand-accent-light px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-accent-dark">
+                  <span
+                    className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                    style={{ background: accent }}
+                  >
                     {titleCase(user.role)}
                   </span>
                 </div>
@@ -123,7 +124,7 @@ export function UserMenu({
                 className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 <UserIcon />
-                My profile
+                My Profile
               </button>
               <Link
                 href="/dashboard"
@@ -152,7 +153,7 @@ export function UserMenu({
                 className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
               >
                 <LogoutIcon />
-                Sign out
+                Sign Out
               </button>
             </div>
           </div>,
@@ -177,9 +178,14 @@ export function UserMenu({
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/40",
         )}
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-accent-light text-sm font-semibold text-brand-accent-dark ring-2 ring-brand-accent/20">
-          {initials}
-        </div>
+        <ProfilePhotoAvatar
+          name={user.full_name}
+          seed={user.id}
+          role={user.role}
+          gender={user.gender}
+          photoUrl={user.profile_photo_url}
+          size="sm"
+        />
         <div className="hidden text-left sm:block">
           <p className="max-w-[120px] truncate text-sm font-medium text-slate-900 lg:max-w-[160px]">
             {user.first_name}

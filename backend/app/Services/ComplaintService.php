@@ -569,6 +569,34 @@ class ComplaintService
         return true;
     }
 
+    public function markAllMobileNotificationsRead(User $user): void
+    {
+        if (! in_array($user->role, self::SUBMITTER_ROLES, true)) {
+            return;
+        }
+
+        $complaints = Complaint::query()
+            ->forOrganization($user->organization_id)
+            ->where('submitted_by_user_id', $user->id)
+            ->whereIn('status', ['acknowledged', 'in_progress', 'waiting_on_submitter', 'resolved'])
+            ->orderByDesc('last_activity_at')
+            ->limit(10)
+            ->get();
+
+        $meta = $user->profile_meta ?? [];
+        $readIds = $meta['read_complaint_ids'] ?? [];
+
+        foreach ($complaints as $complaint) {
+            $notificationId = "complaint:{$complaint->id}:{$complaint->status}";
+            if (! in_array($notificationId, $readIds, true)) {
+                $readIds[] = $notificationId;
+            }
+        }
+
+        $meta['read_complaint_ids'] = array_values($readIds);
+        $user->update(['profile_meta' => $meta]);
+    }
+
     /**
      * @return array<int, array<string, mixed>>
      */

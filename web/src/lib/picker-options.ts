@@ -38,7 +38,7 @@ export function buildVehicleSelectOptions(
     map.set(dv.id, {
       label: formatVehicleSelectLabel(dv),
       value: dv.id,
-      sublabel: "Driver default vehicle",
+      sublabel: "Driver Default Vehicle",
       searchText: [dv.vehicle_number, dv.type, driver.first_name, driver.last_name].filter(Boolean).join(" "),
     });
   }

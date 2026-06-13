@@ -162,9 +162,9 @@ export function AuthHeroPanel({ variant = "login" }: { variant?: "login" | "sign
 
   const features: HeroFeature[] = isSignup
     ? [
-        { title: "Guided setup", desc: "Step-by-step onboarding for your organization", Icon: IconSteps },
-        { title: "Every role", desc: "Provider, school, driver, and parent accounts", Icon: IconUsers },
-        { title: "Verified access", desc: "Admin approval workflow before going live", Icon: IconShield },
+        { title: "Guided Setup", desc: "Step-by-step onboarding for your organization", Icon: IconSteps },
+        { title: "Every Role", desc: "Provider, school, driver, and parent accounts", Icon: IconUsers },
+        { title: "Verified Access", desc: "Admin approval workflow before going live", Icon: IconShield },
       ]
     : [
         {
@@ -173,13 +173,13 @@ export function AuthHeroPanel({ variant = "login" }: { variant?: "login" | "sign
           Icon: IconSignal,
         },
         {
-          title: "Driver app",
+          title: "Driver App",
           desc: "Runs, schedule, manifests, alerts, messaging, and complaints",
           Icon: IconDriverApp,
           mobileStores: {},
         },
         {
-          title: "Parent app",
+          title: "Parent App",
           desc: "Child tracking, schedules, alerts, messaging, and complaints",
           Icon: IconParentApp,
           mobileStores: {},
@@ -283,7 +283,7 @@ export function LoginShell({
   aside?: React.ReactNode;
 }) {
   return (
-    <AuthPageShell ctaHref="/signup" ctaLabel="Create account">
+    <AuthPageShell ctaHref="/signup" ctaLabel="Create Account">
       <AuthSplitLayout aside={aside ?? <AuthHeroPanel variant="login" />}>
         <div className="flex flex-1 items-center justify-center px-6 py-8">
           <div className="w-full max-w-sm">{children}</div>
@@ -301,7 +301,7 @@ export function SignupShell({
   compact?: boolean;
 }) {
   return (
-    <AuthPageShell ctaHref="/login" ctaLabel="Sign in">
+    <AuthPageShell ctaHref="/login" ctaLabel="Sign In">
       <AuthSplitLayout aside={<AuthHeroPanel variant="signup" />}>
         <div className="flex flex-1 justify-center px-4 py-6 sm:px-8">
           <div className="w-full max-w-xl">{children}</div>
@@ -552,22 +552,43 @@ export function AuthDemoPills({
         <p className="shrink-0 text-sm text-slate-500">Demo accounts</p>
         <span className="h-px flex-1 bg-slate-200" />
       </div>
-      <div className="mt-3 flex flex-nowrap items-center justify-center gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {accounts.map((acc) => {
-          const active = selectedEmail === acc.email;
-          return (
-            <button
-              key={acc.email}
-              type="button"
-              onClick={() => onSelect({ email: acc.email, password: acc.password ?? DEMO_PASSWORD })}
-              className={cn("auth-demo-pill shrink-0", active && "auth-demo-pill-active")}
-              aria-pressed={active}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: acc.accent }} />
-              <span>{acc.label}</span>
-            </button>
-          );
-        })}
+      <div className="mt-3 space-y-1.5">
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {accounts.slice(0, 4).map((acc) => {
+            const active = selectedEmail === acc.email;
+            return (
+              <button
+                key={acc.email}
+                type="button"
+                onClick={() => onSelect({ email: acc.email, password: acc.password ?? DEMO_PASSWORD })}
+                className={cn("auth-demo-pill shrink-0", active && "auth-demo-pill-active")}
+                aria-pressed={active}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: acc.accent }} />
+                <span>{acc.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {accounts.length > 4 ? (
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            {accounts.slice(4).map((acc) => {
+              const active = selectedEmail === acc.email;
+              return (
+                <button
+                  key={acc.email}
+                  type="button"
+                  onClick={() => onSelect({ email: acc.email, password: acc.password ?? DEMO_PASSWORD })}
+                  className={cn("auth-demo-pill shrink-0", active && "auth-demo-pill-active")}
+                  aria-pressed={active}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: acc.accent }} />
+                  <span>{acc.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </div>
   );

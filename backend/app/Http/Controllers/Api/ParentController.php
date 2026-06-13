@@ -10,6 +10,7 @@ use App\Models\ParentStudent;
 use App\Models\Role;
 use App\Models\Student;
 use App\Models\User;
+use App\Support\UserGender;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -135,6 +136,7 @@ class ParentController extends Controller
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'phone' => $data['phone'] ?? null,
+                'gender' => $data['gender'],
                 'role' => 'parent',
                 'is_active' => $data['is_active'] ?? true,
                 'email_verified_at' => ($data['is_active'] ?? true) ? now() : null,
@@ -177,6 +179,7 @@ class ParentController extends Controller
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'phone' => $data['phone'] ?? null,
+                'gender' => $data['gender'] ?? $user->gender,
                 'is_active' => $data['is_active'] ?? $user->is_active,
             ]);
 
@@ -381,6 +384,7 @@ class ParentController extends Controller
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:20'],
+            'gender' => UserGender::rule($creating),
             'relationship' => ['nullable', Rule::in(['mother', 'father', 'guardian', 'grandparent', 'other'])],
             'preferred_language' => ['nullable', 'string', 'max:10'],
             'is_active' => ['boolean'],

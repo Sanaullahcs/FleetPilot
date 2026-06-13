@@ -160,7 +160,7 @@ export function ChildDetailScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.profileRow}>
-            <PhotoAvatar name={name} size={compact ? 48 : 54} seed={child.student.id} />
+            <PhotoAvatar name={name} variant="student" size={compact ? 48 : 54} seed={child.student.id} />
             <View style={styles.profileText}>
               <Text style={styles.name}>{name}</Text>
               <Text style={styles.meta}>

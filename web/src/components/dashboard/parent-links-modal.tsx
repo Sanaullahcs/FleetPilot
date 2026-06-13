@@ -86,7 +86,7 @@ export function ParentLinksModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Manage parent access"
+      title="Manage Parent Access"
       description={
         student
           ? `Link parent accounts to ${student.first_name} ${student.last_name}. Parents only see students assigned to them.`

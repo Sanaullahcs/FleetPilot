@@ -152,7 +152,7 @@ function StudentRow({
 
   return (
     <Pressable style={[styles.row, active && styles.rowOn]} onPress={onPress}>
-      <PhotoAvatar name={track.student_name} size={50} seed={track.student_id} />
+      <PhotoAvatar name={track.student_name} variant="student" size={50} seed={track.student_id} />
       <View style={styles.rowBody}>
         <View style={styles.rowTitle}>
           <Text style={styles.rowName} numberOfLines={1}>{track.student_name}</Text>

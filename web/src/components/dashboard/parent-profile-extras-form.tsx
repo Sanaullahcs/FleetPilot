@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Field, FormSection } from "@/components/ui/form-section";
+import {
+  Field,
+  FormSection,
+  ProfileFormPanel,
+  profileSubmitClass,
+} from "@/components/ui/form-section";
+import { SearchableSelect } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/api";
 import { toastError, toastSuccess } from "@/lib/alerts";
@@ -41,12 +47,22 @@ async function updateParentProfile(payload: {
   return data.data;
 }
 
-const RELATIONSHIPS = [
-  { value: "mother", label: "Mother" },
-  { value: "father", label: "Father" },
-  { value: "guardian", label: "Guardian" },
-  { value: "grandparent", label: "Grandparent" },
-  { value: "other", label: "Other" },
+const RELATIONSHIP_OPTIONS = [
+  { label: "Mother", value: "mother" },
+  { label: "Father", value: "father" },
+  { label: "Guardian", value: "guardian" },
+  { label: "Grandparent", value: "grandparent" },
+  { label: "Other", value: "other" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { label: "English", value: "en" },
+  { label: "Spanish", value: "es" },
+  { label: "French", value: "fr" },
+  { label: "Arabic", value: "ar" },
+  { label: "Chinese (Simplified)", value: "zh" },
+  { label: "Vietnamese", value: "vi" },
+  { label: "Other", value: "other" },
 ];
 
 export function ParentProfileExtrasForm() {
@@ -82,80 +98,81 @@ export function ParentProfileExtrasForm() {
   });
 
   if (isLoading) {
-    return <div className="fp-card p-6 text-sm text-slate-500">Loading parent details…</div>;
+    return (
+      <ProfileFormPanel title="Parent Preferences" description="Loading…">
+        <p className="text-sm text-slate-500">Loading parent details…</p>
+      </ProfileFormPanel>
+    );
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        mutation.mutate();
-      }}
-      className="fp-card p-6"
+    <ProfileFormPanel
+      title="Parent Preferences"
+      description={`Relationship and alerts for ${data?.parent?.children_count ?? 0} linked ${data?.parent?.children_count === 1 ? "child" : "children"}.`}
+      footer={
+        <div className="flex justify-end">
+          <button type="submit" form="parent-profile-extras" className={profileSubmitClass} disabled={mutation.isPending}>
+            {mutation.isPending ? "Saving…" : "Save preferences"}
+          </button>
+        </div>
+      }
     >
-      <div className="mb-6">
-        <h2 className="text-base font-bold text-brand-secondary">Parent preferences</h2>
-        <p className="mt-0.5 text-xs text-slate-500">
-          Relationship and notification settings for {data?.parent?.children_count ?? 0} linked{" "}
-          {data?.parent?.children_count === 1 ? "child" : "children"}
-        </p>
-      </div>
-
-      <FormSection title="Guardian details">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Relationship to student">
-            <select
-              className="fp-input w-full"
-              value={relationship}
-              onChange={(e) => setRelationship(e.target.value)}
-            >
-              <option value="">Select…</option>
-              {RELATIONSHIPS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Preferred language">
-            <input
-              className="fp-input w-full"
-              value={preferredLanguage}
-              onChange={(e) => setPreferredLanguage(e.target.value)}
-            />
-          </Field>
-        </div>
-      </FormSection>
-
-      <FormSection title="Notifications" className="mt-6">
-        <div className="space-y-3">
-          {[
-            ["push", push, setPush, "Push notifications"],
-            ["sms", sms, setSms, "SMS alerts"],
-            ["email", email, setEmail, "Email updates"],
-          ].map(([key, checked, setter, label]) => (
-            <label key={key as string} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-              <span className="text-sm font-medium text-slate-700">{label as string}</span>
-              <input
-                type="checkbox"
-                checked={checked as boolean}
-                onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
-                className="rounded border-slate-300 text-brand-accent focus:ring-brand-accent"
+      <form
+        id="parent-profile-extras"
+        onSubmit={(e) => {
+          e.preventDefault();
+          mutation.mutate();
+        }}
+        className="space-y-5"
+      >
+        <FormSection title="Guardian Details">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Relationship to Student">
+              <SearchableSelect
+                value={relationship}
+                onChange={setRelationship}
+                options={RELATIONSHIP_OPTIONS}
+                allLabel="Select relationship"
+                placeholder="Select relationship"
+                searchable={false}
               />
-            </label>
-          ))}
-        </div>
-      </FormSection>
+            </Field>
+            <Field label="Preferred Language">
+              <SearchableSelect
+                value={preferredLanguage}
+                onChange={setPreferredLanguage}
+                options={LANGUAGE_OPTIONS}
+                showAllOption={false}
+                placeholder="Select language"
+                searchPlaceholder="Search language…"
+              />
+            </Field>
+          </div>
+        </FormSection>
 
-      <div className="mt-6 flex justify-end border-t border-slate-100 pt-6">
-        <button
-          type="submit"
-          className="rounded-xl bg-brand-primary px-5 py-2 text-sm font-semibold text-white hover:bg-brand-primary-dark disabled:opacity-60"
-          disabled={mutation.isPending}
-        >
-          {mutation.isPending ? "Saving…" : "Save parent preferences"}
-        </button>
-      </div>
-    </form>
+        <FormSection title="Notifications">
+          <div className="space-y-2">
+            {[
+              ["push", push, setPush, "Push notifications"],
+              ["sms", sms, setSms, "SMS alerts"],
+              ["email", email, setEmail, "Email updates"],
+            ].map(([key, checked, setter, label]) => (
+              <label
+                key={key as string}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-3.5 py-2.5 transition hover:border-slate-300"
+              >
+                <span className="text-sm font-medium text-slate-700">{label as string}</span>
+                <input
+                  type="checkbox"
+                  checked={checked as boolean}
+                  onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary/20"
+                />
+              </label>
+            ))}
+          </div>
+        </FormSection>
+      </form>
+    </ProfileFormPanel>
   );
 }

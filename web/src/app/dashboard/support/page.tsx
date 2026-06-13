@@ -51,7 +51,7 @@ export default function SupportPage() {
               </p>
             </div>
             <Link href="/dashboard/complaints">
-              <Button>Register complaint</Button>
+              <Button>Register Complaint</Button>
             </Link>
           </div>
         </div>
@@ -82,7 +82,7 @@ export default function SupportPage() {
             <p className="mt-1 text-xs text-slate-500">Track open and resolved service issues.</p>
           </Link>
           <Link href="/dashboard/profile" className="fp-card block p-4 transition hover:border-brand-primary/30">
-            <p className="text-sm font-semibold text-slate-900">My profile</p>
+            <p className="text-sm font-semibold text-slate-900">My Profile</p>
             <p className="mt-1 text-xs text-slate-500">Update account details and preferences.</p>
           </Link>
         </div>

@@ -24,6 +24,7 @@ import {
   assignDispatchRun,
   cancelDispatchAssignment,
   getDispatchRuns,
+  listContractors,
   listDrivers,
   listSchools,
   listVehicles,
@@ -50,18 +51,19 @@ const ROUTE_TYPE_OPTIONS = [
   { label: "Afternoon (PM)", value: "pm" },
   { label: "Midday", value: "midday" },
   { label: "Activity", value: "activity" },
-  { label: "Special ed", value: "sped" },
+  { label: "Special Ed", value: "sped" },
   { label: "Charter", value: "charter" },
 ];
 
 const ASSIGNMENT_OPTIONS = [
   { label: "Unassigned", value: "unassigned" },
   { label: "Assigned", value: "assigned" },
+  { label: "Delegated", value: "delegated" },
 ];
 
 const STATUS_OPTIONS = [
   { label: "Scheduled", value: "scheduled" },
-  { label: "In progress", value: "in_progress" },
+  { label: "In Progress", value: "in_progress" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
 ];
@@ -80,8 +82,8 @@ function formatTime(time: string | null | undefined) {
 }
 
 function directionLabel(direction: string | null | undefined) {
-  if (direction === "to_school") return "To school";
-  if (direction === "from_school") return "From school";
+  if (direction === "to_school") return "To School";
+  if (direction === "from_school") return "From School";
   return direction ? titleCase(direction.replace(/_/g, " ")) : "—";
 }
 
@@ -89,17 +91,23 @@ function AssignRunModal({
   open,
   run,
   serviceDate,
+  isContractor,
+  canDelegate,
   onClose,
   onSaved,
 }: {
   open: boolean;
   run: DispatchRunRow | null;
   serviceDate: string;
+  isContractor: boolean;
+  canDelegate: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [mode, setMode] = useState<"driver" | "delegate">("driver");
   const [driverId, setDriverId] = useState("");
   const [vehicleId, setVehicleId] = useState("");
+  const [contractorId, setContractorId] = useState("");
   const [notes, setNotes] = useState("");
 
   const { data: driversPage, isLoading: driversLoading } = useQuery({
@@ -114,8 +122,15 @@ function AssignRunModal({
     enabled: open,
   });
 
+  const { data: contractorsPage, isLoading: contractorsLoading } = useQuery({
+    queryKey: ["contractors", "dispatch-delegate"],
+    queryFn: () => listContractors({ is_active: true, per_page: 100, sort_by: "first_name", sort_dir: "asc" }),
+    enabled: open && canDelegate && !isContractor,
+  });
+
   const drivers = driversPage?.data ?? [];
   const vehicles = vehiclesPage?.data ?? [];
+  const contractors = contractorsPage?.data ?? [];
 
   const driverOptions = useMemo(
     () =>
@@ -124,6 +139,15 @@ function AssignRunModal({
         value: d.id,
       })),
     [drivers],
+  );
+
+  const contractorOptions = useMemo(
+    () =>
+      contractors.map((c) => ({
+        label: `${c.first_name} ${c.last_name}${c.job_title ? ` · ${c.job_title}` : ""}`,
+        value: c.id,
+      })),
+    [contractors],
   );
 
   const vehicleOptions = useMemo(
@@ -146,6 +170,14 @@ function AssignRunModal({
 
   const assignMutation = useMutation({
     mutationFn: () => {
+      if (mode === "delegate") {
+        return assignDispatchRun(run!.id, {
+          service_date: serviceDate,
+          contractor_id: contractorId,
+          notes: notes.trim() || undefined,
+        }).then((res) => res.assignment);
+      }
+
       const payload = {
         driver_id: driverId,
         vehicle_id: vehicleId,
@@ -161,8 +193,10 @@ function AssignRunModal({
     },
     onSuccess: () => {
       toastSuccess(
-        run?.assignment ? "Assignment updated" : "Run assigned",
-        "Driver and vehicle saved for this service date.",
+        mode === "delegate" ? "Run delegated" : run?.assignment ? "Assignment updated" : "Run assigned",
+        mode === "delegate"
+          ? "The contractor will assign their own driver and vehicle."
+          : "Driver and vehicle saved for this service date.",
       );
       onSaved();
       onClose();
@@ -175,8 +209,14 @@ function AssignRunModal({
     const existing = run.assignment;
     setDriverId(existing?.driver?.id ?? "");
     setVehicleId(existing?.vehicle?.id ?? "");
+    setContractorId(existing?.contractor?.id ?? "");
     setNotes(existing?.notes ?? "");
-  }, [open, run]);
+    if (isContractor) {
+      setMode("driver");
+    } else {
+      setMode(existing?.is_delegated && !existing?.driver ? "delegate" : "driver");
+    }
+  }, [open, run, isContractor]);
 
   const handleDriverChange = (id: string) => {
     setDriverId(id);
@@ -185,6 +225,10 @@ function AssignRunModal({
       setVehicleId(driver.default_vehicle.id);
     }
   };
+
+  const submitDisabled =
+    assignMutation.isPending ||
+    (mode === "delegate" ? !contractorId : !driverId || !vehicleId);
 
   return (
     <Modal
@@ -202,11 +246,14 @@ function AssignRunModal({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={() => assignMutation.mutate()}
-            disabled={!driverId || !vehicleId || assignMutation.isPending}
-          >
-            {assignMutation.isPending ? "Saving…" : run?.assignment ? "Save update" : "Assign run"}
+          <Button onClick={() => assignMutation.mutate()} disabled={submitDisabled}>
+            {assignMutation.isPending
+              ? "Saving…"
+              : mode === "delegate"
+                ? "Delegate run"
+                : run?.assignment
+                  ? "Save update"
+                  : "Assign run"}
           </Button>
         </div>
       }
@@ -221,33 +268,84 @@ function AssignRunModal({
             </p>
           </div>
 
-          <div>
-            <FormLabel hint="(approved & active only)">Driver</FormLabel>
-            <SearchableSelect
-              value={driverId}
-              onChange={handleDriverChange}
-              options={driverOptions}
-              placeholder={driversLoading ? "Loading drivers…" : "Select driver"}
-              showAllOption={false}
-            />
-            {!driversLoading && drivers.length === 0 && (
-              <p className="mt-1.5 text-xs text-amber-700">
-                No eligible drivers. Approve user accounts and set driver status to active.
-              </p>
-            )}
-          </div>
+          {canDelegate && !isContractor && (
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("driver")}
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  mode === "driver" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                Assign driver
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("delegate")}
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  mode === "delegate" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                Delegate to contractor
+              </button>
+            </div>
+          )}
 
-          <div>
-            <FormLabel>Vehicle</FormLabel>
-            <SearchableSelect
-              value={vehicleId}
-              onChange={setVehicleId}
-              options={vehicleOptions}
-              placeholder={vehiclesLoading ? "Loading vehicles…" : "Select vehicle"}
-              unresolvedLabel="Select vehicle"
-              showAllOption={false}
-            />
-          </div>
+          {mode === "delegate" ? (
+            <>
+              <div>
+                <FormLabel hint="(active contractors)">Contractor</FormLabel>
+                <SearchableSelect
+                  value={contractorId}
+                  onChange={setContractorId}
+                  options={contractorOptions}
+                  placeholder={contractorsLoading ? "Loading contractors…" : "Select contractor"}
+                  showAllOption={false}
+                />
+                {!contractorsLoading && contractors.length === 0 && (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    No active contractors yet. Approve or create a contractor first.
+                  </p>
+                )}
+              </div>
+              <p className="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-700 ring-1 ring-violet-100">
+                The contractor assigns their own driver and vehicle. The school, parents, and you will see ride
+                status exactly like a direct assignment.
+              </p>
+            </>
+          ) : (
+            <>
+              <div>
+                <FormLabel hint={isContractor ? "(your drivers)" : "(approved & active only)"}>Driver</FormLabel>
+                <SearchableSelect
+                  value={driverId}
+                  onChange={handleDriverChange}
+                  options={driverOptions}
+                  placeholder={driversLoading ? "Loading drivers…" : "Select driver"}
+                  showAllOption={false}
+                />
+                {!driversLoading && drivers.length === 0 && (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    No eligible drivers. Approve user accounts and set driver status to active.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <FormLabel>Vehicle</FormLabel>
+                <SearchableSelect
+                  value={vehicleId}
+                  onChange={setVehicleId}
+                  options={vehicleOptions}
+                  placeholder={vehiclesLoading ? "Loading vehicles…" : "Select vehicle"}
+                  unresolvedLabel="Select vehicle"
+                  showAllOption={false}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Notes</label>
@@ -297,20 +395,20 @@ function buildRunActions({
     assigned.status !== "completed";
 
   return [
-    { label: "View details", onClick: onView },
+    { label: "View Details", onClick: onView },
     {
-      label: assigned ? "Change driver & vehicle" : "Assign driver & vehicle",
+      label: assigned?.driver ? "Change driver & vehicle" : "Assign driver & vehicle",
       onClick: onAssign,
       hidden: !canUpdate,
     },
-    { label: "Open route & runs", onClick: onOpenRoute, hidden: !run.route?.id },
+    { label: "Open Route & Runs", onClick: onOpenRoute, hidden: !run.route?.id },
     {
-      label: "Track on live radar",
+      label: "Track on Live Radar",
       onClick: onOpenRadar,
       hidden: !assigned?.vehicle,
     },
     {
-      label: "Cancel assignment",
+      label: "Cancel Assignment",
       variant: "danger",
       onClick: onCancel,
       hidden: !canCancel,
@@ -323,6 +421,9 @@ export default function DispatchPage() {
   const can = usePermission();
   const user = useAuthStore((s) => s.user);
   const isSchoolContact = user?.role === "school_contact";
+  const isContractor = user?.role === "contractor";
+  const canDispatch = can("routes.update") || can("runs.update");
+  const canDelegate = !isContractor && !isSchoolContact && can("routes.update");
   const queryClient = useQueryClient();
   const [serviceDate, setServiceDate] = useState(todayIso);
   const [search, setSearch] = useState("");
@@ -350,7 +451,7 @@ export default function DispatchPage() {
       getDispatchRuns({
         date: serviceDate,
         search: search || undefined,
-        assignment: assignment as "" | "assigned" | "unassigned",
+        assignment: assignment as "" | "assigned" | "unassigned" | "delegated",
         route_type: routeType || undefined,
         school_id: schoolId || undefined,
         status: statusFilter || undefined,
@@ -469,9 +570,16 @@ export default function DispatchPage() {
               <p className="font-medium text-slate-900">
                 {run.assignment.driver.first_name} {run.assignment.driver.last_name}
               </p>
-              {run.assignment.driver.employee_id && (
+              {run.assignment.contractor ? (
+                <p className="text-xs text-violet-600">via {run.assignment.contractor.name}</p>
+              ) : run.assignment.driver.employee_id ? (
                 <p className="text-xs text-slate-500">{run.assignment.driver.employee_id}</p>
-              )}
+              ) : null}
+            </div>
+          ) : run.assignment?.awaiting_driver ? (
+            <div>
+              <p className="font-medium text-violet-700">{run.assignment.contractor?.name ?? "Contractor"}</p>
+              <p className="text-xs text-slate-500">Awaiting their driver</p>
             </div>
           ) : (
             <span className="text-slate-400">—</span>
@@ -499,7 +607,9 @@ export default function DispatchPage() {
         sortable: true,
         sortValue: (run) => run.assignment?.status ?? "unassigned",
         render: (run) =>
-          run.assignment ? (
+          run.assignment?.awaiting_driver ? (
+            <Badge className="bg-violet-50 text-violet-700 ring-1 ring-violet-200">Delegated</Badge>
+          ) : run.assignment ? (
             <StatusChip status={run.assignment.status} />
           ) : (
             <Badge className="bg-amber-50 text-amber-800 ring-1 ring-amber-200">Unassigned</Badge>
@@ -512,7 +622,7 @@ export default function DispatchPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={isSchoolContact ? "Today's runs" : "Today's dispatch"}
+        title={isSchoolContact ? "Runs today" : "Today's dispatch"}
         description={
           isSchoolContact
             ? "View assigned runs, drivers, and vehicles serving your school today. Read-only — contact transportation to make changes."
@@ -521,14 +631,14 @@ export default function DispatchPage() {
         action={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {can("routes.update") && (
-              <Button onClick={() => setCreateOpen(true)}>+ Create run</Button>
+              <Button onClick={() => setCreateOpen(true)}>+ Create Run</Button>
             )}
             <Link href="/dashboard/radar" className="w-full sm:w-auto">
               <Button variant="secondary" className="w-full sm:w-auto">
                 Live radar
               </Button>
             </Link>
-            {can("routes.update") && summary.unassigned > 0 && (
+            {canDispatch && summary.unassigned > 0 && (
               <Button variant="primary" className="w-full sm:w-auto" onClick={() => setAssignment("unassigned")}>
                 {summary.unassigned} need assignment
               </Button>
@@ -558,14 +668,14 @@ export default function DispatchPage() {
           },
           {
             key: "status",
-            label: "Run status",
+            label: "Run Status",
             value: statusFilter,
             onChange: setStatusFilter,
             options: STATUS_OPTIONS,
           },
           {
             key: "route_type",
-            label: "Route type",
+            label: "Route Type",
             value: routeType,
             onChange: setRouteType,
             options: ROUTE_TYPE_OPTIONS,
@@ -624,7 +734,7 @@ export default function DispatchPage() {
                 <RowActions
                   items={buildRunActions({
                     run,
-                    canUpdate: can("routes.update"),
+                    canUpdate: canDispatch,
                     ...handlers,
                   })}
                 />
@@ -652,7 +762,7 @@ export default function DispatchPage() {
         serviceDate={serviceDate}
         onClose={() => setViewRun(null)}
         onAssign={
-          viewRun && can("routes.update")
+          viewRun && canDispatch
             ? () => {
                 setAssignRun(viewRun);
                 setViewRun(null);
@@ -665,6 +775,8 @@ export default function DispatchPage() {
         open={!!assignRun}
         run={assignRun}
         serviceDate={serviceDate}
+        isContractor={isContractor}
+        canDelegate={canDelegate}
         onClose={() => setAssignRun(null)}
         onSaved={() => {
           queryClient.invalidateQueries({ queryKey: ["dispatch-runs"] });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\StoresDriverCredentials;
 use App\Models\Driver;
 use App\Models\Organization;
 use App\Models\ParentAccount;
@@ -19,6 +20,7 @@ use Illuminate\Validation\ValidationException;
 
 class RegistrationController extends Controller
 {
+    use StoresDriverCredentials;
     public function organizations(Request $request): JsonResponse
     {
         $organizations = Organization::query()
@@ -63,7 +65,7 @@ class RegistrationController extends Controller
     public function register(Request $request): JsonResponse
     {
         $role = $request->validate([
-            'role' => ['required', Rule::in(['admin', 'driver', 'school_contact', 'parent'])],
+            'role' => ['required', Rule::in(['admin', 'driver', 'school_contact', 'parent', 'contractor'])],
         ])['role'];
 
         return match ($role) {
@@ -71,6 +73,7 @@ class RegistrationController extends Controller
             'driver' => $this->registerDriver($request),
             'school_contact' => $this->registerSchoolContact($request),
             'parent' => $this->registerParent($request),
+            'contractor' => $this->registerContractor($request),
             default => throw ValidationException::withMessages(['role' => ['Invalid registration type.']]),
         };
     }
@@ -137,14 +140,11 @@ class RegistrationController extends Controller
         $data = $request->validate(array_merge([
             'organization_id' => ['required', 'uuid', 'exists:organizations,id'],
             'admin_user_id' => ['required', 'uuid'],
-            'license_number' => ['nullable', 'string', 'max:50'],
-            'license_state' => ['nullable', 'string', 'max:2'],
-            'license_expiry' => ['nullable', 'date'],
             'date_of_birth' => ['nullable', 'date'],
             'emergency_contact_name' => ['nullable', 'string', 'max:100'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:20'],
             'employee_id' => ['nullable', 'string', 'max:50'],
-        ], $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
+        ], $this->driverCredentialRules(requireLicense: true, requireInsurance: true), $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
 
         $admin = $this->resolveOrgAdmin($data['organization_id'], $data['admin_user_id']);
 
@@ -156,23 +156,25 @@ class RegistrationController extends Controller
             ],
         ));
 
-        Driver::create([
-            'organization_id' => $data['organization_id'],
-            'user_id' => $user->id,
-            'employee_id' => $data['employee_id'] ?? null,
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'email' => $data['email'],
-            'phone' => $data['phone'] ?? null,
-            'address' => $this->formatAddress($data),
-            'license_number' => $data['license_number'] ?? null,
-            'license_state' => $data['license_state'] ?? null,
-            'license_expiry' => $data['license_expiry'] ?? null,
-            'date_of_birth' => $data['date_of_birth'] ?? null,
-            'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
-            'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
-            'status' => 'inactive',
-        ]);
+        $driver = Driver::create(array_merge(
+            [
+                'organization_id' => $data['organization_id'],
+                'user_id' => $user->id,
+                'employee_id' => $data['employee_id'] ?? null,
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'address' => $this->formatAddress($data),
+                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
+                'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
+                'status' => 'inactive',
+            ],
+            $this->extractDriverCredentialFields($data),
+        ));
+
+        $this->storeDriverCredentialDocuments($request, $driver, $user->id, true, true);
 
         $this->attachRoleSlug($user, 'driver');
 
@@ -290,6 +292,61 @@ class RegistrationController extends Controller
 
         return response()->json([
             'message' => 'Registration submitted. Your administrator will review and activate your account.',
+            'data' => ['user_id' => $user->id],
+        ], 201);
+    }
+
+    private function registerContractor(Request $request): JsonResponse
+    {
+        $data = $request->validate(array_merge([
+            'organization_id' => ['required', 'uuid', 'exists:organizations,id'],
+            'admin_user_id' => ['required', 'uuid'],
+            'company_name' => ['required', 'string', 'max:255'],
+            'business_type' => ['nullable', 'string', 'max:100'],
+            'tax_id' => ['nullable', 'string', 'max:50'],
+            'fleet_size' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'driver_count' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'vehicle_count' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'years_in_business' => ['nullable', 'integer', 'min:0', 'max:200'],
+            'coverage_areas' => ['nullable', 'string', 'max:2000'],
+            'service_radius_miles' => ['nullable', 'integer', 'min:0', 'max:5000'],
+            'insurance_carrier' => ['nullable', 'string', 'max:150'],
+            'insurance_policy_number' => ['nullable', 'string', 'max:80'],
+            'dot_number' => ['nullable', 'string', 'max:50'],
+            'mc_number' => ['nullable', 'string', 'max:50'],
+        ], $this->addressRules(true), $this->accountRules(), $this->passwordRules()));
+
+        $admin = $this->resolveOrgAdmin($data['organization_id'], $data['admin_user_id']);
+
+        $user = User::create(array_merge(
+            $this->userPayload($data, 'contractor', false),
+            [
+                'organization_id' => $data['organization_id'],
+                'approved_by_user_id' => $admin->id,
+                'job_title' => $data['company_name'],
+                'profile_meta' => array_filter([
+                    'company_name' => $data['company_name'],
+                    'business_type' => $data['business_type'] ?? null,
+                    'tax_id' => $data['tax_id'] ?? null,
+                    'fleet_size' => $data['fleet_size'] ?? null,
+                    'driver_count' => $data['driver_count'] ?? null,
+                    'vehicle_count' => $data['vehicle_count'] ?? null,
+                    'years_in_business' => $data['years_in_business'] ?? null,
+                    'coverage_areas' => $data['coverage_areas'] ?? null,
+                    'service_radius_miles' => $data['service_radius_miles'] ?? null,
+                    'insurance_carrier' => $data['insurance_carrier'] ?? null,
+                    'insurance_policy_number' => $data['insurance_policy_number'] ?? null,
+                    'dot_number' => $data['dot_number'] ?? null,
+                    'mc_number' => $data['mc_number'] ?? null,
+                    'registration_source' => 'signup',
+                ]),
+            ],
+        ));
+
+        $this->attachRoleSlug($user, 'contractor');
+
+        return response()->json([
+            'message' => 'Registration submitted. Your transportation provider will review and activate your contractor account, then assign your schools and routes.',
             'data' => ['user_id' => $user->id],
         ], 201);
     }
@@ -413,7 +470,8 @@ class RegistrationController extends Controller
     {
         $resources = [
             'students', 'routes', 'runs', 'drivers', 'vehicles',
-            'schools', 'stops', 'billing', 'reports', 'users', 'roles', 'settings',
+            'schools', 'stops', 'billing', 'reports', 'users', 'roles', 'settings', 'complaints',
+            'contractors',
         ];
         $actions = ['view', 'create', 'update', 'delete'];
 
@@ -445,6 +503,23 @@ class RegistrationController extends Controller
             ],
             'driver' => ['name' => 'Driver', 'permissions' => ['runs.view', 'students.view']],
             'parent' => ['name' => 'Parent', 'permissions' => ['students.view']],
+            'school_contact' => [
+                'name' => 'School Contact',
+                'permissions' => [
+                    'students.view', 'students.create', 'students.update', 'students.delete',
+                    'routes.view', 'runs.view', 'drivers.view', 'vehicles.view', 'schools.view',
+                    'complaints.view', 'complaints.create',
+                ],
+            ],
+            'contractor' => [
+                'name' => 'Contractor',
+                'permissions' => [
+                    'routes.view', 'runs.view', 'runs.update',
+                    'drivers.view', 'drivers.create', 'drivers.update',
+                    'vehicles.view', 'vehicles.create', 'vehicles.update',
+                    'schools.view', 'students.view', 'complaints.view', 'complaints.create',
+                ],
+            ],
         ];
 
         foreach ($definitions as $slug => $def) {

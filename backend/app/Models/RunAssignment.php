@@ -15,7 +15,7 @@ class RunAssignment extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'run_id', 'vehicle_id', 'driver_id', 'aide_id', 'service_date',
+        'run_id', 'contractor_id', 'vehicle_id', 'driver_id', 'aide_id', 'service_date',
         'status', 'actual_start_time', 'actual_end_time', 'actual_distance_miles',
         'odometer_start', 'odometer_end', 'notes', 'created_by',
     ];
@@ -45,5 +45,10 @@ class RunAssignment extends Model
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
+    }
+
+    public function contractor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'contractor_id');
     }
 }

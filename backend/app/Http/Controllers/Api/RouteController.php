@@ -18,11 +18,13 @@ class RouteController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $schoolId = $this->schoolScopeId($request->user());
+        $contractorRouteIds = $this->contractorRouteIds($request->user());
 
         $routes = Route::forOrganization($orgId)
             ->with('school:id,name')
             ->withCount('runs')
             ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId))
+            ->when($contractorRouteIds !== null, fn ($q) => $q->whereIn('id', $contractorRouteIds ?: ['__none__']))
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%");
@@ -43,9 +45,11 @@ class RouteController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $schoolId = $this->schoolScopeId($request->user());
+        $contractorRouteIds = $this->contractorRouteIds($request->user());
 
         $routes = Route::forOrganization($orgId)
-            ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId));
+            ->when($schoolId, fn ($q) => $q->where('school_id', $schoolId))
+            ->when($contractorRouteIds !== null, fn ($q) => $q->whereIn('id', $contractorRouteIds ?: ['__none__']));
 
         $total = (clone $routes)->count();
         $active = (clone $routes)->where('status', 'active')->count();
@@ -144,6 +148,11 @@ class RouteController extends Controller
         $schoolId = $this->schoolScopeId($request->user());
         if ($schoolId && $route->school_id !== $schoolId) {
             abort(403, 'You can only access routes for your school.');
+        }
+
+        $contractorRouteIds = $this->contractorRouteIds($request->user());
+        if ($contractorRouteIds !== null && ! in_array($route->id, $contractorRouteIds, true)) {
+            abort(403, 'You can only access routes assigned to you.');
         }
     }
 }

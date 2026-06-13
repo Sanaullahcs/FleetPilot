@@ -2,52 +2,38 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { DashboardStatTile } from "@/components/dashboard/dashboard-stat-tile";
+import { PageHeader } from "@/components/ui/primitives";
+import { CompactQuickActions } from "@/components/dashboard/quick-action-tile";
 import {
-  PortalActionCard,
   PortalAvatar,
   PortalSectionCard,
+  PortalStatTile,
 } from "@/components/dashboard/portal-action-card";
-import { StudentsIcon, HeadsetIcon, RouteIcon, MessageIcon, ShieldIcon } from "@/components/dashboard/stat-icons";
+import { StudentsIcon, HeadsetIcon, RouteIcon, MessageIcon } from "@/components/dashboard/stat-icons";
 import { PageState } from "@/components/ui/page-state";
 import { StatusChip } from "@/components/dashboard/status-chip";
 import { brand } from "@/lib/brand";
+import { getDashboardWelcome } from "@/lib/portal";
 import { getParentChildren, listMyComplaints } from "@/lib/resources";
+import { useAuthStore } from "@/store/auth";
 
-const QUICK_ACTIONS = [
-  {
-    href: "/dashboard/my-children",
-    title: "My children",
-    description: "Live bus tracking, assigned drivers, and today's routes.",
-    accent: brand.primary,
-    icon: <StudentsIcon />,
-  },
-  {
-    href: "/dashboard/messages",
-    title: "Messages",
-    description: "Chat with drivers, schools, and the transportation office.",
-    accent: brand.accent,
-    icon: <MessageIcon />,
-  },
-  {
-    href: "/dashboard/complaints",
-    title: "Complaints",
-    description: "Register and follow up on formal transportation issues.",
-    accent: brand.orange,
-    icon: <HeadsetIcon />,
-  },
-  {
-    href: "/dashboard/support",
-    title: "Help & support",
-    description: "Contact dispatch, FAQs, and service channels.",
-    accent: brand.cyan,
-    icon: <ShieldIcon />,
-  },
-] as const;
+function RowArrow() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export function ParentPortalHome() {
+  const user = useAuthStore((s) => s.user);
+  const welcome = getDashboardWelcome(user?.role, user?.first_name ?? "");
+
   const childrenQuery = useQuery({ queryKey: ["parent-children"], queryFn: getParentChildren });
-  const complaintsQuery = useQuery({ queryKey: ["complaints", "mine", "parent-home"], queryFn: () => listMyComplaints() });
+  const complaintsQuery = useQuery({
+    queryKey: ["complaints", "mine", "parent-home"],
+    queryFn: () => listMyComplaints(),
+  });
 
   const children = childrenQuery.data ?? [];
   const complaints = complaintsQuery.data?.items ?? [];
@@ -55,71 +41,74 @@ export function ParentPortalHome() {
   const routesToday = children.reduce((sum, c) => sum + c.routes_today.reduce((r, route) => r + route.runs.length, 0), 0);
   const isLoading = childrenQuery.isLoading;
 
+  const quickActions = [
+    { href: "/dashboard/my-children", label: "My Children", accent: brand.primary },
+    { href: "/dashboard/messages", label: "Messages", accent: brand.accent },
+    { href: "/dashboard/complaints", label: "Complaints", accent: brand.orange },
+    { href: "/dashboard/support", label: "Help", accent: brand.cyan },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            background: `linear-gradient(135deg, ${brand.primary} 0%, ${brand.primaryDark} 45%, ${brand.accent} 100%)`,
-          }}
-        />
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex flex-col gap-4 px-5 py-6 sm:flex-row sm:items-end sm:justify-between sm:px-8 sm:py-7">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Parent portal</p>
-            <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">Student transportation overview</h2>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/85">
-              Monitor routes and live bus status, communicate with drivers and schools, and stay informed about district transportation service.
-            </p>
-          </div>
+    <div className="space-y-5">
+      <PageHeader
+        compact
+        eyebrow="Parent Portal"
+        title={welcome.title}
+        description={welcome.description}
+        action={
           <Link
             href="/dashboard/my-children"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-primary transition hover:text-brand-primary/80 hover:underline"
           >
-            View my children
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-brand-primary [&_svg]:h-4 [&_svg]:w-4">
+              <StudentsIcon />
+            </span>
+            My Children
+            <RowArrow />
           </Link>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <Link href="/dashboard/my-children" className="block">
-          <DashboardStatTile
-            label="Linked children"
+          <PortalStatTile
+            label="Linked Children"
             value={isLoading ? "—" : children.length}
-            hint="Students on your account"
+            hint="On your account"
             accent={brand.primary}
             icon={<StudentsIcon />}
           />
         </Link>
         <Link href="/dashboard/my-children" className="block">
-          <DashboardStatTile
-            label="Routes today"
+          <PortalStatTile
+            label="Runs Today"
             value={isLoading ? "—" : routesToday}
-            hint="Scheduled runs"
+            hint="Scheduled Routes"
             accent={brand.cyan}
             icon={<RouteIcon />}
           />
         </Link>
         <Link href="/dashboard/complaints" className="block">
-          <DashboardStatTile
-            label="Open complaints"
+          <PortalStatTile
+            label="Open Complaints"
             value={complaintsQuery.isLoading ? "—" : openComplaints}
-            hint={`${complaints.length} total registered`}
+            hint={`${complaints.length} total`}
             accent={brand.orange}
             icon={<HeadsetIcon />}
           />
         </Link>
+        <Link href="/dashboard/messages" className="block">
+          <PortalStatTile
+            label="Messages"
+            value="Open"
+            hint="Dispatch & drivers"
+            accent={brand.accent}
+            icon={<MessageIcon />}
+          />
+        </Link>
       </div>
 
-      <div>
-        <p className="mb-2.5 px-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Quick actions</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {QUICK_ACTIONS.map((action) => (
-            <PortalActionCard key={action.href} {...action} />
-          ))}
-        </div>
-      </div>
+      <CompactQuickActions flat items={quickActions} />
 
       <PageState
         isLoading={childrenQuery.isLoading}
@@ -128,35 +117,39 @@ export function ParentPortalHome() {
         isEmpty={!childrenQuery.isLoading && children.length === 0}
         emptyMessage="No students are linked to your account yet. Ask your transportation administrator to assign your children to your parent profile."
       >
-        <PortalSectionCard title="Your children" description="Students linked to your parent account">
+        <PortalSectionCard title="Your Children" description="Students linked to your parent account">
           <div className="divide-y divide-slate-100">
             {children.map((item) => {
               const fullName = `${item.student.first_name} ${item.student.last_name}`;
+              const runCount = item.routes_today.reduce((sum, route) => sum + route.runs.length, 0);
               return (
-                <div
+                <Link
                   key={item.student.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition hover:bg-brand-light/20 sm:px-6"
+                  href="/dashboard/my-children"
+                  className="group flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-slate-50 sm:px-5"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
                     <PortalAvatar name={fullName} accent={brand.primary} />
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-slate-900">{fullName}</p>
-                      <p className="truncate text-sm text-slate-500">
+                      <p className="truncate text-sm font-semibold text-brand-secondary">{fullName}</p>
+                      <p className="truncate text-[11px] text-slate-500">
                         {item.school?.name ?? "School pending"}
                         {item.student.grade ? ` · Grade ${item.student.grade}` : ""}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {runCount > 0 ? (
+                      <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-semibold text-brand-primary">
+                        {runCount} run{runCount === 1 ? "" : "s"} today
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-slate-400">No runs today</span>
+                    )}
                     <StatusChip status={item.student.status} />
-                    <Link
-                      href="/dashboard/my-children"
-                      className="inline-flex items-center justify-center rounded-xl bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-primary/20 transition hover:bg-brand-dark"
-                    >
-                      Open
-                    </Link>
+                    <RowArrow />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

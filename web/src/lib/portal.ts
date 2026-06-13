@@ -21,6 +21,8 @@ export function getDashboardHomePath(role: UserRole | undefined): string {
       return "/dashboard/today";
     case "school_contact":
       return "/dashboard/my-school";
+    case "contractor":
+      return "/dashboard/my-contracts";
     default:
       return "/dashboard";
   }
@@ -56,12 +58,12 @@ export function getRoleLabel(role: UserRole | undefined): string {
 const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/dispatch": "Dispatch",
-  "/dashboard/my-schedule": "My schedule",
-  "/dashboard/today": "Today's runs",
-  "/dashboard/my-children": "My children",
-  "/dashboard/my-school": "My school",
+  "/dashboard/my-schedule": "My Schedule",
+  "/dashboard/today": "Today's Runs",
+  "/dashboard/my-children": "My Children",
+  "/dashboard/my-school": "My School",
   "/dashboard/alerts": "Alerts",
-  "/dashboard/support": "Help & support",
+  "/dashboard/support": "Help & Support",
   "/dashboard/students": "Students",
   "/dashboard/parents": "Parents",
   "/dashboard/drivers": "Drivers",
@@ -69,13 +71,15 @@ const ROUTE_TITLES: Record<string, string> = {
   "/dashboard/schools": "Schools",
   "/dashboard/routes": "Routes",
   "/dashboard/messages": "Messages",
-  "/dashboard/complaints": "Complaint center",
-  "/dashboard/radar": "Live radar",
-  "/dashboard/users": "Users & access",
-  "/dashboard/roles": "Roles & permissions",
+  "/dashboard/complaints": "Complaint Center",
+  "/dashboard/radar": "Live Radar",
+  "/dashboard/users": "Users & Access",
+  "/dashboard/roles": "Roles & Permissions",
   "/dashboard/organizations": "Organizations",
-  "/dashboard/contact-leads": "Contact leads",
-  "/dashboard/profile": "My profile",
+  "/dashboard/contact-leads": "Contact Leads",
+  "/dashboard/contractors": "Contractors",
+  "/dashboard/my-contracts": "My Contracts",
+  "/dashboard/profile": "My Profile",
 };
 
 export function getPageHeaderTitle(pathname: string): string {
@@ -119,6 +123,11 @@ export function getDashboardWelcome(role: UserRole | undefined, firstName: strin
         title: `Welcome, ${firstName}`,
         description: "View today's runs and live radar for your students, manage families, and coordinate with drivers and transportation.",
       };
+    case "contractor":
+      return {
+        title: `Welcome, ${firstName}`,
+        description: "Operate the schools and routes assigned to you by your provider, and dispatch your own drivers and vehicles.",
+      };
     default:
       return {
         title: `Welcome back, ${firstName}`,
@@ -149,6 +158,23 @@ export function isDriverPortalPath(pathname: string): boolean {
     pathname.startsWith("/dashboard/alerts") ||
     pathname.startsWith("/dashboard/support") ||
     pathname.startsWith("/dashboard/students") ||
+    pathname.startsWith("/dashboard/complaints") ||
+    pathname.startsWith("/dashboard/profile")
+  );
+}
+
+/** Paths a contractor is allowed to access on the web dashboard. */
+export function isContractorPortalPath(pathname: string): boolean {
+  return (
+    pathname === "/dashboard/my-contracts" ||
+    pathname.startsWith("/dashboard/dispatch") ||
+    pathname.startsWith("/dashboard/radar") ||
+    pathname.startsWith("/dashboard/drivers") ||
+    pathname.startsWith("/dashboard/vehicles") ||
+    pathname.startsWith("/dashboard/schools") ||
+    pathname.startsWith("/dashboard/routes") ||
+    pathname.startsWith("/dashboard/messages") ||
+    pathname.startsWith("/dashboard/support") ||
     pathname.startsWith("/dashboard/complaints") ||
     pathname.startsWith("/dashboard/profile")
   );

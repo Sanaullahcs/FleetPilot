@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesAccessScope;
 use App\Http\Controllers\Concerns\SortsQueries;
 use App\Models\Driver;
 use App\Models\Vehicle;
@@ -13,13 +14,16 @@ use Illuminate\Validation\ValidationException;
 
 class VehicleController extends Controller
 {
+    use ResolvesAccessScope;
     use SortsQueries;
 
     public function index(Request $request): JsonResponse
     {
         $orgId = $request->user()->organization_id;
 
-        $vehicles = Vehicle::forOrganization($orgId)
+        $vehicles = Vehicle::forOrganization($orgId);
+        $vehicles = $this->applyContractorOwnedScope($request->user(), $vehicles);
+        $vehicles = $vehicles
             ->with('assignedDriver:id,first_name,last_name,employee_id,status,email,phone,default_vehicle_id')
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -47,6 +51,7 @@ class VehicleController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $vehicles = Vehicle::forOrganization($orgId);
+        $vehicles = $this->applyContractorOwnedScope($request->user(), $vehicles);
 
         $total = (clone $vehicles)->count();
         $active = (clone $vehicles)->where('status', 'active')->count();
@@ -78,6 +83,9 @@ class VehicleController extends Controller
     {
         $data = $this->validateData($request);
         $data['organization_id'] = $request->user()->organization_id;
+        if ($request->user()->role === 'contractor') {
+            $data['contractor_id'] = $request->user()->id;
+        }
 
         $vehicle = Vehicle::create($data);
 
@@ -103,7 +111,7 @@ class VehicleController extends Controller
 
         $orgId = $request->user()->organization_id;
 
-        DB::transaction(function () use ($orgId, $vehicle, $data) {
+        DB::transaction(function () use ($orgId, $vehicle, $data, $request) {
             Driver::where('organization_id', $orgId)
                 ->where('default_vehicle_id', $vehicle->id)
                 ->update(['default_vehicle_id' => null]);
@@ -116,6 +124,12 @@ class VehicleController extends Controller
                 if (! $driver) {
                     throw ValidationException::withMessages([
                         'driver_id' => ['Selected driver is not valid for your organization.'],
+                    ]);
+                }
+
+                if ($request->user()->role === 'contractor' && $driver->contractor_id !== $request->user()->id) {
+                    throw ValidationException::withMessages([
+                        'driver_id' => ['You can only assign your own drivers.'],
                     ]);
                 }
 
@@ -183,5 +197,9 @@ class VehicleController extends Controller
     private function authorizeOrg(Request $request, Vehicle $vehicle): void
     {
         abort_unless($vehicle->organization_id === $request->user()->organization_id, 404);
+
+        if ($request->user()->role === 'contractor' && $vehicle->contractor_id !== $request->user()->id) {
+            abort(403, 'You can only manage your own vehicles.');
+        }
     }
 }

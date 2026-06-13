@@ -287,7 +287,7 @@ export function NotificationBell({ userId, role }: { userId: string; role: UserR
               <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-2.5">
                 {isPortalUser ? (
                   <Link href="/dashboard/alerts" onClick={() => setOpen(false)} className="text-xs font-semibold text-brand-primary">
-                    View all alerts →
+                    View All Alerts →
                   </Link>
                 ) : (
                   <p className="text-[10px] text-slate-400">

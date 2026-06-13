@@ -126,11 +126,12 @@ export function ParentLiveTracker({
   const center = data?.center ?? { lat: 39.7817, lng: -89.6501 };
 
   return (
-    <section id="live-tracking" className="fp-card overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-brand-primary/5 to-white px-5 py-4 sm:px-6">
+    <section id="live-tracking" className="fp-panel overflow-hidden">
+      <div className="h-0.5 bg-brand-primary" />
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
         <div>
-          <h2 className="text-base font-bold text-slate-900">Live bus tracking</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <h2 className="text-sm font-semibold text-brand-secondary">Live bus tracking</h2>
+          <p className="mt-0.5 text-[11px] text-slate-500">
             See where your child&apos;s bus is on the map. Updates every few seconds.
           </p>
         </div>
@@ -145,7 +146,7 @@ export function ParentLiveTracker({
       </div>
 
       {tracks.length > 1 && (
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3 sm:px-6">
+        <div className="flex flex-wrap gap-2 border-b border-slate-100 px-4 py-2.5 sm:px-5">
           {tracks.map((track) => (
             <button
               key={track.student_id}
@@ -198,12 +199,12 @@ export function ParentLiveTracker({
           </div>
 
           {selectedTrack && (
-            <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:px-6">
+            <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-slate-900">{selectedTrack.student_name}</p>
+                  <p className="text-sm font-semibold text-brand-secondary">{selectedTrack.student_name}</p>
                   {selectedTrack.run && (
-                    <p className="mt-0.5 text-sm text-slate-600">
+                    <p className="mt-0.5 text-xs text-slate-600">
                       {selectedTrack.run.name}
                       {selectedTrack.run.route_type
                         ? ` · ${titleCase(selectedTrack.run.route_type)} route`

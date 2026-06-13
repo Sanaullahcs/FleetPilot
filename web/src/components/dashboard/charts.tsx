@@ -399,8 +399,8 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
   if (!colored.length) {
     return (
       <DashboardChartCard
-        title="Fleet overview"
-        subtitle="Total resources across your organization"
+        title="Fleet Overview"
+        subtitle="Total Resources Across Your Organization"
         accent={brand.primary}
         className="h-full"
       >
@@ -411,8 +411,8 @@ export function FleetBarChart({ data }: { data: ChartPoint[] }) {
 
   return (
     <DashboardChartCard
-      title="Fleet overview"
-      subtitle="Total resources across your organization"
+      title="Fleet Overview"
+      subtitle="Total Resources Across Your Organization"
       accent={brand.primary}
       className="h-full min-w-0"
     >
@@ -496,7 +496,7 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
   if (!colored.length || total === 0) {
     return (
       <DashboardChartCard
-        title="Routes by type"
+        title="Routes by Type"
         subtitle="Morning, afternoon, and special services"
         accent={brand.accent}
         className="h-full"
@@ -508,7 +508,7 @@ export function RoutesByTypeChart({ data }: { data: ChartPoint[] }) {
 
   return (
     <DashboardChartCard
-      title="Routes by type"
+      title="Routes by Type"
       subtitle="Morning, afternoon, and special services"
       accent={brand.accent}
       className="flex h-full min-w-0 flex-col"
@@ -624,14 +624,14 @@ export function SchoolStudentsChart({ data }: { data: ChartPoint[] }) {
 
   if (!colored.length) {
     return (
-      <Card title="Students by school" subtitle="Enrollment across campuses" className={cardStyle}>
+      <Card title="Students by School" subtitle="Enrollment Across Campuses" className={cardStyle}>
         <ChartEmpty />
       </Card>
     );
   }
 
   return (
-    <Card title="Students by school" subtitle="Enrollment across campuses" className={cn(cardStyle, "min-w-0")}>
+    <Card title="Students by School" subtitle="Enrollment Across Campuses" className={cn(cardStyle, "min-w-0")}>
       <div className="mb-5 grid grid-cols-2 gap-3 sm:max-w-md">
         <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Total enrolled</p>

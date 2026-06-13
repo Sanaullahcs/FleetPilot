@@ -90,10 +90,10 @@ export function MarketingContactForm() {
       )}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Full name" error={errors.full_name?.message} required>
+        <Field label="Full Name" error={errors.full_name?.message} required>
           <input className="fp-mkt-input" placeholder="Jane Rivera" {...register("full_name")} />
         </Field>
-        <Field label="Work email" error={errors.email?.message} required>
+        <Field label="Work Email" error={errors.email?.message} required>
           <input className="fp-mkt-input" type="email" placeholder="jane@district.edu" {...register("email")} />
         </Field>
         <Field label="Phone" error={errors.phone?.message}>
@@ -110,7 +110,7 @@ export function MarketingContactForm() {
             <option value="other">Other</option>
           </select>
         </Field>
-        <Field label="Fleet size" error={errors.fleet_size?.message}>
+        <Field label="Fleet Size" error={errors.fleet_size?.message}>
           <select className="fp-mkt-input" {...register("fleet_size")}>
             <option value="">Select range</option>
             <option value="1-25">1–25 vehicles</option>
@@ -122,7 +122,7 @@ export function MarketingContactForm() {
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Inquiry type" error={errors.inquiry_type?.message}>
+        <Field label="Inquiry Type" error={errors.inquiry_type?.message}>
           <select className="fp-mkt-input" {...register("inquiry_type")}>
             <option value="demo">Request a demo</option>
             <option value="pricing">Pricing question</option>

@@ -17,6 +17,7 @@ import { toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
 import { listComplaints, listMyComplaints, updateComplaint } from "@/lib/resources";
 import { usePermission } from "@/hooks/use-permission";
+import { useAuthStore } from "@/store/auth";
 import { useTableSort } from "@/lib/table-utils";
 import type { ComplaintRecord } from "@/lib/types";
 import { titleCase } from "@/lib/utils";
@@ -24,11 +25,11 @@ import { titleCase } from "@/lib/utils";
 const STATUS_OPTIONS = [
   { value: "submitted", label: "Submitted" },
   { value: "acknowledged", label: "Acknowledged" },
-  { value: "in_progress", label: "In progress" },
-  { value: "waiting_on_submitter", label: "Waiting on submitter" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "waiting_on_submitter", label: "Waiting on Submitter" },
   { value: "resolved", label: "Resolved" },
   { value: "closed", label: "Closed" },
-  { value: "rejected", label: "Not accepted" },
+  { value: "rejected", label: "Not Accepted" },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -77,8 +78,9 @@ function roleLabel(role: string) {
 export default function ComplaintsPage() {
   const queryClient = useQueryClient();
   const can = usePermission();
-  const isStaff = can("complaints.view");
-  const canManage = can("complaints.update");
+  const userRole = useAuthStore((s) => s.user?.role);
+  const isStaff = (userRole === "admin" || userRole === "dispatcher") && can("complaints.view");
+  const canManage = isStaff && can("complaints.update");
 
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -331,7 +333,7 @@ export default function ComplaintsPage() {
                 },
                 {
                   key: "submitter_role",
-                  label: "Submitted by",
+                  label: "Submitted By",
                   value: submitterRole,
                   onChange: (v: string) => {
                     setSubmitterRole(v);
@@ -387,12 +389,12 @@ export default function ComplaintsPage() {
                 ...(canManage
                   ? [
                       {
-                        label: "Mark resolved",
+                        label: "Mark Resolved",
                         onClick: () => updateMutation.mutate({ id: c.id, payload: { status: "resolved" } }),
                         hidden: c.status === "resolved" || c.status === "closed",
                       },
                       {
-                        label: "Request info",
+                        label: "Request Info",
                         onClick: () => updateMutation.mutate({ id: c.id, payload: { status: "waiting_on_submitter" } }),
                       },
                     ]

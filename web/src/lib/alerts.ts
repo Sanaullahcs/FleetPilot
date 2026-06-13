@@ -79,11 +79,11 @@ export async function confirmDelete(entityLabel: string): Promise<boolean> {
 
 export async function confirmLogout(): Promise<boolean> {
   const result = await base.fire({
-    title: "Sign out?",
+    title: "Sign Out?",
     text: "You will need to sign in again to access the dashboard.",
     icon: "question",
     showCancelButton: true,
-    confirmButtonText: "Sign out",
+    confirmButtonText: "Sign Out",
     cancelButtonText: "Stay signed in",
   });
   return result.isConfirmed;
@@ -137,7 +137,7 @@ export async function confirmBlock(userName: string, isActive: boolean): Promise
 
 export async function promptResetPassword(userName: string): Promise<string | null> {
   const result = await base.fire({
-    title: "Reset password",
+    title: "Reset Password",
     html: `<p class="text-sm text-slate-600 mb-3">Set a new password for <strong>${userName}</strong>.</p>
       <input id="swal-pw" type="password" class="swal2-input" placeholder="New password (min 8 chars)" autocomplete="new-password">
       <input id="swal-pw2" type="password" class="swal2-input" placeholder="Confirm password" autocomplete="new-password">`,

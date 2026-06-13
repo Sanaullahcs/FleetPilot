@@ -75,7 +75,7 @@ export function ComplaintFormModal({ open, onClose, onCreated }: ComplaintFormMo
     !createMutation.isPending;
 
   return (
-    <Modal open={open} onClose={onClose} title="Register a complaint" size="lg">
+    <Modal open={open} onClose={onClose} title="Register a Complaint" size="lg">
       <div className="space-y-4">
         <p className="text-sm text-slate-500">
           Registered complaints are reviewed by transportation administrators. For urgent safety issues, also call{" "}

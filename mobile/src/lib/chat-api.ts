@@ -66,6 +66,7 @@ export function groupDriverConversations(items: ChatConversation[]) {
     parent: [],
     school: [],
     support: [],
+    contractor: [],
   };
 
   for (const item of items) {

@@ -9,9 +9,9 @@ export const PERIOD_OPTIONS = [
   { label: "Last 7 days", value: "7d" },
   { label: "Last 30 days", value: "30d" },
   { label: "Last 90 days", value: "90d" },
-  { label: "Year to date", value: "ytd" },
-  { label: "All time", value: "all" },
-  { label: "Custom range", value: "custom" },
+  { label: "Year to Date", value: "ytd" },
+  { label: "All Time", value: "all" },
+  { label: "Custom Range", value: "custom" },
 ];
 
 export const ROUTE_TYPE_OPTIONS = [
@@ -19,7 +19,7 @@ export const ROUTE_TYPE_OPTIONS = [
   { label: "Afternoon (PM)", value: "pm" },
   { label: "Midday", value: "midday" },
   { label: "Activity", value: "activity" },
-  { label: "Special education", value: "sped" },
+  { label: "Special Education", value: "sped" },
   { label: "Charter", value: "charter" },
 ];
 

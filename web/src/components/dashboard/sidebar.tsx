@@ -9,9 +9,11 @@ import { cn } from "@/lib/utils";
 import { FleetPilotLogoMark } from "@/components/brand/logo";
 import { brand } from "@/lib/brand";
 import { getPortalTitle, getDashboardHomePath } from "@/lib/portal";
-import { listDashboardChatConversations, getComplaintStats, listMobileNotifications } from "@/lib/resources";
+import { listDashboardChatConversations, getComplaintStats, listMobileNotifications, listMyComplaints } from "@/lib/resources";
 import { prefetchDashboardRoute } from "@/lib/nav-prefetch";
 import { useNavLoading } from "@/hooks/use-nav-loading";
+
+const OPEN_COMPLAINT_STATUSES = new Set(["submitted", "acknowledged", "in_progress", "waiting_on_submitter"]);
 
 interface NavItem {
   label: string;
@@ -24,7 +26,7 @@ interface NavItem {
 
 const parentNav: NavItem[] = [
   { label: "Overview", href: "/dashboard", icon: NavIconGrid },
-  { label: "My children", href: "/dashboard/my-children", icon: NavIconStudents },
+  { label: "My Children", href: "/dashboard/my-children", icon: NavIconStudents },
   { label: "Messages", href: "/dashboard/messages", icon: NavIconMessages },
   { label: "Alerts", href: "/dashboard/alerts", icon: NavIconAlerts },
   { label: "Complaints", href: "/dashboard/complaints", icon: NavIconComplaints },
@@ -32,8 +34,8 @@ const parentNav: NavItem[] = [
 ];
 
 const driverNav: NavItem[] = [
-  { label: "Today's runs", href: "/dashboard/today", icon: NavIconToday },
-  { label: "My schedule", href: "/dashboard/my-schedule", icon: NavIconSchedule },
+  { label: "Today's Runs", href: "/dashboard/today", icon: NavIconToday },
+  { label: "My Schedule", href: "/dashboard/my-schedule", icon: NavIconSchedule },
   { label: "Messages", href: "/dashboard/messages", icon: NavIconMessages },
   { label: "Alerts", href: "/dashboard/alerts", icon: NavIconAlerts },
   { label: "Complaints", href: "/dashboard/complaints", icon: NavIconComplaints },
@@ -42,9 +44,9 @@ const driverNav: NavItem[] = [
 ];
 
 const schoolNav: NavItem[] = [
-  { label: "My school", href: "/dashboard/my-school", icon: NavIconSchool },
-  { label: "Today's runs", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
-  { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
+  { label: "My School", href: "/dashboard/my-school", icon: NavIconSchool },
+  { label: "Runs Today", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
+  { label: "Live Radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
   { label: "Students", href: "/dashboard/students", permission: "students.view", icon: NavIconStudents },
   { label: "Parents", href: "/dashboard/parents", permission: "students.view", icon: NavIconParent },
   { label: "Drivers", href: "/dashboard/drivers", permission: "drivers.view", icon: NavIconDriver },
@@ -54,25 +56,38 @@ const schoolNav: NavItem[] = [
   { label: "Profile", href: "/dashboard/profile", roles: ["school_contact"], icon: NavIconProfile },
 ];
 
+const contractorNav: NavItem[] = [
+  { label: "My Contracts", href: "/dashboard/my-contracts", icon: NavIconGrid },
+  { label: "Runs Today", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
+  { label: "Live Radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
+  { label: "My Drivers", href: "/dashboard/drivers", permission: "drivers.view", icon: NavIconDriver },
+  { label: "My Vehicles", href: "/dashboard/vehicles", permission: "vehicles.view", icon: NavIconBus },
+  { label: "Schools", href: "/dashboard/schools", permission: "schools.view", icon: NavIconSchool },
+  { label: "Routes", href: "/dashboard/routes", permission: "routes.view", icon: NavIconRoute },
+  { label: "Messages", href: "/dashboard/messages", icon: NavIconMessages },
+  { label: "Complaints", href: "/dashboard/complaints", roles: ["contractor"], icon: NavIconComplaints },
+  { label: "Profile", href: "/dashboard/profile", roles: ["contractor"], icon: NavIconProfile },
+];
+
 const portalSupportNav: NavItem[] = [
-  { label: "Support", href: "/dashboard/support", icon: NavIconSupport },
+  { label: "Help & Support", href: "/dashboard/support", icon: NavIconSupport },
 ];
 
 const platformNav: NavItem[] = [
-  { label: "Platform overview", href: "/dashboard", icon: NavIconGrid },
+  { label: "Platform Overview", href: "/dashboard", icon: NavIconGrid },
   { label: "Organizations", href: "/dashboard/organizations", icon: NavIconBuilding },
-  { label: "Contact leads", href: "/dashboard/contact-leads", icon: NavIconMail },
-  { label: "All users", href: "/dashboard/users", icon: NavIconUsers },
+  { label: "Contact Leads", href: "/dashboard/contact-leads", icon: NavIconMail },
+  { label: "All Users", href: "/dashboard/users", icon: NavIconUsers },
 ];
 
 const operationsNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: NavIconGrid, excludeRoles: ["parent"] },
   { label: "Dispatch", href: "/dashboard/dispatch", permission: "routes.view", icon: NavIconDispatch },
-  { label: "Live radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
+  { label: "Live Radar", href: "/dashboard/radar", permission: "vehicles.view", icon: NavIconRadar },
 ];
 
 const supportNav: NavItem[] = [
-  { label: "Complaint center", href: "/dashboard/complaints", permission: "complaints.view", icon: NavIconComplaints },
+  { label: "Complaint Center", href: "/dashboard/complaints", permission: "complaints.view", icon: NavIconComplaints },
   { label: "Messages", href: "/dashboard/messages", roles: ["admin", "dispatcher", "school_contact"], icon: NavIconMessages },
 ];
 
@@ -98,6 +113,7 @@ const fleetNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
+  { label: "Contractors", href: "/dashboard/contractors", permission: "contractors.view", icon: NavIconContractor },
   { label: "Users & access", href: "/dashboard/users", permission: "users.view", icon: NavIconUsers },
   { label: "Roles & permissions", href: "/dashboard/roles", permission: "users.view", icon: NavIconShield },
 ];
@@ -116,6 +132,7 @@ function navItemsForUser(user: AuthUser): NavItem[] {
   if (user.role === "parent") return parentNav;
   if (user.role === "driver") return driverNav;
   if (user.role === "school_contact") return schoolNav;
+  if (user.role === "contractor") return contractorNav;
   return [...operationsNav, ...fleetNav, ...supportNav, ...adminNav];
 }
 
@@ -249,19 +266,22 @@ function SidebarInner({
   const isParent = user.role === "parent";
   const isDriver = user.role === "driver";
   const isSchool = user.role === "school_contact";
-  const isPortalSubRole = isParent || isDriver || isSchool;
+  const isContractor = user.role === "contractor";
+  const isComplaintStaff = user.role === "admin" || user.role === "dispatcher";
+  const isComplaintSubmitter = isParent || isDriver || isSchool || isContractor;
+  const showBottomSupport =
+    user.role !== "admin" && user.role !== "super_admin";
 
   useEffect(() => {
     const items = [
       ...navItemsForUser(user).filter((item) => canSee(user, item)),
-      ...(isPortalSubRole ? portalSupportNav : []),
+      ...(showBottomSupport ? portalSupportNav : []),
     ];
     items.forEach((item) => warmRoute(item.href));
-  }, [user, isPortalSubRole]);
+  }, [user, showBottomSupport]);
 
   const isPortalUser = isParent || isDriver;
-  const canUseChat = ["admin", "dispatcher", "school_contact", "parent", "driver"].includes(user.role);
-  const canSeeComplaints = user.role === "admin" || user.role === "dispatcher";
+  const canUseChat = ["admin", "dispatcher", "school_contact", "parent", "driver", "contractor"].includes(user.role);
   const chatQuery = useQuery({
     queryKey: ["dashboard-chat-conversations"],
     queryFn: listDashboardChatConversations,
@@ -277,27 +297,50 @@ function SidebarInner({
   const complaintsStatsQuery = useQuery({
     queryKey: ["complaint-stats"],
     queryFn: getComplaintStats,
-    enabled: canSeeComplaints,
+    enabled: isComplaintStaff,
     refetchInterval: 30_000,
   });
+  const myComplaintsQuery = useQuery({
+    queryKey: ["complaints", "mine", "sidebar"],
+    queryFn: () => listMyComplaints(),
+    enabled: isComplaintSubmitter,
+    refetchInterval: 30_000,
+  });
+  const myOpenComplaints = useMemo(
+    () => (myComplaintsQuery.data?.items ?? []).filter((c) => OPEN_COMPLAINT_STATUSES.has(c.status)).length,
+    [myComplaintsQuery.data?.items],
+  );
   const navBadges = useMemo(
     () => ({
       "/dashboard/messages": chatQuery.data?.unread_total ?? 0,
       "/dashboard/alerts": portalAlertsQuery.data?.unread ?? 0,
-      "/dashboard/complaints": complaintsStatsQuery.data?.open ?? 0,
+      "/dashboard/complaints": isComplaintStaff
+        ? complaintsStatsQuery.data?.open ?? 0
+        : isComplaintSubmitter
+          ? myOpenComplaints
+          : 0,
     }),
-    [chatQuery.data?.unread_total, portalAlertsQuery.data?.unread, complaintsStatsQuery.data?.open],
+    [
+      chatQuery.data?.unread_total,
+      portalAlertsQuery.data?.unread,
+      complaintsStatsQuery.data?.open,
+      isComplaintStaff,
+      isComplaintSubmitter,
+      myOpenComplaints,
+    ],
   );
   const portalBadges = isPortalUser || isSchool ? navBadges : undefined;
   const staffBadges = !isParent && !isDriver && !isSchool ? navBadges : undefined;
   const nav = isSuperAdmin ? (
     <NavSection title="Platform" items={platformNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isParent ? (
-    <NavSection title="Parent portal" items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection title="Parent Portal" items={parentNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isDriver ? (
-    <NavSection title="Driver portal" items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection title="Driver Portal" items={driverNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : isSchool ? (
-    <NavSection title="School portal" items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
+    <NavSection title="School Portal" items={schoolNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={portalBadges} onPrefetch={warmRoute} onNavStart={startNav} />
+  ) : isContractor ? (
+    <NavSection title="Contractor Portal" items={contractorNav} user={user} pathname={pathname} onNavigate={onNavigate} badges={navBadges} onPrefetch={warmRoute} onNavStart={startNav} />
   ) : (
     <>
       <NavSection title="Operations" items={operationsNav} user={user} pathname={pathname} onNavigate={onNavigate} onPrefetch={warmRoute} onNavStart={startNav} />
@@ -324,7 +367,7 @@ function SidebarInner({
         </div>
       )}
       <nav className="fp-sidebar-scroll -mr-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-2">{nav}</nav>
-      {isPortalSubRole ? (
+      {showBottomSupport ? (
         <div className="mt-auto shrink-0 border-t border-slate-100 bg-white pt-2">
           <NavSection
             items={portalSupportNav}
@@ -447,6 +490,15 @@ function NavIconUsers() {
       <path d="M2 13c0-2.21 1.79-4 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       <circle cx="11" cy="6" r="1.5" stroke="currentColor" strokeWidth="1.2" />
       <path d="M9 13c0-1.657 1.12-3 2.5-3s2.5 1.343 2.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function NavIconContractor() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 13V7l4-2 4 2v6" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M6 13V9.5M9.5 13V4l4.5 2v7" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M2 13h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }

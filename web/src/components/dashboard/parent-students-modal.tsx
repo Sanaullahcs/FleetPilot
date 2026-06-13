@@ -90,8 +90,8 @@ export function ParentStudentsModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Assign students"
-      description={`Link students to ${parentName}. They will only see assigned children in My children and live tracking.`}
+      title="Assign Students"
+      description={`Link students to ${parentName}. They will only see assigned children in My Children and live tracking.`}
       size="md"
       footer={
         <div className="flex justify-end">

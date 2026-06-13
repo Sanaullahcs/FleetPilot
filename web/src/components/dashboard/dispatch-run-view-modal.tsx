@@ -54,7 +54,7 @@ export function DispatchRunViewModal({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {run.route?.id && (
             <Link href={`/dashboard/routes?id=${run.route.id}`}>
-              <Button variant="secondary">Open route</Button>
+              <Button variant="secondary">Open Route</Button>
             </Link>
           )}
           {onAssign && (
@@ -68,11 +68,30 @@ export function DispatchRunViewModal({
     >
       <div className="space-y-4 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          {assigned ? <StatusChip status={assigned.status} /> : <Badge className="bg-amber-50 text-amber-800 ring-1 ring-amber-200">Unassigned</Badge>}
+          {assigned?.awaiting_driver ? (
+            <Badge className="bg-violet-50 text-violet-700 ring-1 ring-violet-200">Delegated</Badge>
+          ) : assigned ? (
+            <StatusChip status={assigned.status} />
+          ) : (
+            <Badge className="bg-amber-50 text-amber-800 ring-1 ring-amber-200">Unassigned</Badge>
+          )}
           {run.direction ? (
             <span className="text-xs text-slate-500">{titleCase(run.direction.replace(/_/g, " "))}</span>
           ) : null}
         </div>
+
+        {assigned?.contractor ? (
+          <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">Operated by contractor</p>
+            <p className="mt-1 font-semibold text-violet-900">{assigned.contractor.name}</p>
+            {assigned.contractor.company ? (
+              <p className="text-xs text-violet-700">{assigned.contractor.company}</p>
+            ) : null}
+            {assigned.awaiting_driver ? (
+              <p className="mt-1 text-xs text-violet-700">Awaiting the contractor&apos;s driver &amp; vehicle.</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">

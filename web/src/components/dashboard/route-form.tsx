@@ -31,7 +31,7 @@ const TYPE_OPTIONS = [
   { label: "Afternoon (PM)", value: "pm" },
   { label: "Midday", value: "midday" },
   { label: "Activity", value: "activity" },
-  { label: "Special education", value: "sped" },
+  { label: "Special Education", value: "sped" },
   { label: "Charter / field trip", value: "charter" },
 ];
 
@@ -107,12 +107,12 @@ export function RouteFormModal({
       open={open}
       onClose={onClose}
       size="md"
-      title={isEdit ? "Edit route" : "Add route"}
+      title={isEdit ? "Edit Route" : "Add Route"}
       description="Route identity, school assignment, and service type."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={isEdit ? "Save changes" : "Create route"}
+          submitLabel={isEdit ? "Save Changes" : "Create Route"}
           submitForm={FORM_ID}
           pending={isSubmitting || mutation.isPending}
         />
@@ -125,7 +125,7 @@ export function RouteFormModal({
       >
         {serverError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
 
-        <FormSection title="Route details">
+        <FormSection title="Route Details">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Name" error={errors.name?.message} required>
               <input className={fieldClass} {...register("name")} placeholder="Lincoln AM Route 1" />

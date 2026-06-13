@@ -373,7 +373,7 @@ function StudentContactCard({
   return (
     <View style={[styles.contactCard, dimmed && styles.contactCardDimmed]}>
       <View style={styles.contactHeader}>
-        <PhotoAvatar name={student.name} size={42} seed={student.id} />
+        <PhotoAvatar name={student.name} variant="student" size={42} seed={student.id} />
         <View style={styles.contactHeaderText}>
           <Text style={styles.studentName}>{student.name}</Text>
           <Text style={styles.studentMeta}>Grade {student.grade ?? '—'}</Text>

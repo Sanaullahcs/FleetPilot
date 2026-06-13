@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\ContractorAssignment;
 use App\Models\ParentAccount;
 use App\Models\ParentStudent;
+use App\Models\Route;
 use App\Models\RunAssignment;
 use App\Models\Student;
 use App\Models\User;
@@ -42,9 +44,103 @@ trait ResolvesAccessScope
 
     protected function assertOpsRole(Request $request): void
     {
-        if (! in_array($request->user()->role, ['admin', 'dispatcher', 'school_contact'], true)) {
+        if (! in_array($request->user()->role, ['admin', 'dispatcher', 'school_contact', 'contractor'], true)) {
             abort(403, 'This action is not available for your role.');
         }
+    }
+
+    // --- Contractor scoping -------------------------------------------------
+
+    protected function isContractor(User $user): bool
+    {
+        return $user->role === 'contractor';
+    }
+
+    /**
+     * School IDs a contractor may see: schools assigned directly plus the
+     * schools that own any routes assigned directly. Null when not a contractor.
+     *
+     * @return array<int, string>|null
+     */
+    protected function contractorSchoolIds(User $user): ?array
+    {
+        if (! $this->isContractor($user)) {
+            return null;
+        }
+
+        $assignments = ContractorAssignment::query()
+            ->where('contractor_id', $user->id)
+            ->get(['school_id', 'route_id']);
+
+        $schoolIds = $assignments->pluck('school_id')->filter();
+        $routeIds = $assignments->pluck('route_id')->filter();
+
+        if ($routeIds->isNotEmpty()) {
+            $schoolIds = $schoolIds->merge(
+                Route::whereIn('id', $routeIds->all())->pluck('school_id')->filter()
+            );
+        }
+
+        return $schoolIds->unique()->values()->all();
+    }
+
+    /**
+     * Route IDs a contractor may operate: routes assigned directly plus every
+     * route belonging to a school assigned to them. Null when not a contractor.
+     *
+     * @return array<int, string>|null
+     */
+    protected function contractorRouteIds(User $user): ?array
+    {
+        if (! $this->isContractor($user)) {
+            return null;
+        }
+
+        $assignments = ContractorAssignment::query()
+            ->where('contractor_id', $user->id)
+            ->get(['school_id', 'route_id']);
+
+        $routeIds = $assignments->pluck('route_id')->filter();
+        $schoolIds = $assignments->pluck('school_id')->filter();
+
+        if ($schoolIds->isNotEmpty()) {
+            $routeIds = $routeIds->merge(
+                Route::whereIn('school_id', $schoolIds->all())->pluck('id')
+            );
+        }
+
+        return $routeIds->unique()->values()->all();
+    }
+
+    /**
+     * Restrict a Route query to a contractor's assigned routes.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return Builder<\Illuminate\Database\Eloquent\Model>
+     */
+    protected function applyContractorRouteScope(User $user, Builder $query): Builder
+    {
+        $routeIds = $this->contractorRouteIds($user);
+        if ($routeIds === null) {
+            return $query;
+        }
+
+        return $query->whereIn('id', $routeIds ?: ['__none__']);
+    }
+
+    /**
+     * Restrict a Driver/Vehicle query to those owned by the contractor.
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return Builder<\Illuminate\Database\Eloquent\Model>
+     */
+    protected function applyContractorOwnedScope(User $user, Builder $query): Builder
+    {
+        if (! $this->isContractor($user)) {
+            return $query;
+        }
+
+        return $query->where('contractor_id', $user->id);
     }
 
     protected function assertCanManageStudents(Request $request): void

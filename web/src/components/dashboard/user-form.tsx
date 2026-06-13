@@ -196,12 +196,12 @@ export function UserFormModal({
         open={open}
         onClose={onClose}
         size="md"
-        title="Edit user"
+        title="Edit User"
         description="Update account details, role assignment, and access status."
         footer={
           <ModalFooter
             onCancel={onClose}
-            submitLabel="Save changes"
+            submitLabel="Save Changes"
             submitForm={EDIT_FORM_ID}
             pending={isSubmitting || editMutation.isPending}
           />
@@ -232,12 +232,12 @@ export function UserFormModal({
       open={open}
       onClose={onClose}
       size="md"
-      title="Create user"
+      title="Create User"
       description="Add a new team member with login credentials and role permissions."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel="Create user"
+          submitLabel="Create User"
           submitForm={CREATE_FORM_ID}
           pending={isSubmitting || createMutation.isPending}
         />
@@ -258,12 +258,12 @@ export function UserFormModal({
           organizationOptions={(organizations?.data ?? []).map((o) => ({ label: o.name, value: o.id }))}
           roleOptions={assignableRoles.map((r) => ({ label: r.label, value: r.value }))}
         />
-        <FormSection title="Login credentials">
+        <FormSection title="Login Credentials">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Password" required error={errors.password?.message}>
               <input type="password" className={fieldClass} autoComplete="new-password" {...createForm.register("password")} />
             </Field>
-            <Field label="Confirm password" required error={errors.password_confirmation?.message}>
+            <Field label="Confirm Password" required error={errors.password_confirmation?.message}>
               <input type="password" className={fieldClass} autoComplete="new-password" {...createForm.register("password_confirmation")} />
             </Field>
           </div>
@@ -320,10 +320,10 @@ function UserFields({
               />
             </Field>
           )}
-          <Field label="First name" required error={errors.first_name?.message}>
+          <Field label="First Name" required error={errors.first_name?.message}>
             <input className={fieldClass} autoComplete="given-name" {...register("first_name")} />
           </Field>
-          <Field label="Last name" required error={errors.last_name?.message}>
+          <Field label="Last Name" required error={errors.last_name?.message}>
             <input className={fieldClass} autoComplete="family-name" {...register("last_name")} />
           </Field>
           <Field label="Email" required error={errors.email?.message} className="sm:col-span-2">
@@ -332,7 +332,7 @@ function UserFields({
           <Field label="Phone">
             <input type="tel" className={fieldClass} autoComplete="tel" {...register("phone")} />
           </Field>
-          <Field label="Primary role">
+          <Field label="Primary Role">
             <SearchableSelect
               value={roleValue}
               onChange={onRoleChange}
@@ -346,12 +346,12 @@ function UserFields({
       </FormSection>
 
       {roles && roles.length > 0 && (
-        <FormSection title="RBAC roles" description="Fine-grained permissions assigned to this account.">
+        <FormSection title="RBAC Roles" description="Fine-grained permissions assigned to this account.">
           <RoleCheckboxes roles={roles} selected={roleIds} onChange={setRoleIds} />
         </FormSection>
       )}
 
-      <FormSection title="Account status">
+      <FormSection title="Account Status">
         <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
           <input type="checkbox" {...register("is_active")} className="h-4 w-4 rounded border-slate-300 text-brand-accent focus:ring-brand-accent" />
           <span>

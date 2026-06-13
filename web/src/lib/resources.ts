@@ -5,6 +5,11 @@ import type {
   ComplaintFormOptions,
   ComplaintRecord,
   ComplaintStats,
+  Contractor,
+  ContractorAssignment,
+  ContractorOptions,
+  ContractorPortalSummary,
+  ContractorStats,
   DashboardChatConversation,
   DashboardChatContact,
   DashboardChatMessage,
@@ -197,7 +202,7 @@ export async function getFleetLive(filters: FleetLiveFilters = {}): Promise<Flee
 export interface DispatchRunsParams {
   date?: string;
   search?: string;
-  assignment?: "assigned" | "unassigned" | "";
+  assignment?: "assigned" | "unassigned" | "delegated" | "";
   status?: string;
   route_type?: string;
   school_id?: string;
@@ -238,7 +243,13 @@ export async function createDispatchRun(payload: CreateDispatchRunPayload): Prom
 
 export async function assignDispatchRun(
   runId: string,
-  payload: { service_date: string; driver_id: string; vehicle_id: string; notes?: string },
+  payload: {
+    service_date: string;
+    driver_id?: string;
+    vehicle_id?: string;
+    contractor_id?: string;
+    notes?: string;
+  },
 ): Promise<{ run: DispatchRunRow; assignment: DispatchBoard["runs"][0]["assignment"] }> {
   const { data } = await api.post<{
     data: { run: DispatchRunRow; assignment: DispatchBoard["runs"][0]["assignment"] };
@@ -299,6 +310,11 @@ export async function listStudents(params: ListParams = {}): Promise<Paginated<S
 
 export async function getStudent(id: string): Promise<Student> {
   const { data } = await api.get<{ data: Student }>(`/students/${id}`);
+  return data.data;
+}
+
+export async function getDriver(id: string): Promise<Driver> {
+  const { data } = await api.get<{ data: Driver }>(`/drivers/${id}`);
   return data.data;
 }
 
@@ -521,14 +537,51 @@ export async function unlinkParentStudent(parentId: string, linkId: string) {
   await api.delete(`/parents/${parentId}/students/${linkId}`);
 }
 
-export async function createDriver(payload: Partial<Driver> & { default_vehicle_id?: string | null; vehicle?: NewVehiclePayload }) {
-  const { data } = await api.post<{ data: Driver }>("/drivers", payload);
+export async function createDriver(
+  payload: Partial<Driver> & { default_vehicle_id?: string | null; vehicle?: NewVehiclePayload },
+  files?: { license_document?: File | null; insurance_document?: File | null },
+) {
+  const form = buildDriverFormData(payload, files);
+  const { data } = await api.post<{ data: Driver }>("/drivers", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data.data;
 }
 
-export async function updateDriver(id: string, payload: Partial<Driver> & { default_vehicle_id?: string | null; vehicle?: NewVehiclePayload }) {
-  const { data } = await api.put<{ data: Driver }>(`/drivers/${id}`, payload);
+export async function updateDriver(
+  id: string,
+  payload: Partial<Driver> & { default_vehicle_id?: string | null; vehicle?: NewVehiclePayload },
+  files?: { license_document?: File | null; insurance_document?: File | null },
+) {
+  const form = buildDriverFormData(payload, files);
+  const { data } = await api.put<{ data: Driver }>(`/drivers/${id}`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data.data;
+}
+
+function buildDriverFormData(
+  payload: Record<string, unknown>,
+  files?: { license_document?: File | null; insurance_document?: File | null },
+) {
+  const form = new FormData();
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (key === "vehicle" && typeof value === "object") {
+      Object.entries(value as Record<string, unknown>).forEach(([vk, vv]) => {
+        if (vv !== undefined && vv !== null) form.append(`vehicle[${vk}]`, String(vv));
+      });
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => form.append(`${key}[]`, String(item)));
+      return;
+    }
+    form.append(key, String(value));
+  });
+  if (files?.license_document) form.append("license_document", files.license_document);
+  if (files?.insurance_document) form.append("insurance_document", files.insurance_document);
+  return form;
 }
 
 export async function deleteDriver(id: string) {
@@ -680,6 +733,59 @@ export async function archiveMarketingContact(id: string): Promise<MarketingCont
   return data.data;
 }
 
+// --- Admin: Contractors ---
+
+export async function listContractors(params: ListParams = {}): Promise<Paginated<Contractor>> {
+  const { data } = await api.get<Paginated<Contractor>>("/contractors", { params: buildParams(params) });
+  return data;
+}
+
+export async function getContractorStats(): Promise<ContractorStats> {
+  const { data } = await api.get<{ data: ContractorStats }>("/contractors/stats");
+  return data.data;
+}
+
+export async function getContractor(id: string): Promise<Contractor> {
+  const { data } = await api.get<{ data: Contractor }>(`/contractors/${id}`);
+  return data.data;
+}
+
+export async function createContractor(payload: Record<string, unknown>): Promise<Contractor> {
+  const { data } = await api.post<{ data: Contractor }>("/contractors", payload);
+  return data.data;
+}
+
+export async function updateContractor(id: string, payload: Record<string, unknown>): Promise<Contractor> {
+  const { data } = await api.put<{ data: Contractor }>(`/contractors/${id}`, payload);
+  return data.data;
+}
+
+export async function deleteContractor(id: string) {
+  await api.delete(`/contractors/${id}`);
+}
+
+export async function getContractorOptions(id: string): Promise<ContractorOptions> {
+  const { data } = await api.get<{ data: ContractorOptions }>(`/contractors/${id}/options`);
+  return data.data;
+}
+
+export async function addContractorAssignment(
+  id: string,
+  payload: { type: "school" | "route"; school_id?: string; route_id?: string; notes?: string },
+): Promise<ContractorAssignment> {
+  const { data } = await api.post<{ data: ContractorAssignment }>(`/contractors/${id}/assignments`, payload);
+  return data.data;
+}
+
+export async function removeContractorAssignment(assignmentId: string) {
+  await api.delete(`/contractor-assignments/${assignmentId}`);
+}
+
+export async function getContractorPortal(): Promise<ContractorPortalSummary> {
+  const { data } = await api.get<{ data: ContractorPortalSummary }>("/contractor/portal");
+  return data.data;
+}
+
 // --- Admin: Users & RBAC ---
 
 export async function listUsers(params: ListParams = {}): Promise<Paginated<AdminUser>> {
@@ -774,14 +880,14 @@ export async function listMobileNotifications(includeRead = true) {
 }
 
 export async function markMobileNotificationRead(notificationId: string) {
-  const { data } = await api.post<{ data: { id: string; read: boolean } }>(
-    `/mobile/notifications/${notificationId}/read`,
+  const { data } = await api.post<{ data: { id: string; read: boolean; unread?: number } }>(
+    `/mobile/notifications/${encodeURIComponent(notificationId)}/read`,
   );
   return data.data;
 }
 
 export async function markAllMobileNotificationsRead() {
-  const { data } = await api.post<{ data: { marked: number } }>("/mobile/notifications/read-all");
+  const { data } = await api.post<{ data: { marked: number; unread?: number } }>("/mobile/notifications/read-all");
   return data.data;
 }
 

@@ -94,11 +94,15 @@ class StudentController extends Controller
     {
         $this->authorizeStudentAccess($request, $student);
 
+        $student->load([
+            'school:id,name,code,city,state',
+            'assignedDriver:id,first_name,last_name,employee_id,status,email,phone,default_vehicle_id',
+            'assignedDriver.defaultVehicle:id,vehicle_number,type,status,make,model,year,capacity,wheelchair_capacity,license_plate,fuel_type',
+        ]);
+
         return response()->json([
-            'data' => $student->load([
-                'school:id,name,code,city',
-                'assignedDriver:id,first_name,last_name,employee_id,status,default_vehicle_id',
-                'assignedDriver.defaultVehicle:id,vehicle_number,type',
+            'data' => array_merge($student->toArray(), [
+                'parents' => $this->mapStudentParents($student),
             ]),
         ]);
     }
@@ -207,29 +211,7 @@ class StudentController extends Controller
         $this->assertCanManageStudents($request);
         $this->authorizeStudentAccess($request, $student);
 
-        $links = ParentStudent::query()
-            ->where('student_id', $student->id)
-            ->with([
-                'parentAccount.user:id,email,first_name,last_name,is_active',
-            ])
-            ->orderByDesc('is_primary')
-            ->get()
-            ->map(fn (ParentStudent $link) => [
-                'id' => $link->id,
-                'relationship' => $link->relationship,
-                'is_primary' => $link->is_primary,
-                'can_pickup' => $link->can_pickup,
-                'parent_account_id' => $link->parent_account_id,
-                'user' => $link->parentAccount?->user ? [
-                    'id' => $link->parentAccount->user->id,
-                    'email' => $link->parentAccount->user->email,
-                    'first_name' => $link->parentAccount->user->first_name,
-                    'last_name' => $link->parentAccount->user->last_name,
-                    'is_active' => $link->parentAccount->user->is_active,
-                ] : null,
-            ]);
-
-        return response()->json(['data' => $links]);
+        return response()->json(['data' => $this->mapStudentParents($student)]);
     }
 
     public function linkParent(Request $request, Student $student): JsonResponse
@@ -362,6 +344,35 @@ class StudentController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function mapStudentParents(Student $student)
+    {
+        return ParentStudent::query()
+            ->where('student_id', $student->id)
+            ->with([
+                'parentAccount.user:id,email,first_name,last_name,phone,is_active',
+            ])
+            ->orderByDesc('is_primary')
+            ->get()
+            ->map(fn (ParentStudent $link) => [
+                'id' => $link->id,
+                'relationship' => $link->relationship,
+                'is_primary' => $link->is_primary,
+                'can_pickup' => $link->can_pickup,
+                'parent_account_id' => $link->parent_account_id,
+                'user' => $link->parentAccount?->user ? [
+                    'id' => $link->parentAccount->user->id,
+                    'email' => $link->parentAccount->user->email,
+                    'first_name' => $link->parentAccount->user->first_name,
+                    'last_name' => $link->parentAccount->user->last_name,
+                    'phone' => $link->parentAccount->user->phone,
+                    'is_active' => $link->parentAccount->user->is_active,
+                ] : null,
+            ]);
     }
 
     private function authorizeOrg(Request $request, Student $student): void

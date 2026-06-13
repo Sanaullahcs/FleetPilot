@@ -38,6 +38,7 @@ class DemoDataSeeder extends Seeder
         $this->seedAssignments($org->id);
         $this->seedRoutes($org->id, $schools);
         $this->seedRunAssignments($org->id);
+        $this->seedContractor($org->id, $schools);
         $this->seedParentLinks($org->id);
         $this->linkMobileDemoUsers($org->id);
         $this->seedMobileChatThreads();
@@ -208,6 +209,7 @@ class DemoDataSeeder extends Seeder
                     'license_expiry' => now()->addMonths(random_int(3, 30))->toDateString(),
                     'hire_date' => now()->subMonths(random_int(6, 60))->toDateString(),
                     'status' => 'active',
+                    ...$this->driverCredentialFields($i),
                 ],
             );
         }
@@ -229,6 +231,7 @@ class DemoDataSeeder extends Seeder
                     'first_name' => $fname,
                     'last_name' => $last[$i % count($last)],
                     'grade' => (string) random_int(1, 12),
+                    'date_of_birth' => now()->subYears(random_int(5, 17))->subMonths($i)->toDateString(),
                     'school_id' => $school->id,
                     'home_address' => random_int(100, 999) . ' Maple St, Springfield, IL',
                     'home_latitude' => 39.78 + (random_int(-200, 200) / 10000),
@@ -350,6 +353,108 @@ class DemoDataSeeder extends Seeder
         }
     }
 
+    /**
+     * @param  array<int, \App\Models\School>  $schools
+     */
+    private function seedContractor(string $orgId, array $schools): void
+    {
+        $contractor = User::where('email', 'contractor@fleetpilot.test')->first();
+        if (! $contractor) {
+            return;
+        }
+
+        $admin = User::where('organization_id', $orgId)->where('role', 'admin')->first();
+
+        // Admin delegates one whole school plus a single extra route to the contractor.
+        $whs = collect($schools)->firstWhere('code', 'WHS') ?? $schools[count($schools) - 1] ?? null;
+        $rmsAmRoute = Route::where('organization_id', $orgId)->where('code', 'RMS-am')->first();
+
+        if ($whs) {
+            \App\Models\ContractorAssignment::updateOrCreate(
+                ['contractor_id' => $contractor->id, 'school_id' => $whs->id, 'route_id' => null],
+                ['organization_id' => $orgId, 'assigned_by' => $admin?->id, 'notes' => 'Full campus transportation contract.'],
+            );
+        }
+
+        if ($rmsAmRoute) {
+            \App\Models\ContractorAssignment::updateOrCreate(
+                ['contractor_id' => $contractor->id, 'route_id' => $rmsAmRoute->id, 'school_id' => null],
+                ['organization_id' => $orgId, 'assigned_by' => $admin?->id, 'notes' => 'Single AM route overflow.'],
+            );
+        }
+
+        // Contractor brings their own fleet.
+        $ownedVehicles = [];
+        foreach ([
+            ['n' => 'CON-501', 'type' => 'bus', 'cap' => 54, 'make' => 'Blue Bird', 'model' => 'All American'],
+            ['n' => 'CON-502', 'type' => 'van', 'cap' => 14, 'make' => 'Ford', 'model' => 'Transit'],
+        ] as $v) {
+            $ownedVehicles[] = Vehicle::updateOrCreate(
+                ['organization_id' => $orgId, 'vehicle_number' => $v['n']],
+                [
+                    'contractor_id' => $contractor->id,
+                    'type' => $v['type'],
+                    'capacity' => $v['cap'],
+                    'make' => $v['make'],
+                    'model' => $v['model'],
+                    'year' => random_int(2019, 2024),
+                    'license_plate' => 'IL-' . random_int(10000, 99999),
+                    'status' => 'active',
+                    'fuel_type' => 'diesel',
+                    'current_odometer' => random_int(15000, 90000),
+                    'cost_per_mile' => 1.95,
+                ],
+            );
+        }
+
+        $driverRole = Role::query()->where('organization_id', $orgId)->where('slug', 'driver')->first();
+
+        $ownedDrivers = [];
+        foreach ([['Gabriel', 'Owens'], ['Priya', 'Nair']] as $i => [$first, $last]) {
+            $email = strtolower("$first.$last") . '@contractor.example.com';
+
+            // Give each contractor driver a login so they are dispatch-eligible.
+            $driverUser = User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'organization_id' => $orgId,
+                    'approved_by_user_id' => $contractor->id,
+                    'password_hash' => DemoCredentials::PASSWORD,
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'phone' => '(555) 600-' . random_int(1000, 9999),
+                    'role' => 'driver',
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ],
+            );
+
+            if ($driverRole) {
+                $driverUser->roles()->syncWithoutDetaching([$driverRole->id]);
+            }
+
+            $ownedDrivers[] = Driver::updateOrCreate(
+                ['organization_id' => $orgId, 'employee_id' => 'CON-EMP-' . (2001 + $i)],
+                [
+                    'contractor_id' => $contractor->id,
+                    'user_id' => $driverUser->id,
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'email' => $email,
+                    'phone' => $driverUser->phone,
+                    'license_number' => 'DL' . random_int(1000000, 9999999),
+                    'license_class' => 'CDL-B',
+                    'license_state' => 'IL',
+                    'license_expiry' => now()->addMonths(random_int(6, 30))->toDateString(),
+                    'hire_date' => now()->subMonths(random_int(3, 36))->toDateString(),
+                    'status' => 'active',
+                    'default_vehicle_id' => $ownedVehicles[$i]->id ?? null,
+                    ...$this->driverCredentialFields(10 + $i),
+                ],
+            );
+        }
+    }
+
     private function seedParentLinks(string $orgId): void
     {
         $parentUser = User::where('email', 'parent@fleetpilot.test')->first();
@@ -415,6 +520,7 @@ class DemoDataSeeder extends Seeder
                 'hire_date' => now()->subYears(3)->toDateString(),
                 'status' => 'active',
                 'default_vehicle_id' => $vehicle?->id,
+                ...$this->driverCredentialFields(20),
             ],
         );
 
@@ -671,6 +777,7 @@ class DemoDataSeeder extends Seeder
                     'parent_support' => 'Transportation dispatch here — how can we help with your route?',
                     'driver_school' => 'Let us know if pickup or dismissal times change today.',
                     'driver_support' => 'Dispatch here — message us about route changes or delays.',
+                    'contractor_driver' => 'Please confirm your vehicle inspection is complete for tomorrow.',
                     default => null,
                 };
 
@@ -684,6 +791,19 @@ class DemoDataSeeder extends Seeder
                     ]);
                     $conversation->update(['last_message_at' => now()]);
                 }
+            }
+        }
+
+        $admin = User::where('email', 'admin@fleetpilot.test')->first();
+        $contractor = User::where('email', 'contractor@fleetpilot.test')->first();
+        if ($admin && $contractor) {
+            $chat->findOrCreateStaffConversation($admin, $contractor->id);
+        }
+
+        if ($contractor) {
+            $contractorDriver = User::where('email', 'gabriel.owens@contractor.example.com')->first();
+            if ($contractorDriver) {
+                $chat->findOrCreateContractorConversation($contractor, $contractorDriver->id);
             }
         }
     }
@@ -738,5 +858,26 @@ class DemoDataSeeder extends Seeder
             'assigned_to_user_id' => $admin->id,
             'public_note' => 'Thank you for reporting this. We are reviewing GPS logs for Route 12 and will follow up within one business day.',
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function driverCredentialFields(int $seed = 0): array
+    {
+        $carriers = ['State Farm Commercial', 'Progressive Fleet', 'Nationwide Business'];
+
+        return [
+            'date_of_birth' => now()->subYears(random_int(28, 58))->subMonths($seed % 12)->toDateString(),
+            'insurance_provider' => $carriers[$seed % count($carriers)],
+            'insurance_policy_number' => 'POL-'.(880000 + $seed),
+            'insurance_expiry' => now()->addMonths(random_int(6, 24))->toDateString(),
+            'medical_cert_expiry' => now()->addMonths(random_int(4, 18))->toDateString(),
+            'background_check_date' => now()->subMonths(random_int(1, 12))->toDateString(),
+            'drug_test_date' => now()->subMonths(random_int(1, 6))->toDateString(),
+            'emergency_contact_name' => 'Emergency Contact',
+            'emergency_contact_phone' => '(555) 900-'.random_int(1000, 9999),
+            'endorsements' => ['P', 'S'],
+        ];
     }
 }

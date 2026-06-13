@@ -107,6 +107,7 @@ class ParentPortalController extends Controller
             ->with([
                 'driver:id,first_name,last_name,employee_id,phone',
                 'vehicle:id,vehicle_number,type,status,license_plate',
+                'contractor:id,first_name,last_name,job_title',
                 'run:id,route_id,name,scheduled_start_time,scheduled_end_time,direction,status',
                 'run.route:id,name,code,type,school_id',
                 'run.route.school:id,name,code',
@@ -161,6 +162,11 @@ class ParentPortalController extends Controller
                 'status' => $assignment->status,
                 'route_name' => $assignment->run->route?->name,
                 'route_type' => $assignment->run->route?->type,
+                'operated_by' => $assignment->contractor ? [
+                    'id' => $assignment->contractor->id,
+                    'name' => trim("{$assignment->contractor->first_name} {$assignment->contractor->last_name}"),
+                    'company' => $assignment->contractor->job_title,
+                ] : null,
             ] : null,
             'vehicle' => [
                 'id' => $vehicle->id,
@@ -247,6 +253,7 @@ class ParentPortalController extends Controller
                 ->with([
                     'driver:id,first_name,last_name,employee_id,phone',
                     'vehicle:id,vehicle_number,type',
+                    'contractor:id,first_name,last_name,job_title',
                     'run:id,route_id,name,scheduled_start_time,scheduled_end_time,direction',
                 ])
                 ->get()
@@ -264,6 +271,11 @@ class ParentPortalController extends Controller
                         'scheduled_end_time' => $run->scheduled_end_time,
                         'assignment' => $assignment ? [
                             'status' => $assignment->status,
+                            'operated_by' => $assignment->contractor ? [
+                                'id' => $assignment->contractor->id,
+                                'name' => trim("{$assignment->contractor->first_name} {$assignment->contractor->last_name}"),
+                                'company' => $assignment->contractor->job_title,
+                            ] : null,
                             'driver' => $assignment->driver ? [
                                 'id' => $assignment->driver->id,
                                 'first_name' => $assignment->driver->first_name,

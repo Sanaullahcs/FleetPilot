@@ -101,12 +101,12 @@ export function SchoolFormModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={isEdit ? "Edit school" : "Add school"}
+      title={isEdit ? "Edit School" : "Add School"}
       description="Campus profile, district info, and transportation contacts."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={isEdit ? "Save changes" : "Create school"}
+          submitLabel={isEdit ? "Save Changes" : "Create School"}
           submitForm={FORM_ID}
           pending={isSubmitting || mutation.isPending}
         />
@@ -119,7 +119,7 @@ export function SchoolFormModal({
       >
         {serverError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
 
-        <FormSection title="School profile">
+        <FormSection title="School Profile">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Name" error={errors.name?.message} required>
               <input className={fieldClass} {...register("name")} />
@@ -130,7 +130,7 @@ export function SchoolFormModal({
             <Field label="District" error={errors.district?.message}>
               <input className={fieldClass} {...register("district")} />
             </Field>
-            <Field label="Grade levels" error={errors.grade_levels?.message}>
+            <Field label="Grade Levels" error={errors.grade_levels?.message}>
               <input className={fieldClass} {...register("grade_levels")} placeholder="K–5" />
             </Field>
             <Field label="Principal" error={errors.principal_name?.message}>
@@ -167,15 +167,15 @@ export function SchoolFormModal({
           </div>
         </FormSection>
 
-        <FormSection title="Transportation contact">
+        <FormSection title="Transportation Contact">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Contact name" error={errors.contact_name?.message}>
+            <Field label="Contact Name" error={errors.contact_name?.message}>
               <input className={fieldClass} {...register("contact_name")} />
             </Field>
-            <Field label="Contact phone" error={errors.contact_phone?.message}>
+            <Field label="Contact Phone" error={errors.contact_phone?.message}>
               <input className={fieldClass} {...register("contact_phone")} />
             </Field>
-            <Field label="Contact email" error={errors.contact_email?.message} className="sm:col-span-2">
+            <Field label="Contact Email" error={errors.contact_email?.message} className="sm:col-span-2">
               <input className={fieldClass} type="email" {...register("contact_email")} />
             </Field>
           </div>

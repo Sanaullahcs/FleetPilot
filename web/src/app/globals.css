@@ -152,6 +152,9 @@ body {
   .fp-card {
     @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/50;
   }
+  .fp-panel {
+    @apply rounded-xl border border-slate-200 bg-white;
+  }
   .fp-card-hover {
     @apply fp-card transition duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-brand-primary/10;
   }

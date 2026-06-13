@@ -162,7 +162,7 @@ function LeadDetailModal({
           <Detail label="Phone" value={lead.phone ?? "—"} />
           <Detail label="Organization" value={lead.organization_name ?? "—"} />
           <Detail label="Role" value={roleLabel(lead.role_type)} />
-          <Detail label="Fleet size" value={lead.fleet_size ?? "—"} />
+          <Detail label="Fleet Size" value={lead.fleet_size ?? "—"} />
           <Detail label="Inquiry" value={inquiryLabel(lead.inquiry_type)} />
           <Detail label="Subject" value={lead.subject ?? "—"} className="sm:col-span-2" />
           <Detail label="Status" value={<Badge className={statusBadgeClass(lead.status)}>{titleCase(lead.status)}</Badge>} />
@@ -290,7 +290,7 @@ export default function ContactLeadsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Contact leads"
+        title="Contact Leads"
         description="Website contact form submissions from the marketing homepage."
       />
 
@@ -354,9 +354,9 @@ export default function ContactLeadsPage() {
           actions={(l) => (
             <RowActions
               items={[
-                { label: "View details", onClick: () => setDetailId(l.id) },
+                { label: "View Details", onClick: () => setDetailId(l.id) },
                 ...(l.status === "new"
-                  ? [{ label: "Mark read", onClick: () => readMutation.mutate(l.id) }]
+                  ? [{ label: "Mark Read", onClick: () => readMutation.mutate(l.id) }]
                   : l.status === "read"
                     ? [{ label: "Archive", onClick: () => archiveMutation.mutate(l.id), variant: "danger" as const }]
                     : []),

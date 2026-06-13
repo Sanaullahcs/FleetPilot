@@ -3,7 +3,8 @@ export type ChatConversationType =
   | 'driver_school'
   | 'parent_driver'
   | 'parent_school'
-  | 'parent_support';
+  | 'parent_support'
+  | 'contractor_driver';
 
 export type ChatAvatarType = 'support' | 'driver' | 'school' | 'parent';
 
@@ -38,7 +39,7 @@ export interface ChatMessage {
 }
 
 export type ParentChatGroup = 'driver' | 'school' | 'support';
-export type DriverChatGroup = 'parent' | 'school' | 'support';
+export type DriverChatGroup = 'parent' | 'school' | 'support' | 'contractor';
 
 export function groupParentConversation(item: ChatConversation): ParentChatGroup | null {
   if (item.type === 'parent_driver') return 'driver';
@@ -50,6 +51,7 @@ export function groupParentConversation(item: ChatConversation): ParentChatGroup
 export function groupDriverConversation(item: ChatConversation): DriverChatGroup | null {
   if (item.type === 'parent_driver') return 'parent';
   if (item.type === 'driver_school') return 'school';
+  if (item.type === 'contractor_driver') return 'contractor';
   if (item.type === 'driver_support') return 'support';
   return null;
 }

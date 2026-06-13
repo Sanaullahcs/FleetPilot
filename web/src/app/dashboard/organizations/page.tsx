@@ -91,12 +91,12 @@ function OrgFormModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title="Add organization"
+      title="Add Organization"
       description="Create a new tenant and optionally provision the first admin account."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel="Create organization"
+          submitLabel="Create Organization"
           submitForm={FORM_ID}
           pending={isSubmitting || mutation.isPending}
         />
@@ -126,21 +126,21 @@ function OrgFormModal({
           </div>
         </FormSection>
 
-        <FormSection title="First admin (optional)">
+        <FormSection title="First Admin (Optional)">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Admin email" error={errors.admin_email?.message}>
+            <Field label="Admin Email" error={errors.admin_email?.message}>
               <input className="fp-input" type="email" {...register("admin_email")} />
             </Field>
-            <Field label="Admin first name" error={errors.admin_first_name?.message}>
+            <Field label="Admin First Name" error={errors.admin_first_name?.message}>
               <input className="fp-input" {...register("admin_first_name")} />
             </Field>
-            <Field label="Admin last name" error={errors.admin_last_name?.message}>
+            <Field label="Admin Last Name" error={errors.admin_last_name?.message}>
               <input className="fp-input" {...register("admin_last_name")} />
             </Field>
             <Field label="Password" error={errors.admin_password?.message}>
               <input className="fp-input" type="password" {...register("admin_password")} />
             </Field>
-            <Field label="Confirm password" error={errors.admin_password_confirmation?.message}>
+            <Field label="Confirm Password" error={errors.admin_password_confirmation?.message}>
               <input className="fp-input" type="password" {...register("admin_password_confirmation")} />
             </Field>
           </div>
@@ -214,7 +214,7 @@ export default function OrganizationsPage() {
       <PageHeader
         title="Organizations"
         description="Manage all transportation tenants and their administrator accounts."
-        action={<Button onClick={() => setModalOpen(true)}>+ Add organization</Button>}
+        action={<Button onClick={() => setModalOpen(true)}>+ Add Organization</Button>}
       />
 
       <OrganizationStatRow totalOrgs={totalOrgs} totalUsers={totalUsers} isLoading={isLoading} />
@@ -249,7 +249,7 @@ export default function OrganizationsPage() {
           actions={(o) => (
             <RowActions
               items={[
-                { label: "Manage admins", onClick: () => router.push(`/dashboard/users?organization_id=${o.id}`) },
+                { label: "Manage Admins", onClick: () => router.push(`/dashboard/users?organization_id=${o.id}`) },
                 { label: "Delete", variant: "danger", onClick: () => handleDelete(o) },
               ]}
             />

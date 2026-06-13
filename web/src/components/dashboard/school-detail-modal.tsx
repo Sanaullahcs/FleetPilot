@@ -54,15 +54,15 @@ export function SchoolDetailModal({
         <div className="space-y-6">
           <DetailStats>
             <DetailStat label="Students" value={school.students_count ?? 0} accent />
-            <DetailStat label="Active students" value={school.active_students_count ?? 0} />
+            <DetailStat label="Active Students" value={school.active_students_count ?? 0} />
             <DetailStat label="Routes" value={school.routes_count ?? 0} />
-            <DetailStat label="Active routes" value={school.active_routes_count ?? 0} />
+            <DetailStat label="Active Routes" value={school.active_routes_count ?? 0} />
           </DetailStats>
 
-          <DetailSection title="Campus profile">
+          <DetailSection title="Campus Profile">
             <DetailGrid>
-              <DetailItem label="School code" value={school.code} mono />
-              <DetailItem label="Grade levels" value={school.grade_levels} />
+              <DetailItem label="School Code" value={school.code} mono />
+              <DetailItem label="Grade Levels" value={school.grade_levels} />
               <DetailItem label="District" value={school.district} className="sm:col-span-2" />
               <DetailItem label="Principal" value={school.principal_name} />
               <DetailItem label="Timezone" value={school.timezone} />
@@ -76,11 +76,11 @@ export function SchoolDetailModal({
                 value={formatAddress([school.address, school.city, school.state, school.zip])}
                 className="sm:col-span-2"
               />
-              <DetailItem label="Main phone" value={school.phone} />
+              <DetailItem label="Main Phone" value={school.phone} />
               <DetailItem label="Website" value={school.website} href={school.website ?? undefined} />
               {school.latitude != null && school.longitude != null && (
                 <DetailItem
-                  label="Map coordinates"
+                  label="Map Coordinates"
                   value={`${school.latitude.toFixed(4)}, ${school.longitude.toFixed(4)}`}
                   href={`https://www.google.com/maps?q=${school.latitude},${school.longitude}`}
                   className="sm:col-span-2"
@@ -90,17 +90,17 @@ export function SchoolDetailModal({
             </DetailGrid>
           </DetailSection>
 
-          <DetailSection title="Transportation liaison">
+          <DetailSection title="Transportation Liaison">
             <DetailGrid>
-              <DetailItem label="Contact name" value={school.contact_name} />
-              <DetailItem label="Contact phone" value={school.contact_phone} />
-              <DetailItem label="Contact email" value={school.contact_email} className="sm:col-span-2" />
+              <DetailItem label="Contact Name" value={school.contact_name} />
+              <DetailItem label="Contact Phone" value={school.contact_phone} />
+              <DetailItem label="Contact Email" value={school.contact_email} className="sm:col-span-2" />
             </DetailGrid>
           </DetailSection>
 
-          <DetailSection title="Bell schedule">
+          <DetailSection title="Bell Schedule">
             <DetailGrid>
-              <DetailItem label="Daily schedule" value={formatBellTimes(school.bell_times)} className="sm:col-span-2" />
+              <DetailItem label="Daily Schedule" value={formatBellTimes(school.bell_times)} className="sm:col-span-2" />
             </DetailGrid>
           </DetailSection>
         </div>

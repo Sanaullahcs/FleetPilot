@@ -13,8 +13,11 @@ import { SchoolFormModal } from "@/components/dashboard/school-form";
 import { ContactCell } from "@/components/ui/contact-cell";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/alerts";
 import { getApiErrorMessage } from "@/lib/api";
+import { downloadProfilePdf, safePdfFilename } from "@/lib/pdf/download-profile-pdf";
+import { SchoolProfilePdf } from "@/lib/pdf/school-profile-pdf";
 import {
   deleteSchool,
+  getSchool,
   getSchoolFilterOptions,
   listSchools,
 } from "@/lib/resources";
@@ -23,8 +26,8 @@ import { idColumn, useTableSort } from "@/lib/table-utils";
 import type { School } from "@/lib/types";
 
 const ENROLLMENT_OPTIONS = [
-  { label: "With enrolled students", value: "with_students" },
-  { label: "No students yet", value: "without_students" },
+  { label: "With Enrolled Students", value: "with_students" },
+  { label: "No Students yet", value: "without_students" },
 ];
 
 export default function SchoolsPage() {
@@ -120,6 +123,20 @@ export default function SchoolsPage() {
     if (ok) removeMutation.mutate(s.id);
   };
 
+  const handleDownloadPdf = async (school: School) => {
+    try {
+      toastSuccess("Generating PDF…");
+      const full = await getSchool(school.id);
+      await downloadProfilePdf(
+        <SchoolProfilePdf school={full} />,
+        safePdfFilename(`${school.name}-school-profile`),
+      );
+      toastSuccess("PDF downloaded");
+    } catch (e) {
+      toastError("PDF failed", getApiErrorMessage(e, "Could not generate profile PDF."));
+    }
+  };
+
   const columns: Column<School>[] = [
     idColumn("code", (s) => s.code),
     {
@@ -165,12 +182,12 @@ export default function SchoolsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="School transportation"
+        eyebrow="School Transportation"
         title="Schools"
         description="Districts and campuses you serve — enrollment, routes, and contacts in one place."
         action={
           can("schools.create") && (
-            <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add school</Button>
+            <Button onClick={() => { setEditing(null); setModalOpen(true); }}>+ Add School</Button>
           )
         }
       />
@@ -244,7 +261,8 @@ export default function SchoolsPage() {
           actions={(s) => (
             <RowActions
               items={[
-                { label: "View details", onClick: () => openDetail(s) },
+                { label: "Download Profile PDF", onClick: () => void handleDownloadPdf(s) },
+                { label: "View Details", onClick: () => openDetail(s) },
                 { label: "Edit", onClick: () => { setEditing(s); setModalOpen(true); }, hidden: !can("schools.update") },
                 { label: "Delete", variant: "danger", onClick: () => handleDelete(s), hidden: !can("schools.delete") },
               ]}

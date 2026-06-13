@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Modal, ModalFooter } from "@/components/ui/modal";
 import { Field, FormSection } from "@/components/ui/form-section";
 import { SearchableSelect } from "@/components/ui/dropdown-menu";
+import { FileUploadField } from "@/components/ui/file-upload-field";
 import { createDriver, listVehicles, updateDriver } from "@/lib/resources";
 import { getApiErrorMessage } from "@/lib/api";
 import { toastError, toastSuccess } from "@/lib/alerts";
@@ -26,8 +27,11 @@ const schema = z.object({
   address: z.string().optional(),
   license_number: z.string().min(1, "License number is required."),
   license_class: z.string().min(1, "License class is required."),
-  license_state: z.string().optional(),
+  license_state: z.string().min(1, "Issuing state is required."),
   license_expiry: z.string().min(1, "License expiry is required."),
+  insurance_provider: z.string().min(1, "Insurance provider is required."),
+  insurance_policy_number: z.string().min(1, "Policy number is required."),
+  insurance_expiry: z.string().min(1, "Insurance expiry is required."),
   endorsements: z.array(z.string()).optional(),
   hire_date: z.string().optional(),
   medical_cert_expiry: z.string().optional(),
@@ -65,7 +69,7 @@ const fieldClass = "fp-input";
 const STATUS_OPTIONS = [
   { label: "Active", value: "active" },
   { label: "Inactive", value: "inactive" },
-  { label: "On leave", value: "on_leave" },
+  { label: "On Leave", value: "on_leave" },
   { label: "Terminated", value: "terminated" },
 ];
 
@@ -74,7 +78,7 @@ const VEHICLE_TYPE_OPTIONS = [
   { label: "Van", value: "van" },
   { label: "Minivan", value: "minivan" },
   { label: "Sedan", value: "sedan" },
-  { label: "Wheelchair van", value: "wheelchair_van" },
+  { label: "Wheelchair Van", value: "wheelchair_van" },
 ];
 
 function emptyDate(v: string | null | undefined) {
@@ -93,6 +97,9 @@ export function DriverFormModal({
 }) {
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [licenseDocument, setLicenseDocument] = useState<File | null>(null);
+  const [insuranceDocument, setInsuranceDocument] = useState<File | null>(null);
+  const [docErrors, setDocErrors] = useState<{ license?: string; insurance?: string }>({});
   const isEdit = Boolean(driver);
 
   const { data: vehicles } = useQuery({
@@ -122,6 +129,9 @@ export function DriverFormModal({
       license_class: driver?.license_class ?? "",
       license_state: driver?.license_state ?? "",
       license_expiry: emptyDate(driver?.license_expiry),
+      insurance_provider: driver?.insurance_provider ?? "",
+      insurance_policy_number: driver?.insurance_policy_number ?? "",
+      insurance_expiry: emptyDate(driver?.insurance_expiry),
       endorsements: driver?.endorsements ?? [],
       hire_date: emptyDate(driver?.hire_date),
       medical_cert_expiry: emptyDate(driver?.medical_cert_expiry),
@@ -188,7 +198,8 @@ export function DriverFormModal({
         payload.default_vehicle_id = null;
       }
 
-      return isEdit && driver ? updateDriver(driver.id, payload) : createDriver(payload);
+      const files = { license_document: licenseDocument, insurance_document: insuranceDocument };
+      return isEdit && driver ? updateDriver(driver.id, payload, files) : createDriver(payload, files);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
@@ -207,6 +218,11 @@ export function DriverFormModal({
 
   const onSubmit = (values: FormValues) => {
     setServerError(null);
+    const nextDocErrors: { license?: string; insurance?: string } = {};
+    if (!isEdit && !licenseDocument) nextDocErrors.license = "License copy is required.";
+    if (!isEdit && !insuranceDocument) nextDocErrors.insurance = "Insurance certificate is required.";
+    setDocErrors(nextDocErrors);
+    if (Object.keys(nextDocErrors).length > 0) return;
     mutation.mutate(values);
   };
 
@@ -215,30 +231,30 @@ export function DriverFormModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={isEdit ? "Edit driver" : "Add driver"}
+      title={isEdit ? "Edit Driver" : "Add Driver"}
       description="Complete profile with license, vehicle assignment, and compliance."
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={isEdit ? "Save changes" : "Create driver"}
+          submitLabel={isEdit ? "Save Changes" : "Create Driver"}
           submitForm={FORM_ID}
           pending={isSubmitting || mutation.isPending}
         />
       }
     >
       <form id={FORM_ID} onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
-        <FormSection title="Personal information" description="Basic identity and contact details.">
+        <FormSection title="Personal Information" description="Basic identity and contact details.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="First name" required error={errors.first_name?.message}>
+            <Field label="First Name" required error={errors.first_name?.message}>
               <input className={fieldClass} autoComplete="given-name" {...register("first_name")} />
             </Field>
-            <Field label="Last name" required error={errors.last_name?.message}>
+            <Field label="Last Name" required error={errors.last_name?.message}>
               <input className={fieldClass} autoComplete="family-name" {...register("last_name")} />
             </Field>
             <Field label="Employee ID" hint="Unique ID within your organization">
               <input className={fieldClass} placeholder="DRV-001" {...register("employee_id")} />
             </Field>
-            <Field label="Date of birth">
+            <Field label="Date of Birth">
               <input type="date" className={fieldClass} {...register("date_of_birth")} />
             </Field>
             <Field label="Email" error={errors.email?.message}>
@@ -247,18 +263,18 @@ export function DriverFormModal({
             <Field label="Phone">
               <input type="tel" className={fieldClass} autoComplete="tel" placeholder="(555) 555-0100" {...register("phone")} />
             </Field>
-            <Field label="Home address" className="sm:col-span-2">
+            <Field label="Home Address" className="sm:col-span-2">
               <input className={fieldClass} autoComplete="street-address" placeholder="123 Main St, City, ST" {...register("address")} />
             </Field>
           </div>
         </FormSection>
 
-        <FormSection title="Driver's license & CDL" description="Commercial license details required for route assignment.">
+        <FormSection title="Driver's License & CDL" description="Commercial license details required for route assignment.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="License number" required error={errors.license_number?.message}>
+            <Field label="License Number" required error={errors.license_number?.message}>
               <input className={fieldClass} placeholder="D1234567" autoComplete="off" {...register("license_number")} />
             </Field>
-            <Field label="License class" required error={errors.license_class?.message}>
+            <Field label="License Class" required error={errors.license_class?.message}>
               <SearchableSelect
                 value={watch("license_class")}
                 onChange={(v) => setValue("license_class", v, { shouldValidate: true })}
@@ -268,17 +284,17 @@ export function DriverFormModal({
                 searchPlaceholder="Search license class…"
               />
             </Field>
-            <Field label="Issuing state">
+            <Field label="Issuing State" required error={errors.license_state?.message}>
               <SearchableSelect
                 value={watch("license_state") ?? ""}
-                onChange={(v) => setValue("license_state", v)}
+                onChange={(v) => setValue("license_state", v, { shouldValidate: true })}
                 options={US_STATES}
-                allLabel="— Not set —"
+                showAllOption={false}
                 placeholder="Select state"
                 searchPlaceholder="Search state…"
               />
             </Field>
-            <Field label="License expiry" required error={errors.license_expiry?.message}>
+            <Field label="License Expiry" required error={errors.license_expiry?.message}>
               <input type="date" className={fieldClass} {...register("license_expiry")} />
             </Field>
             <div className="sm:col-span-2">
@@ -304,19 +320,50 @@ export function DriverFormModal({
                 ))}
               </div>
             </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FileUploadField
+                label="License Copy"
+                hint="front & back if applicable"
+                value={licenseDocument}
+                onChange={setLicenseDocument}
+                error={docErrors.license}
+                required={!isEdit}
+              />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection title="Driver Insurance" description="Commercial auto liability required for all active drivers.">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Insurance Provider" required error={errors.insurance_provider?.message}>
+              <input className={fieldClass} placeholder="Progressive Commercial" {...register("insurance_provider")} />
+            </Field>
+            <Field label="Policy Number" required error={errors.insurance_policy_number?.message}>
+              <input className={fieldClass} placeholder="POL-123456789" {...register("insurance_policy_number")} />
+            </Field>
+            <Field label="Policy Expiry" required error={errors.insurance_expiry?.message}>
+              <input type="date" className={fieldClass} {...register("insurance_expiry")} />
+            </Field>
+            <FileUploadField
+              label="Insurance Certificate"
+              value={insuranceDocument}
+              onChange={setInsuranceDocument}
+              error={docErrors.insurance}
+              required={!isEdit}
+            />
           </div>
         </FormSection>
 
         <FormSection
-          title="Vehicle assignment"
+          title="Vehicle Assignment"
           description="Assign an existing fleet vehicle or register a new one for this driver."
         >
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               {[
-                { value: "none" as const, label: "No vehicle" },
-                { value: "existing" as const, label: "Existing vehicle" },
-                { value: "new" as const, label: "Add new vehicle" },
+                { value: "none" as const, label: "No Vehicle" },
+                { value: "existing" as const, label: "Existing Vehicle" },
+                { value: "new" as const, label: "Add New Vehicle" },
               ].map((opt) => (
                 <button
                   key={opt.value}
@@ -334,7 +381,7 @@ export function DriverFormModal({
             </div>
 
             {vehicleMode === "existing" && (
-              <Field label="Fleet vehicle" required error={errors.default_vehicle_id?.message}>
+              <Field label="Fleet Vehicle" required error={errors.default_vehicle_id?.message}>
                 <SearchableSelect
                   value={selectedVehicleId ?? ""}
                   onChange={(v) => setValue("default_vehicle_id", v, { shouldValidate: true })}
@@ -359,7 +406,7 @@ export function DriverFormModal({
 
             {vehicleMode === "new" && (
               <div className="grid grid-cols-1 gap-4 rounded-xl border border-dashed border-brand-cyan/30 bg-brand-cyan/5 p-4 sm:grid-cols-2">
-                <Field label="Vehicle number" required error={errors.new_vehicle_number?.message}>
+                <Field label="Vehicle Number" required error={errors.new_vehicle_number?.message}>
                   <input className={fieldClass} placeholder="BUS-104" {...register("new_vehicle_number")} />
                 </Field>
                 <Field label="Type" required error={errors.new_vehicle_type?.message}>
@@ -386,12 +433,12 @@ export function DriverFormModal({
           </div>
         </FormSection>
 
-        <FormSection title="Employment & compliance" description="Hire date, medical certification, and screening records.">
+        <FormSection title="Employment & Compliance" description="Hire date, medical certification, and screening records.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Hire date">
+            <Field label="Hire Date">
               <input type="date" className={fieldClass} {...register("hire_date")} />
             </Field>
-            <Field label="Employment status">
+            <Field label="Employment Status">
               <SearchableSelect
                 value={watch("status")}
                 onChange={(v) => setValue("status", v as FormValues["status"])}
@@ -401,30 +448,30 @@ export function DriverFormModal({
                 searchPlaceholder="Search status…"
               />
             </Field>
-            <Field label="DOT medical cert expiry" hint="Required for CDL drivers">
+            <Field label="DOT Medical Cert Expiry" hint="Required for CDL drivers">
               <input type="date" className={fieldClass} {...register("medical_cert_expiry")} />
             </Field>
-            <Field label="Background check date">
+            <Field label="Background Check Date">
               <input type="date" className={fieldClass} {...register("background_check_date")} />
             </Field>
-            <Field label="Last drug test date">
+            <Field label="Last Drug Test Date">
               <input type="date" className={fieldClass} {...register("drug_test_date")} />
             </Field>
           </div>
         </FormSection>
 
-        <FormSection title="Emergency contact">
+        <FormSection title="Emergency Contact">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Contact name">
+            <Field label="Contact Name">
               <input className={fieldClass} autoComplete="name" {...register("emergency_contact_name")} />
             </Field>
-            <Field label="Contact phone">
+            <Field label="Contact Phone">
               <input type="tel" className={fieldClass} autoComplete="tel" {...register("emergency_contact_phone")} />
             </Field>
           </div>
         </FormSection>
 
-        <FormSection title="Internal notes">
+        <FormSection title="Internal Notes">
           <Field label="Notes" hint="Dispatch-only notes — not visible to drivers">
             <textarea
               className={`${fieldClass} min-h-[88px] resize-y`}

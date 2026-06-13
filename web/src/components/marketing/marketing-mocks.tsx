@@ -41,7 +41,7 @@ function NavIcon({ children, active }: { children: ReactNode; active?: boolean }
 const SIDEBAR_NAV = [
   { label: "Dashboard", active: true, icon: "grid" },
   { label: "Dispatch", icon: "dispatch" },
-  { label: "Live radar", icon: "radar" },
+  { label: "Live Radar", icon: "radar" },
   { label: "Students", icon: "students" },
   { label: "Drivers", icon: "drivers" },
   { label: "Routes", icon: "routes" },
@@ -115,10 +115,10 @@ const RUN_ROWS: [string, string, string, string][] = [
 ];
 
 const STAT_TILES = [
-  { value: "24", label: "Runs today", accent: brand.primary, hint: "4 starting soon" },
-  { value: "98%", label: "On time", accent: brand.success, hint: "This week" },
-  { value: "18", label: "Vehicles out", accent: brand.accent, hint: "2 returning" },
-  { value: "2", label: "Open alerts", accent: brand.orange, hint: "Needs review" },
+  { value: "24", label: "Runs Today", accent: brand.primary, hint: "4 starting soon" },
+  { value: "98%", label: "On Time", accent: brand.success, hint: "This week" },
+  { value: "18", label: "Vehicles Out", accent: brand.accent, hint: "2 returning" },
+  { value: "2", label: "Open Alerts", accent: brand.orange, hint: "Needs review" },
 ];
 
 function StatusPill({ status }: { status: string }) {

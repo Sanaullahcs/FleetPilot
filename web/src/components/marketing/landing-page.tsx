@@ -181,7 +181,7 @@ function ProductShowcase() {
         <Reveal>
           <SectionHeading
             eyebrow="Product"
-            title="See the whole operation at a glance"
+            title="See the Whole Operation at a Glance"
             desc="The dispatch dashboard, live radar, and realtime messaging: three views your team will live in, working together on one platform."
             center
           />
@@ -254,37 +254,37 @@ function ChatMock() {
 
 const FEATURES = [
   {
-    title: "Dispatch board",
+    title: "Dispatch Board",
     desc: "Today's runs, assignments, and conflicts on one screen. Assign drivers and vehicles in two clicks.",
     Icon: IconBoard,
     tint: "bg-brand-light text-brand-primary",
   },
   {
-    title: "Live fleet radar",
+    title: "Live Fleet Radar",
     desc: "Real-time GPS for every bus and van, with route context, speed, and instant vehicle detail.",
     Icon: IconRadar,
     tint: "bg-sky-50 text-sky-600",
   },
   {
-    title: "Route optimization",
+    title: "Route Optimization",
     desc: "OR-Tools powered stop sequencing trims 10-15% of miles. One click, manual override always available.",
     Icon: IconOptimize,
     tint: "bg-violet-50 text-violet-600",
   },
   {
-    title: "Parent app & portal",
+    title: "Parent App & portal",
     desc: "Live ETAs, pickup and dropoff confirmations, and ride history. Fewer calls to your front office.",
     Icon: IconParent,
     tint: "bg-emerald-50 text-emerald-600",
   },
   {
-    title: "Driver app with offline mode",
+    title: "Driver App with offline mode",
     desc: "Daily manifests, one-tap stop completion, GPS verification, even without cell coverage.",
     Icon: IconPhone,
     tint: "bg-orange-50 text-orange-600",
   },
   {
-    title: "Realtime messaging",
+    title: "Realtime Messaging",
     desc: "Dispatch, schools, drivers, and parents chat in one thread system. No more phone tag.",
     Icon: IconChat,
     tint: "bg-cyan-50 text-cyan-600",
@@ -296,13 +296,13 @@ const FEATURES = [
     tint: "bg-amber-50 text-amber-600",
   },
   {
-    title: "Complaint center",
+    title: "Complaint Center",
     desc: "Parents, drivers, and schools file issues in-app. Track, assign, and resolve with full history.",
     Icon: IconShieldCheck,
     tint: "bg-rose-50 text-rose-600",
   },
   {
-    title: "Smart notifications",
+    title: "Smart Notifications",
     desc: "Delay alerts, pickup confirmations, and document expiry warnings across push, SMS, and email.",
     Icon: IconBell,
     tint: "bg-indigo-50 text-indigo-600",
@@ -315,8 +315,8 @@ function Features() {
       <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
         <Reveal>
           <SectionHeading
-            eyebrow="The platform"
-            title="Everything a transportation office needs"
+            eyebrow="The Platform"
+            title="Everything a Transportation Office Needs"
             desc="Purpose-built for K-12 mixed fleets: buses, vans, and wheelchair vehicles, from morning tiers to field trips."
             wide
           />
@@ -375,8 +375,8 @@ function DayTimeline() {
       <div className="relative mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
         <Reveal>
           <SectionHeading
-            eyebrow="How it works"
-            title="A school day with FleetPilot"
+            eyebrow="How It Works"
+            title="A School Day With FleetPilot"
             desc="From the first manifest to automatic billing at night. The platform runs the busywork so your team runs the fleet."
           />
         </Reveal>
@@ -434,8 +434,8 @@ function Personas() {
       <div className="mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
         <Reveal>
           <SectionHeading
-            eyebrow="Built for every seat"
-            title="One platform, four happy roles"
+            eyebrow="Built for Every Seat"
+            title="One Platform, Four Happy Roles"
             desc="Each role gets a focused portal. Nobody wades through screens that aren't theirs."
           />
         </Reveal>
@@ -585,7 +585,7 @@ function Pricing() {
         <Reveal>
           <SectionHeading
             eyebrow="Pricing"
-            title="Enterprise power, without the enterprise invoice"
+            title="Enterprise Power, Without the Enterprise Invoice"
             desc="Flat monthly pricing by fleet size. Unlimited dispatchers, schools, parents, and students on every plan. Two months free with annual billing."
             center
           />
@@ -667,7 +667,7 @@ function Comparison() {
         <Reveal>
           <SectionHeading
             eyebrow="Why FleetPilot"
-            title="The mid-market sweet spot"
+            title="The Mid-Market Sweet Spot"
             desc="More capable than spreadsheets and basic trackers. Faster and far more affordable than enterprise suites like Traversa or BusPlanner."
             center
           />
@@ -790,7 +790,7 @@ function ContactSection() {
         <Reveal>
           <SectionHeading
             eyebrow="Contact"
-            title="Talk with our team"
+            title="Talk With Our Team"
             desc="Questions about pricing, pilots, or migrating from your current system? Send a note and a FleetPilot specialist will follow up within one business day."
           />
           <ul className="mt-8 space-y-4 text-sm text-slate-600">
@@ -843,7 +843,7 @@ function FinalCta() {
                 href="/login"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 px-7 py-3.5 text-[15px] font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-white/60"
               >
-                Sign in to your portal
+                Sign In to Your Portal
               </Link>
             </div>
           </div>
@@ -880,8 +880,8 @@ function SiteFooter() {
         <FooterCol
           title="Portals"
           links={[
-            ["Sign in", "/login"],
-            ["Create account", "/signup"],
+            ["Sign In", "/login"],
+            ["Create Account", "/signup"],
             ["Driver portal", "/login"],
             ["Parent portal", "/login"],
           ]}

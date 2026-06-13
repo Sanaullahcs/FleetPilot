@@ -111,4 +111,22 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasOne(ParentAccount::class);
     }
+
+    /** Schools/routes an admin has delegated to this contractor. */
+    public function contractorAssignments(): HasMany
+    {
+        return $this->hasMany(ContractorAssignment::class, 'contractor_id');
+    }
+
+    /** Drivers owned by this contractor. */
+    public function ownedDrivers(): HasMany
+    {
+        return $this->hasMany(Driver::class, 'contractor_id');
+    }
+
+    /** Vehicles owned by this contractor. */
+    public function ownedVehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class, 'contractor_id');
+    }
 }

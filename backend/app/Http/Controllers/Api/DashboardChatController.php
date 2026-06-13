@@ -23,6 +23,8 @@ class DashboardChatController extends Controller
             $items = $this->chat->listForStaff($user);
         } elseif ($user->role === 'school_contact') {
             $items = $this->chat->listForSchoolContact($user);
+        } elseif ($user->role === 'contractor') {
+            $items = $this->chat->listForContractor($user);
         } elseif (in_array($user->role, ['parent', 'driver'], true)) {
             $items = $this->chat->listForUser($user);
         } else {
@@ -94,6 +96,12 @@ class DashboardChatController extends Controller
             ]);
         }
 
+        if ($user->role === 'contractor') {
+            return response()->json([
+                'data' => $this->chat->listMessageableContactsForContractor($user),
+            ]);
+        }
+
         abort(403);
     }
 
@@ -109,6 +117,8 @@ class DashboardChatController extends Controller
             $conversation = $this->chat->findOrCreateStaffConversation($user, $data['user_id']);
         } elseif ($user->role === 'school_contact') {
             $conversation = $this->chat->findOrCreateSchoolContactConversation($user, $data['user_id']);
+        } elseif ($user->role === 'contractor') {
+            $conversation = $this->chat->findOrCreateContractorConversation($user, $data['user_id']);
         } else {
             abort(403);
         }
